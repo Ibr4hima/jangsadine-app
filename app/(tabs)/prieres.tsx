@@ -230,7 +230,6 @@ export default function Prieres() {
                         })}
                     </View>
                     <Text style={{ textAlign: 'center', fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#ccc', marginTop: spacing.xl }}>
-                        Horaires selon votre position • {methodeNom}
                     </Text>
                 </ScrollView>
             )}
