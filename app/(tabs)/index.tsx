@@ -1,379 +1,228 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
-import { useAudio } from '@/contexts/AudioContext'
-import { supabase } from '@/lib/supabase'
+import { useTabBar } from '@/contexts/TabBarContext'
+import * as adhan from 'adhan'
+import * as Location from 'expo-location'
 import { useRouter } from 'expo-router'
-import {
-  BookMarked,
-  BookOpen,
-  Clock, Headphones, Mic
-} from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
 import {
   Animated, Dimensions,
-  Pressable,
   Image as RNImage,
-  StatusBar, Text, View
+  Pressable, StatusBar, Text, View
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import Svg, { Path } from 'react-native-svg'
 
 const { width } = Dimensions.get('window')
 
-const modules = [
-  { nom: 'Cours audio', href: '/audio', couleur: '#e8f0f8', iconColor: colors.bleu, icon: Headphones },
-  { nom: 'Conférences', href: '/conferences', couleur: '#faf3dc', iconColor: colors.orFonce, icon: Mic },
-  { nom: 'Khoutbah', href: '/khoutbah', couleur: '#e8f0f8', iconColor: colors.bleu, icon: BookMarked },
-  { nom: 'Prières', href: '/prieres', couleur: '#faf3dc', iconColor: colors.orFonce, icon: Clock },
-  { nom: 'Coran', href: '/coran', couleur: '#eaf4ee', iconColor: '#2d7a4f', icon: BookOpen },
+function IconApps({ size = 28, color = colors.texte }: { size?: number, color?: string }) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M183.5-183.5Q160-207 160-240t23.5-56.5Q207-320 240-320t56.5 23.5Q320-273 320-240t-23.5 56.5Q273-160 240-160t-56.5-23.5Zm240 0Q400-207 400-240t23.5-56.5Q447-320 480-320t56.5 23.5Q560-273 560-240t-23.5 56.5Q513-160 480-160t-56.5-23.5Zm240 0Q640-207 640-240t23.5-56.5Q687-320 720-320t56.5 23.5Q800-273 800-240t-23.5 56.5Q753-160 720-160t-56.5-23.5Zm-480-240Q160-447 160-480t23.5-56.5Q207-560 240-560t56.5 23.5Q320-513 320-480t-23.5 56.5Q273-400 240-400t-56.5-23.5Zm240 0Q400-447 400-480t23.5-56.5Q447-560 480-560t56.5 23.5Q560-513 560-480t-23.5 56.5Q513-400 480-400t-56.5-23.5Zm240 0Q640-447 640-480t23.5-56.5Q687-560 720-560t56.5 23.5Q800-513 800-480t-23.5 56.5Q753-400 720-400t-56.5-23.5Zm-480-240Q160-687 160-720t23.5-56.5Q207-800 240-800t56.5 23.5Q320-753 320-720t-23.5 56.5Q273-640 240-640t-56.5-23.5Zm240 0Q400-687 400-720t23.5-56.5Q447-800 480-800t56.5 23.5Q560-753 560-720t-23.5 56.5Q513-640 480-640t-56.5-23.5Zm240 0Q640-687 640-720t23.5-56.5Q687-800 720-800t56.5 23.5Q800-753 800-720t-23.5 56.5Q753-640 720-640t-56.5-23.5Z" fill={color} /></Svg>
+}
+function IconHeadphones({ size = 28, color = '#1f1f1f' }: { size?: number, color?: string }) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M360-120H200q-33 0-56.5-23.5T120-200v-280q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-840q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-480v280q0 33-23.5 56.5T760-120H600v-320h160v-40q0-117-81.5-198.5T480-760q-117 0-198.5 81.5T200-480v40h160v320Zm-80-240h-80v160h80v-160Zm400 0v160h80v-160h-80Zm-400 0h-80 80Zm400 0h80-80Z" fill={color} /></Svg>
+}
+function IconPrayer({ size = 28, color = '#1f1f1f' }: { size?: number, color?: string }) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="m521-500 59-43 58 43-23-68 59-43h-72l-22-69-22 69h-73l59 43-23 68Zm-41 220q83 0 141.5-58T680-480q0-8-.5-16t-2.5-16q-11 47-49 77.5T539-404q-60 0-101-41t-41-101q0-46 26-82.5t68-51.5h-11q-84 0-142 58.5T280-480q0 84 58 142t142 58Zm0 252L346-160H160v-186L28-480l132-134v-186h186l134-132 134 132h186v186l132 134-132 134v186H614L480-28Zm0-112 100-100h140v-140l100-100-100-100v-140H580L480-820 380-720H240v140L140-480l100 100v140h140l100 100Zm0-340Z" fill={color} /></Svg>
+}
+function IconBookRibbon({ size = 28, color = '#1f1f1f' }: { size?: number, color?: string }) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M440-278v-394q-41-24-87-36t-93-12q-36 0-71.5 7T120-692v396q35-12 69.5-18t70.5-6q47 0 91.5 10.5T440-278Zm40 118q-48-38-104-59t-116-21q-42 0-82.5 11T100-198q-21 11-40.5-1T40-234v-482q0-11 5.5-21T62-752q46-24 96-36t102-12q74 0 126 17t112 52q11 6 16.5 14t5.5 21v418q44-21 88.5-31.5T700-320q36 0 70.5 6t69.5 18v-481q15 5 29.5 11t28.5 14q11 5 16.5 15t5.5 21v482q0 23-19.5 35t-40.5 1q-37-20-77.5-31T700-240q-60 0-116 21t-104 59Zm140-240v-440l120-40v440l-120 40Zm-340-99Z" fill={color} /></Svg>
+}
+function IconExplore({ size = 28, color = '#1f1f1f' }: { size?: number, color?: string }) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="m300-300 280-80 80-280-280 80-80 280Zm180-120q-25 0-42.5-17.5T420-480q0-25 17.5-42.5T480-540q25 0 42.5 17.5T540-480q0 25-17.5 42.5T480-420Zm0 340q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q133 0 226.5-93.5T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160Zm0-320Z" fill={color} /></Svg>
+}
+
+function enMinutes(h: string) {
+  const [hh, mm] = h.split(':').map(Number)
+  return hh * 60 + mm
+}
+function nowMin() {
+  const n = new Date()
+  return n.getHours() * 60 + n.getMinutes()
+}
+function fmt(date: Date) {
+  return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0')
+}
+function tempsRestant(heure: string): string {
+  const now = new Date()
+  const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()
+  let cibleSec = enMinutes(heure) * 60
+  if (cibleSec <= nowSec) cibleSec += 86400
+  const diff = cibleSec - nowSec
+  const hh = Math.floor(diff / 3600)
+  const mm = Math.floor((diff % 3600) / 60)
+  const ss = diff % 60
+  return hh.toString().padStart(2, '0') + ':' + mm.toString().padStart(2, '0') + ':' + ss.toString().padStart(2, '0')
+}
+
+const CARD_W = (width - spacing.xl * 2 - spacing.md) / 2
+
+const SECTIONS = [
+  { label: 'Cours audio',        icon: IconHeadphones, href: '/audio',          },
+  { label: 'Heures de prières',  icon: IconPrayer,     href: '/(tabs)/prieres', },
+  { label: 'Mon Programme',      icon: IconBookRibbon, href: '/programme',      },
+  { label: 'Qibla',              icon: IconExplore,    href: '/qibla',          },
 ]
 
-const couleurBg: Record<string, string> = {
-  Aqeedah: '#e8f0f8', Fiqh: '#faf3dc', Hadith: '#eaf4ee',
-  'Tafsir & Sciences du Coran': '#fde8f0', Seerah: '#fdf0eb',
-  Invocations: '#DEE8CE', 'Éthique & Bons comportements': '#f2eefa',
-  'Séries de cours': '#EDE8D0',
-}
-const couleurTxt: Record<string, string> = {
-  Aqeedah: '#28558b', Fiqh: '#b8911f', Hadith: '#2d7a4f',
-  'Tafsir & Sciences du Coran': '#a02060', Seerah: '#c05c2e',
-  Invocations: '#06402B', 'Éthique & Bons comportements': '#6b3db5',
-  'Séries de cours': '#654321',
-}
-
-function ModuleCard({ mod, index }: { mod: typeof modules[0], index: number }) {
-  const scale = useRef(new Animated.Value(1)).current
-  const router = useRouter()
-  const Icon = mod.icon
-
-  return (
-    <Pressable
-      onPressIn={() => Animated.spring(scale, { toValue: 0.94, useNativeDriver: true }).start()}
-      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()}
-      onPress={() => router.push(mod.href as any)}
-      style={{ width: (width - spacing.xl * 2 - spacing.md) / 2 }}
-    >
-      <Animated.View style={{
-        transform: [{ scale }],
-        backgroundColor: colors.blanc,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colors.bordure,
-        padding: spacing.lg,
-        alignItems: 'center',
-        gap: spacing.sm,
-      }}>
-        <View style={{
-          width: 52, height: 52, borderRadius: 14,
-          backgroundColor: mod.couleur,
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Icon size={22} color={mod.iconColor} strokeWidth={1.5} />
-        </View>
-        <Text style={{
-          fontFamily: typography.fontFamily.semibold,
-          fontSize: typography.size.sm,
-          color: colors.texte,
-          textAlign: 'center',
-          lineHeight: 18,
-        }}>
-          {mod.nom}
-        </Text>
-      </Animated.View>
-    </Pressable>
-  )
-}
-
-function CoursCard({ cours }: { cours: any }) {
-  const scale = useRef(new Animated.Value(1)).current
-  const router = useRouter()
-  const nomCat = cours.categories?.nom
-  const bg = couleurBg[nomCat] ?? '#f0f0f0'
-  const txt = couleurTxt[nomCat] ?? '#666'
-
-  return (
-    <Pressable
-      onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start()}
-      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()}
-      onPress={() => router.push(`/audio/${cours.id}` as any)}
-    >
-      <Animated.View style={{
-        transform: [{ scale }],
-        backgroundColor: colors.blanc,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colors.bordure,
-        padding: spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-      }}>
-        <View style={{
-          width: 44, height: 44, borderRadius: radius.md,
-          backgroundColor: bg,
-          alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <Headphones size={18} color={txt} strokeWidth={1.5} />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{
-            fontFamily: typography.fontFamily.semibold,
-            fontSize: typography.size.base,
-            color: colors.texte,
-          }}>
-            {cours.titre}
-          </Text>
-          <Text style={{
-            fontFamily: typography.fontFamily.regular,
-            fontSize: typography.size.sm,
-            color: colors.texteMuted,
-            marginTop: 2,
-          }}>
-            {cours.sheikh}
-          </Text>
-        </View>
-        {nomCat && (
-          <View style={{
-            backgroundColor: bg, borderRadius: radius.full,
-            paddingHorizontal: 8, paddingVertical: 3, flexShrink: 0,
-          }}>
-            <Text style={{
-              fontFamily: typography.fontFamily.medium,
-              fontSize: typography.size.xs,
-              color: txt,
-            }}>
-              {nomCat}
-            </Text>
-          </View>
-        )}
-      </Animated.View>
-    </Pressable>
-  )
-}
-
 export default function Accueil() {
-  const [derniersCours, setDerniersCours] = useState<any[]>([])
-  const scrollY = useRef(new Animated.Value(0)).current
   const router = useRouter()
-  const { jouer } = useAudio()
+  const { showTabBar, hideTabBar } = useTabBar()
+  const [prochaine, setProchaine] = useState<{ nom: string, heure: string } | null>(null)
+  const [tick, setTick] = useState(0)
+  const pulseAnim = useRef(new Animated.Value(1)).current
 
-  const heroOpacity = scrollY.interpolate({
-    inputRange: [0, 120],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  })
-  const heroTranslate = scrollY.interpolate({
-    inputRange: [0, 120],
-    outputRange: [0, -40],
-    extrapolate: 'clamp',
-  })
+  useEffect(() => { hideTabBar() }, [])
 
   useEffect(() => {
-    supabase
-      .from('cours')
-      .select('id, titre, sheikh, nb_episodes, categories(nom)')
-      .order('created_at', { ascending: false })
-      .limit(4)
-      .then(({ data, error }) => {
-        console.log('cours:', data, 'erreur:', error)
-        if (data) setDerniersCours(data)
-      })
+    const iv = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(iv)
   }, [])
 
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.03, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      ])
+    ).start()
+  }, [])
+
+  useEffect(() => {
+    async function init() {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status !== 'granted') return
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      const { latitude, longitude } = loc.coords
+      const geo = await Location.reverseGeocodeAsync({ latitude, longitude })
+      const countryCode = geo[0]?.isoCountryCode ?? 'FR'
+      const coords = new adhan.Coordinates(latitude, longitude)
+      let params = adhan.CalculationMethod.MoonsightingCommittee()
+      if (['US','CA','MX'].includes(countryCode)) params = adhan.CalculationMethod.NorthAmerica()
+      if (['SA','AE','KW'].includes(countryCode)) params = adhan.CalculationMethod.UmmAlQura()
+      const times = new adhan.PrayerTimes(coords, new Date(), params)
+      const prieres = [
+        { nom: 'Fajr',    heure: fmt(times.fajr)    },
+        { nom: 'Dhuhr',   heure: fmt(times.dhuhr)   },
+        { nom: 'Asr',     heure: fmt(times.asr)     },
+        { nom: 'Maghrib', heure: fmt(times.maghrib) },
+        { nom: 'Isha',    heure: fmt(times.isha)    },
+      ]
+      const now = nowMin()
+      const p = prieres.find(p => enMinutes(p.heure) > now) ?? prieres[0]
+      setProchaine(p)
+    }
+    init()
+  }, [])
+
+  const naviguer = (href: string) => {
+    showTabBar()
+    router.push(href as any)
+  }
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" />
 
-      <Animated.ScrollView
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
+      <View style={{ flex: 1, paddingHorizontal: spacing.xl, justifyContent: 'space-between', paddingBottom: spacing.lg }}>
 
-        {/* ── HERO ── */}
-        <Animated.View style={{
-          paddingHorizontal: spacing.xl,
-          paddingTop: spacing['2xl'],
-          paddingBottom: spacing['2xl'],
-          alignItems: 'center',
-          opacity: heroOpacity,
-          transform: [{ translateY: heroTranslate }],
-        }}>
+        {/* Dynamic Island prière */}
+        <View style={{ alignItems: 'center', paddingTop: spacing.sm }}>
+          {prochaine ? (
+            <Animated.View style={{
+              transform: [{ scale: pulseAnim }],
+              backgroundColor: colors.bleu,
+              borderRadius: 30,
+              paddingHorizontal: spacing.xl,
+              paddingVertical: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+            }}>
+              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: 'white' }}>
+                {prochaine.nom}  {prochaine.heure}
+              </Text>
+              <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: 'rgba(255,255,255,0.6)' }}>
+                · dans {tempsRestant(prochaine.heure)}
+              </Text>
+            </Animated.View>
+          ) : <View style={{ height: 44 }} />}
+        </View>
+
+        {/* Centre + Explorer groupés */}
+        <View style={{ alignItems: 'center', gap: spacing.lg }}>
+
           {/* Basmallah */}
           <RNImage
             source={require('../../assets/images/basmallah.png')}
-            style={{ width: 280, height: 70, marginBottom: spacing.lg, opacity: 0.85 }}
+            style={{ width: width * 0.7, height: 65, opacity: 0.85, marginTop: -spacing.xl }}
             resizeMode="contain"
           />
 
-          <Text style={{
-            fontFamily: typography.fontFamily.bold,
-            fontSize: 38,
-            color: colors.texte,
-            textAlign: 'center',
-            lineHeight: 46,
-            marginBottom: spacing.md,
-          }}>
-            Apprends ta{' '}
-            <Text style={{ color: colors.or }}>religion</Text>
-          </Text>
+          {/* Barre or */}
+          <View style={{ width: width * 0.4, height: 1.5, borderRadius: 1, backgroundColor: colors.or, opacity: 0.6 }} />
 
-          <Text style={{
-            fontFamily: typography.fontFamily.regular,
-            fontSize: typography.size.md,
-            color: colors.texteMuted,
-            textAlign: 'center',
-            lineHeight: 24,
-            marginBottom: spacing.xl,
-            maxWidth: 300,
-          }}>
-            Cours audio, khoutbah, conférences, fatwas et heures de prières — accessibles gratuitement.
-          </Text>
-
-          {/* Boutons CTA */}
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Pressable
-              onPress={() => router.push('/audio' as any)}
-              style={{
-                backgroundColor: colors.bleu,
-                paddingHorizontal: spacing.xl,
-                paddingVertical: 13,
-                borderRadius: radius.md,
-              }}
-            >
-              <Text style={{
-                fontFamily: typography.fontFamily.medium,
-                fontSize: typography.size.md,
-                color: colors.blanc,
-              }}>
-                Découvrir les cours
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/coran' as any)}
-              style={{
-                borderWidth: 1.5,
-                borderColor: colors.or,
-                paddingHorizontal: spacing.xl,
-                paddingVertical: 13,
-                borderRadius: radius.md,
-              }}
-            >
-              <Text style={{
-                fontFamily: typography.fontFamily.medium,
-                fontSize: typography.size.md,
-                color: colors.orFonce,
-              }}>
-                Lire le Coran
-              </Text>
-            </Pressable>
+          {/* 4 sections */}
+          <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
+            {SECTIONS.map(s => {
+              const Icon = s.icon
+              return (
+                <Pressable
+                  key={s.label}
+                  onPress={() => naviguer(s.href)}
+                  style={({ pressed }) => ({
+                    width: CARD_W,
+                    height: CARD_W * 1.2,
+                    backgroundColor: colors.blanc,
+                    borderRadius: radius.xl,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: spacing.sm,
+                    opacity: pressed ? 0.85 : 1,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.07,
+                    shadowRadius: 16,
+                    elevation: 4,
+                  })}
+                >
+                  <Icon size={30} color={colors.texte} />
+                  <Text style={{
+                    fontFamily: typography.fontFamily.semibold,
+                    fontSize: typography.size.sm,
+                    color: colors.texte,
+                    textAlign: 'center',
+                    lineHeight: 18,
+                  }}>
+                    {s.label}
+                  </Text>
+                </Pressable>
+              )
+            })}
           </View>
-        </Animated.View>
 
-        {/* ── BARRE OR ── */}
-        <View style={{
-          height: 3,
-          marginHorizontal: spacing.xl,
-          borderRadius: 2,
-          backgroundColor: colors.or,
-          marginBottom: spacing['2xl'],
-          opacity: 0.5,
-        }} />
-
-        {/* ── MODULES ── */}
-        <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing['2xl'] }}>
-          <Text style={{
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.size.xs,
-            letterSpacing: 2,
-            color: colors.or,
-            textTransform: 'uppercase',
-            marginBottom: spacing.xs,
-          }}>
-            La plateforme
-          </Text>
-          <Text style={{
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.size['3xl'],
-            color: colors.texte,
-            marginBottom: spacing.lg,
-          }}>
-            Tout ce dont{'\n'}tu as besoin
-          </Text>
-
-          {/* Grille 2 colonnes */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'center' }}>
-            {modules.map((mod, i) => (
-              <ModuleCard key={mod.nom} mod={mod} index={i} />
-            ))}
-          </View>
+          {/* Bouton Explorer — suit les sections */}
+          <Pressable
+            onPress={() => naviguer('/audio')}
+            style={({ pressed }) => ({
+              width: 52, height: 52, borderRadius: 26,
+              backgroundColor: colors.blanc,
+              borderWidth: 1, borderColor: colors.bordure,
+              alignItems: 'center', justifyContent: 'center',
+              opacity: pressed ? 0.7 : 1,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 8,
+              elevation: 3,
+              marginTop: spacing.sm,
+            })}
+          >
+            <IconApps size={24} color={colors.texte} />
+          </Pressable>
         </View>
 
-        {/* ── BARRE OR ── */}
-        <View style={{
-          height: 3,
-          marginHorizontal: spacing.xl,
-          borderRadius: 2,
-          backgroundColor: colors.or,
-          marginBottom: spacing['2xl'],
-          opacity: 0.5,
-        }} />
+        {/* Spacer */}
+        <View />
 
-        {/* ── DERNIERS COURS ── */}
-        <View style={{ paddingHorizontal: spacing.xl }}>
-          <View style={{
-            flexDirection: 'row', alignItems: 'center',
-            justifyContent: 'space-between', marginBottom: spacing.lg,
-          }}>
-            <View>
-              <Text style={{
-                fontFamily: typography.fontFamily.bold,
-                fontSize: typography.size.xs,
-                letterSpacing: 2,
-                color: colors.or,
-                textTransform: 'uppercase',
-                marginBottom: spacing.xs,
-              }}>
-                Bibliothèque
-              </Text>
-              <Text style={{
-                fontFamily: typography.fontFamily.bold,
-                fontSize: typography.size['2xl'],
-                color: colors.texte,
-              }}>
-                Derniers cours
-              </Text>
-            </View>
-            <Pressable onPress={() => router.push('/audio' as any)}>
-              <Text style={{
-                fontFamily: typography.fontFamily.medium,
-                fontSize: typography.size.base,
-                color: colors.bleu,
-              }}>
-                Voir tout →
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={{ gap: spacing.sm }}>
-            {derniersCours.length === 0
-              ? [1, 2, 3].map(i => (
-                <View key={i} style={{
-                  height: 72, borderRadius: radius.lg,
-                  backgroundColor: colors.bordure, opacity: 0.5,
-                }} />
-              ))
-              : derniersCours.map(cours => (
-                <CoursCard key={cours.id} cours={cours} />
-              ))
-            }
-          </View>
-        </View>
-
-      </Animated.ScrollView>
+      </View>
     </SafeAreaView>
   )
 }

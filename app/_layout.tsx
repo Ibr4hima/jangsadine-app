@@ -1,6 +1,7 @@
 import { AudioProvider } from '@/contexts/AudioContext'
 import { NotesProvider } from '@/contexts/NotesContext'
 import { ScrollProvider } from '@/contexts/ScrollContext'
+import { TabBarProvider } from '@/contexts/TabBarContext'
 import { TelechargementProvider } from '@/contexts/TelechargementContext'
 import { useFonts } from 'expo-font'
 import { Stack } from 'expo-router'
@@ -11,12 +12,12 @@ SplashScreen.preventAutoHideAsync()
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    GoogleSans_Regular: require('../assets/fonts/GoogleSans_17pt-Regular.ttf'),
-    GoogleSans_Medium: require('../assets/fonts/GoogleSans_17pt-Medium.ttf'),
+    GoogleSans_Regular:  require('../assets/fonts/GoogleSans_17pt-Regular.ttf'),
+    GoogleSans_Medium:   require('../assets/fonts/GoogleSans_17pt-Medium.ttf'),
     GoogleSans_SemiBold: require('../assets/fonts/GoogleSans_17pt-SemiBold.ttf'),
-    GoogleSans_Bold: require('../assets/fonts/GoogleSans_17pt-Bold.ttf'),
-    IBMPlexSansArabic: require('../assets/fonts/IBMPlexSansArabic-Regular.ttf'),
-    UthmanicHafs: require('../assets/fonts/UthmanicHafs.otf'),
+    GoogleSans_Bold:     require('../assets/fonts/GoogleSans_17pt-Bold.ttf'),
+    IBMPlexSansArabic:   require('../assets/fonts/IBMPlexSansArabic-Regular.ttf'),
+    UthmanicHafs:        require('../assets/fonts/UthmanicHafs.otf'),
   })
 
   useEffect(() => {
@@ -33,7 +34,9 @@ export default function RootLayout() {
       <NotesProvider>
         <TelechargementProvider>
           <ScrollProvider>
-            <Stack screenOptions={{ headerShown: false }} />
+            <TabBarProvider>
+              <Stack screenOptions={{ headerShown: false }} />
+            </TabBarProvider>
           </ScrollProvider>
         </TelechargementProvider>
       </NotesProvider>

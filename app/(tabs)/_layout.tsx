@@ -1,5 +1,6 @@
 import LecteurPersistant from '@/components/LecteurPersistant'
 import { colors, spacing, typography } from '@/constants/theme'
+import { useTabBar } from '@/contexts/TabBarContext'
 import { Slot, usePathname, useRouter } from 'expo-router'
 import { Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -19,14 +20,15 @@ function IconMore({ size = 24, color = '#1f1f1f' }: { size?: number, color?: str
 }
 
 const TABS = [
-  { key: 'index', label: 'Accueil', icon: IconHome, href: '/' },
-  { key: 'audio', label: 'Audio', icon: IconHeadphones, href: '/audio' },
-  { key: 'prieres', label: 'Prières', icon: IconPrayer, href: '/(tabs)/prieres' },
+  { key: 'index',   label: 'Accueil', icon: IconHome,       href: '/'               },
+  { key: 'audio',   label: 'Audio',   icon: IconHeadphones, href: '/audio'          },
+  { key: 'prieres', label: 'Prières', icon: IconPrayer,     href: '/(tabs)/prieres' },
 ]
 
 export default function TabsLayout() {
   const pathname = usePathname()
   const router = useRouter()
+  const { tabBarVisible, hideTabBar } = useTabBar()
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/' || pathname === '/index'
@@ -38,47 +40,42 @@ export default function TabsLayout() {
     <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
       <Slot />
 
-      <SafeAreaView edges={['bottom']} style={{ backgroundColor: 'transparent' }}>
-        <View style={{ marginHorizontal: spacing.lg, marginBottom: 0, gap: spacing.sm }}>
-
-          <LecteurPersistant />
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <View style={{
-              flex: 1, flexDirection: 'row',
-              backgroundColor: colors.blanc,
-              borderRadius: 24, padding: 6,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-            }}>
-              {TABS.map(tab => {
-                const actif = isActive(tab.href)
-                const Icon = tab.icon
-                return (
-                  <Pressable
-                    key={tab.key}
-                    onPress={() => router.push(tab.href as any)}
-                    style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 18, backgroundColor: actif ? colors.fondCreme : 'transparent', gap: 3 }}
-                  >
-                    <Icon size={22} color={actif ? colors.bleu : '#888'} />
-                    <Text style={{ fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.regular, fontSize: 10, color: actif ? colors.bleu : '#888' }}>
-                      {tab.label}
-                    </Text>
-                  </Pressable>
-                )
-              })}
+      {tabBarVisible ? (
+        <SafeAreaView edges={['bottom']} style={{ backgroundColor: 'transparent' }}>
+          <View style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md, gap: spacing.sm }}>
+            <LecteurPersistant />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ flex: 1, flexDirection: 'row', backgroundColor: colors.blanc, borderRadius: 24, padding: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 }}>
+                {TABS.map(tab => {
+                  const actif = isActive(tab.href)
+                  const Icon = tab.icon
+                  return (
+                    <Pressable
+                      key={tab.key}
+                      onPress={() => {
+                        if (tab.href === '/') hideTabBar()
+                        router.push(tab.href as any)
+                      }}
+                      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 18, backgroundColor: actif ? colors.fondCreme : 'transparent', gap: 3 }}
+                    >
+                      <Icon size={22} color={actif ? colors.bleu : '#888'} />
+                      <Text style={{ fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.regular, fontSize: 10, color: actif ? colors.bleu : '#888' }}>
+                        {tab.label}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+              <Pressable
+                onPress={() => router.push('/plus' as any)}
+                style={{ width: 60, borderRadius: 24, backgroundColor: isActive('/plus') ? colors.bleu : colors.blanc, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 }}
+              >
+                <IconMore size={22} color={isActive('/plus') ? 'white' : '#888'} />
+              </Pressable>
             </View>
-            <Pressable
-              onPress={() => router.push('/plus' as any)}
-              style={{ width: 60, borderRadius: 24, backgroundColor: isActive('/plus') ? colors.bleu : colors.blanc, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 }}
-            >
-              <IconMore size={22} color={isActive('/plus') ? 'white' : '#888'} />
-            </Pressable>
           </View>
-
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      ) : null}
     </View>
   )
 }

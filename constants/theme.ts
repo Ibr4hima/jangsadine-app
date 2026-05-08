@@ -2,7 +2,7 @@ export const colors = {
   bleu: '#28558b',
   or: '#d9ac2a',
   orFonce: '#b8911f',
-  fondCreme: '#f8f6f1',
+  fondCreme: '#F2F0EF',
   bordure: '#e8e4da',
   texte: '#1a1a2e',
   texteMuted: '#666666',
