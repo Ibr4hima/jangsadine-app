@@ -177,8 +177,8 @@ export default function Prieres() {
 
             {loading ? (
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 32, marginBottom: spacing.md }}>🕌</Text>
-                    <Text style={{ fontFamily: typography.fontFamily.regular, color: '#aaa' }}>Récupération de votre position...</Text>
+                    <Text style={{ fontSize: 32, marginBottom: spacing.md }}></Text>
+                    <Text style={{ fontFamily: typography.fontFamily.regular, color: '#aaa' }}></Text>
                 </View>
             ) : erreur ? (
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
