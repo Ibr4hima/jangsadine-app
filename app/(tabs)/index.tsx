@@ -152,7 +152,7 @@ export default function Accueil() {
         <View style={{ alignItems: 'center', gap: spacing.lg, marginTop: 150 }}>
 
           {/* 4 sections */}
-          <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
+          <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'center' }}>
             {SECTIONS.map(s => {
               const Icon = s.icon
               return (
@@ -160,8 +160,8 @@ export default function Accueil() {
                   key={s.label}
                   onPress={() => naviguer(s.href)}
                   style={({ pressed }) => ({
-                    width: CARD_W,
-                    height: CARD_W * 1.15,
+                    width: CARD_W * 0.9,
+                    height: CARD_W * 0.9 * 1.2,
                     backgroundColor: colors.blanc,
                     borderRadius: radius.xl,
                     alignItems: 'center',
@@ -178,7 +178,7 @@ export default function Accueil() {
                   })}
                 >
                   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon size={48} color={colors.bleu} />
+                    <Icon size={38} color={colors.bleu} />
                   </View>
                   <View style={{
                     backgroundColor: '#EBEBEB',
