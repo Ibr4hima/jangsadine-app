@@ -149,7 +149,7 @@ export default function Accueil() {
         </View>
 
         {/* Centre + Explorer groupés */}
-        <View style={{ alignItems: 'center', gap: spacing.lg }}>
+        <View style={{ alignItems: 'center', gap: spacing.lg, marginTop: 150 }}>
 
           {/* 4 sections */}
           <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
@@ -161,13 +161,13 @@ export default function Accueil() {
                   onPress={() => naviguer(s.href)}
                   style={({ pressed }) => ({
                     width: CARD_W,
-                    height: CARD_W * 1.2,
+                    height: CARD_W * 1.15,
                     backgroundColor: colors.blanc,
                     borderRadius: radius.xl,
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     paddingTop: spacing.lg,
-                    paddingBottom: spacing.sm,
+                    paddingBottom: spacing.lg,
                     paddingHorizontal: spacing.sm,
                     opacity: pressed ? 0.85 : 1,
                     shadowColor: '#000',
@@ -225,7 +225,8 @@ export default function Accueil() {
 
         </View>
 
-
+        {/* Spacer bas — pousse sections vers le haut */}
+        <View style={{ height: 0 }} />
 
       </View>
     </SafeAreaView>
