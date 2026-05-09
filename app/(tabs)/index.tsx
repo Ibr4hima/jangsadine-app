@@ -11,6 +11,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
+import { LinearGradient } from 'expo-linear-gradient'
 
 const { width } = Dimensions.get('window')
 
@@ -128,20 +129,19 @@ export default function Accueil() {
           {prochaine ? (
             <Animated.View style={{
               transform: [{ scale: pulseAnim }],
-              backgroundColor: '#EBEBEB',
+              backgroundColor: colors.bleu,
               borderRadius: 30,
-              borderWidth: 1,
-              borderColor: colors.bleu,
               paddingHorizontal: spacing.xl,
               paddingVertical: 10,
               flexDirection: 'row',
               alignItems: 'center',
               gap: spacing.sm,
             }}>
-              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.bleu }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.or }} />
+              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: 'white' }}>
                 {prochaine.nom}  {prochaine.heure}
               </Text>
-              <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.bleu, opacity: 0.6 }}>
+              <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: 'rgba(255,255,255,0.55)' }}>
                 dans {tempsRestant(prochaine.heure)}
               </Text>
             </Animated.View>
@@ -149,7 +149,76 @@ export default function Accueil() {
         </View>
 
         {/* Centre + Explorer groupés */}
-        <View style={{ alignItems: 'center', gap: spacing.lg, marginTop: 150 }}>
+        <View style={{ alignItems: 'center', gap: spacing.lg, marginTop: 10 }}>
+
+          {/* Barre de recherche */}
+          <Pressable
+            onPress={() => naviguer('/audio')}
+            style={{
+              width: '100%',
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.blanc,
+              borderRadius: radius.full,
+              borderWidth: 1,
+              borderColor: colors.bleu,
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.md,
+              gap: spacing.sm,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
+            <Svg width={18} height={18} viewBox="0 -960 960 960">
+              <Path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z" fill={colors.bleu} />
+            </Svg>
+            <Text style={{
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.size.base,
+              color: '#aaa',
+              flex: 1,
+            }}>
+              Rechercher un cours...
+            </Text>
+          </Pressable>
+
+          {/* Basmallah */}
+          <View style={{ width: '100%', alignItems: 'center' }}>
+            <RNImage
+              source={require('../../assets/images/basmallah.png')}
+              style={{ width: width * 0.65, height: 55, opacity: 0.85 }}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* Titre + barres */}
+          <View style={{ alignItems: 'center', gap: spacing.sm }}>
+            <LinearGradient
+              colors={['transparent', '#d9ac2a', '#d9ac2a', 'transparent']}
+              locations={[0, 0.3, 0.7, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ width: width * 0.65, height: 3, borderRadius: 2 }}
+            />
+            <Text style={{
+              fontFamily: typography.fontFamily.bold,
+              fontSize: typography.size['3xl'],
+              color: colors.texte,
+              textAlign: 'center',
+            }}>
+              Apprends ta <Text style={{ color: colors.or }}>Religion</Text>
+            </Text>
+            <LinearGradient
+              colors={['transparent', '#d9ac2a', '#d9ac2a', 'transparent']}
+              locations={[0, 0.3, 0.7, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ width: width * 0.65, height: 3, borderRadius: 2 }}
+            />
+          </View>
 
           {/* 4 sections */}
           <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'center' }}>
