@@ -128,19 +128,21 @@ export default function Accueil() {
           {prochaine ? (
             <Animated.View style={{
               transform: [{ scale: pulseAnim }],
-              backgroundColor: colors.bleu,
+              backgroundColor: '#EBEBEB',
               borderRadius: 30,
+              borderWidth: 1,
+              borderColor: colors.bleu,
               paddingHorizontal: spacing.xl,
               paddingVertical: 10,
               flexDirection: 'row',
               alignItems: 'center',
               gap: spacing.sm,
             }}>
-              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: 'white' }}>
+              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.bleu }}>
                 {prochaine.nom}  {prochaine.heure}
               </Text>
-              <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: 'rgba(255,255,255,0.6)' }}>
-                · dans {tempsRestant(prochaine.heure)}
+              <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.bleu, opacity: 0.6 }}>
+                dans {tempsRestant(prochaine.heure)}
               </Text>
             </Animated.View>
           ) : <View style={{ height: 44 }} />}
@@ -148,16 +150,6 @@ export default function Accueil() {
 
         {/* Centre + Explorer groupés */}
         <View style={{ alignItems: 'center', gap: spacing.lg }}>
-
-          {/* Basmallah */}
-          <RNImage
-            source={require('../../assets/images/basmallah.png')}
-            style={{ width: width * 0.7, height: 65, opacity: 0.85, marginTop: -spacing.xl }}
-            resizeMode="contain"
-          />
-
-          {/* Barre or */}
-          <View style={{ width: width * 0.4, height: 1.5, borderRadius: 1, backgroundColor: colors.or, opacity: 0.6 }} />
 
           {/* 4 sections */}
           <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
@@ -173,8 +165,10 @@ export default function Accueil() {
                     backgroundColor: colors.blanc,
                     borderRadius: radius.xl,
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: spacing.sm,
+                    justifyContent: 'space-between',
+                    paddingTop: spacing.lg,
+                    paddingBottom: spacing.sm,
+                    paddingHorizontal: spacing.sm,
                     opacity: pressed ? 0.85 : 1,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 6 },
@@ -183,16 +177,27 @@ export default function Accueil() {
                     elevation: 4,
                   })}
                 >
-                  <Icon size={30} color={colors.texte} />
+                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon size={48} color={colors.bleu} />
+                  </View>
+                  <View style={{
+                    backgroundColor: '#EBEBEB',
+                    borderRadius: radius.full,
+                    borderWidth: 1,
+                    borderColor: colors.bleu,
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: 4,
+                  }}>
                   <Text style={{
                     fontFamily: typography.fontFamily.semibold,
                     fontSize: typography.size.sm,
-                    color: colors.texte,
+                    color: colors.bleu,
                     textAlign: 'center',
                     lineHeight: 18,
                   }}>
                     {s.label}
                   </Text>
+                  </View>
                 </Pressable>
               )
             })}
@@ -203,8 +208,8 @@ export default function Accueil() {
             onPress={() => naviguer('/audio')}
             style={({ pressed }) => ({
               width: 52, height: 52, borderRadius: 26,
-              backgroundColor: colors.blanc,
-              borderWidth: 1, borderColor: colors.bordure,
+              backgroundColor: '#EBEBEB',
+              borderWidth: 1, borderColor: colors.bleu,
               alignItems: 'center', justifyContent: 'center',
               opacity: pressed ? 0.7 : 1,
               shadowColor: '#000',
@@ -215,12 +220,12 @@ export default function Accueil() {
               marginTop: spacing.sm,
             })}
           >
-            <IconApps size={24} color={colors.texte} />
+            <IconApps size={24} color={colors.bleu} />
           </Pressable>
+
         </View>
 
-        {/* Spacer */}
-        <View />
+
 
       </View>
     </SafeAreaView>
