@@ -4,6 +4,7 @@ import { useNotes } from '@/contexts/NotesContext'
 import { useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
+import TextTicker from 'react-native-text-ticker'
 
 function IconPlay({ size = 20, color = colors.texte }: { size?: number, color?: string }) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M320-200v-560l440 280-440 280Zm80-280Zm0 134 210-134-210-134v268Z" fill={color} /></Svg>
@@ -90,7 +91,7 @@ export default function LecteurPersistant() {
       {/* Lecteur pill */}
       <Pressable onPress={() => setPleinEcran(true)}>
         <View style={{
-          backgroundColor: '#f0ede8',
+          backgroundColor: '#d0e4f7',
           borderRadius: 24,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 4 },
@@ -109,16 +110,19 @@ export default function LecteurPersistant() {
 
             {/* Infos */}
             <View style={{ flex: 1, minWidth: 0, marginRight: spacing.sm }}>
-              <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.texte }}>
+              <TextTicker
+                style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.texte }}
+                loop bounce={false} repeatSpacer={50} marqueeDelay={2000} scrollSpeed={10}
+              >
                 {piste.titre}
-              </Text>
+              </TextTicker>
               <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.texteMuted, marginTop: 2 }}>
                 {piste.sheikh} · {formaterTemps(tempsActuel)} / {formaterTemps(dureeTotal)}
               </Text>
             </View>
 
             {/* Fast forward */}
-            <Pressable onPress={pisterSuivante} style={{ padding: spacing.xs, marginRight: spacing.xs }}>
+            <Pressable onPress={pisterSuivante} style={{ padding: spacing.xs, marginRight: spacing.md }}>
               <IconFastForward size={22} color={colors.texte} />
             </Pressable>
 

@@ -4,6 +4,7 @@ import { useAudio } from '@/contexts/AudioContext'
 import { useTelechargement } from '@/contexts/TelechargementContext'
 import { supabase } from '@/lib/supabase'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import * as WebBrowser from 'expo-web-browser'
 import { Pause, Play } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native'
@@ -36,7 +37,9 @@ type Cours = {
     titre: string
     sheikh: string
     nb_episodes: number
+    description: string | null
     categories: { nom: string }
+    livres: { url_pdf: string | null } | null
 }
 
 export default function DetailCours() {
@@ -53,21 +56,17 @@ export default function DetailCours() {
     const [livreId, setLivreId] = useState<string | null>(null)
 
     const nomCat = cours?.categories?.nom ?? ''
-    const bg = couleurBg[nomCat] ?? '#f0f0f0'
-    const txt = couleurTxt[nomCat] ?? '#666'
 
     useEffect(() => {
         async function charger() {
-            const [{ data: c, error: errC }, { data: e, error: errE }] = await Promise.all([
-                supabase.from('cours').select('id, titre, sheikh, nb_episodes, serie_unique, livre_id, categories(nom)').eq('id', id).single(),
+            const [{ data: c }, { data: e }] = await Promise.all([
+                supabase.from('cours').select('id, titre, sheikh, nb_episodes, description, serie_unique, livre_id, categories(nom), livres(url_pdf)').eq('id', id).single(),
                 supabase.from('episodes').select('id, titre, numero, duree, url_audio, description').eq('cours_id', id).order('numero'),
             ])
-            console.log('cours:', c, 'erreur cours:', errC)
-            console.log('episodes:', e, 'erreur episodes:', errE)
             if (c) {
                 setCours(c as any)
-                setSerieUnique(c.serie_unique ?? false)
-                setLivreId(c.livre_id ?? null)
+                setSerieUnique((c as any).serie_unique ?? false)
+                setLivreId((c as any).livre_id ?? null)
             }
             if (e) setEpisodes(e)
             setLoading(false)
@@ -90,9 +89,11 @@ export default function DetailCours() {
         }, suivantes)
     }
 
+    const urlPdf = (cours as any)?.livres?.url_pdf
+
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={[]}>
-            <StatusBar barStyle="dark-content" />
+            <StatusBar barStyle="light-content" />
 
             {/* Header bleu */}
             <View style={{ backgroundColor: colors.bleu, padding: spacing.xl, paddingTop: 60, alignItems: 'center' }}>
@@ -116,15 +117,41 @@ export default function DetailCours() {
                 }}>
                     {cours?.sheikh} · {cours?.nb_episodes} épisode{(cours?.nb_episodes ?? 0) > 1 ? 's' : ''}
                 </Text>
+
+                {cours?.description ? (
+                    <Text style={{
+                        fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm,
+                        color: 'rgba(255,255,255,0.7)', textAlign: 'center',
+                        marginTop: spacing.sm, fontStyle: 'italic', maxWidth: 300,
+                    }}>
+                        {cours.description}
+                    </Text>
+                ) : null}
+
+                {urlPdf ? (
+                    <Pressable
+                        onPress={() => WebBrowser.openBrowserAsync(urlPdf)}
+                        style={{
+                            marginTop: spacing.md,
+                            flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+                            backgroundColor: 'rgba(255,255,255,0.15)',
+                            borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+                            borderRadius: radius.md,
+                            paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+                        }}
+                    >
+                        <Text style={{ fontSize: 16 }}>📖</Text>
+                        <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: 'white' }}>
+                            Consulter le livre
+                        </Text>
+                    </Pressable>
+                ) : null}
             </View>
 
             {/* Barre or */}
             <View style={{ height: 3, backgroundColor: colors.or, opacity: 0.6 }} />
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 160 }}>
-
-
-                {/* Liste épisodes */}
                 <View style={{ padding: spacing.lg }}>
                     <Text style={{
                         fontFamily: typography.fontFamily.bold,
@@ -154,14 +181,16 @@ export default function DetailCours() {
                                     }}>
                                         <View style={{
                                             backgroundColor: actif ? '#e8f0f8' : colors.blanc,
-                                            borderRadius: descVisible ? `${radius.lg}px ${radius.lg}px 0 0` as any : radius.lg,
+                                            borderTopLeftRadius: radius.lg,
+                                            borderTopRightRadius: radius.lg,
+                                            borderBottomLeftRadius: descVisible ? 0 : radius.lg,
+                                            borderBottomRightRadius: descVisible ? 0 : radius.lg,
                                             borderWidth: 1,
                                             borderColor: actif ? colors.bleu : colors.bordure,
                                             borderBottomWidth: descVisible ? 0 : 1,
                                             padding: spacing.md,
                                             flexDirection: 'row', alignItems: 'center',
                                         }}>
-                                            {/* Numéro / play */}
                                             <View style={{
                                                 width: 36, height: 36, borderRadius: radius.full,
                                                 backgroundColor: actif ? colors.bleu : '#f5f5f5',
@@ -201,6 +230,7 @@ export default function DetailCours() {
                                                     url: ep.url_audio,
                                                 }}
                                             />
+
                                             {ep.description ? (
                                                 <Pressable
                                                     onPress={() => setDescOuverte(descVisible ? null : ep.id)}
@@ -208,6 +238,7 @@ export default function DetailCours() {
                                                         width: 28, height: 28, borderRadius: radius.full,
                                                         backgroundColor: descVisible ? colors.bleu : '#f0f0f0',
                                                         alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                        marginLeft: spacing.xs,
                                                     }}
                                                 >
                                                     <Text style={{ fontSize: 12, color: descVisible ? 'white' : '#888' }}>i</Text>
@@ -216,7 +247,6 @@ export default function DetailCours() {
                                         </View>
                                     </Pressable>
 
-                                    {/* Description */}
                                     {descVisible && ep.description ? (
                                         <View style={{
                                             backgroundColor: '#f8f6f1',
