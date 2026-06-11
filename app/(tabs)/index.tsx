@@ -67,9 +67,6 @@ function IcoPause({ size = 18, color = '#fff' }: IcoProps) {
 function IcoChevron({ size = 18, color = '#bbb' }: IcoProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" fill={color} /></Svg>
 }
-function IcoQuran({ size = 16, color = colors.bleu }: IcoProps) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M560-564v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-600q-38 0-73 9.5T560-564Zm0 220v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-380q-38 0-73 9t-67 27Zm0-110v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-490q-38 0-73 9.5T560-454ZM260-320q47 0 91.5 10.5T440-278v-394q-41-24-87-36t-93-12q-36 0-71.5 7T120-692v396q35-12 69.5-18t70.5-6Zm260 42q44-21 88.5-31.5T700-320q36 0 70.5 6t69.5 18v-396q-33-14-68.5-21t-71.5-7q-47 0-93 12t-87 36v394Zm-40 118q-48-38-104-59t-116-21q-42 0-82.5 11T100-198q-21 11-40.5-1T40-234v-482q0-11 5.5-21T62-752q46-24 96-36t102-12q74 0 126 17t112 52q11 6 16.5 14t5.5 21v418q44-21 88.5-31.5T700-320q36 0 70.5 6t69.5 18v-481q15 5 29.5 11t28.5 14q11 5 16.5 15t5.5 21v482q0 23-19.5 35t-40.5 1q-37-20-77.5-31T700-240q-60 0-116 21t-104 59Z" fill={color} /></Svg>
-}
 function IcoNotes({ size = 16, color = colors.bleu }: IcoProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z" fill={color} /></Svg>
 }
@@ -120,17 +117,6 @@ function progressEntre(prev: Priere, next: Priere): number {
 function capitaliser(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
-
-// ─── ayahs pour le carrousel ─────────────────────────────────
-const AYAHS = [
-  { ar: 'اقْرَأْ بِاسْمِ رَبِّكَ الَّذِي خَلَقَ', fr: 'Lis au nom de ton Seigneur qui a créé.', ref: 'Al-ʿAlaq · 96:1' },
-  { ar: 'وَقُل رَّبِّ زِدْنِي عِلْمًا', fr: 'Dis : Seigneur, augmente mes connaissances.', ref: 'Ṭā Hā · 20:114' },
-  { ar: 'إِنَّمَا يَخْشَى اللَّهَ مِنْ عِبَادِهِ الْعُلَمَاءُ', fr: 'Parmi Ses serviteurs, seuls les savants craignent réellement Allah.', ref: 'Fāṭir · 35:28' },
-  { ar: 'يَرْفَعِ اللَّهُ الَّذِينَ آمَنُوا مِنكُمْ وَالَّذِينَ أُوتُوا الْعِلْمَ دَرَجَاتٍ', fr: 'Allah élève de nombreux degrés ceux qui ont cru et ceux qui ont reçu le savoir.', ref: 'Al-Mujādala · 58:11' },
-  { ar: 'وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا', fr: 'Ceux qui luttent pour Nous, Nous les guidons vers Nos voies.', ref: 'Al-ʿAnkabūt · 29:69' },
-  { ar: 'فَاعْلَمْ أَنَّهُ لَا إِلَٰهَ إِلَّا اللَّهُ', fr: 'Sache qu\'il n\'y a point de divinité digne d\'adoration, sinon Allah.', ref: 'Muḥammad · 47:19' },
-  { ar: 'إِنَّ هَٰذَا الْقُرْآنَ يَهْدِي لِلَّتِي هِيَ أَقْوَمُ', fr: 'Ce Coran guide vers ce qu\'il y a de plus droit.', ref: 'Al-Isrāʾ · 17:9' },
-]
 
 // ─── hadith du jour ───────────────────────────────────────────
 const HADITHS = [
@@ -218,7 +204,7 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
 
   const barStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }))
 
-  const dateFr = capitaliser(now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))
+  const dateFr = capitaliser(now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
   let dateHijri = ''
   try {
     dateHijri = new Intl.DateTimeFormat('fr-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' }).format(now)
@@ -391,9 +377,8 @@ const SECTIONS = [
 ]
 
 const RACCOURCIS = [
-  { label: 'Coran',           icon: IcoQuran,    href: '/coran'          },
-  { label: 'Notes',           icon: IcoNotes,    href: '/notes'          },
   { label: 'Téléchargements', icon: IcoDownload, href: '/telechargements'},
+  { label: 'Notes',           icon: IcoNotes,    href: '/notes'          },
   { label: 'Paramètres',      icon: IcoSettings, href: '/parametres'     },
 ]
 
@@ -469,49 +454,6 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
   )
 }
 
-// ─── ayah du jour ─────────────────────────────────────────────
-function AyahDuJour() {
-  const jour = Math.floor(Date.now() / 86400000)
-  const a = AYAHS[jour % AYAHS.length]
-  return (
-    <Animated.View entering={FadeInDown.duration(500).delay(460)} style={{ paddingHorizontal: spacing.xl }}>
-      <View style={{
-        backgroundColor: colors.bleu,
-        borderRadius: radius.xl + 4,
-        padding: spacing.xl,
-        overflow: 'hidden',
-        shadowColor: colors.bleu,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.25,
-        shadowRadius: 20,
-        elevation: 6,
-      }}>
-        {/* brume décorative */}
-        <View style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)', top: -70, right: -70 }} />
-        <View style={{ position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.04)', bottom: -50, left: -40 }} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
-          <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: colors.or, alignItems: 'center', justifyContent: 'center' }}>
-            <IcoQuran size={14} color="#1c3d66" />
-          </View>
-          <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.or, letterSpacing: 1.4, textTransform: 'uppercase' }}>
-            Verset du jour
-          </Text>
-        </View>
-        <Text style={{ fontFamily: typography.fontFamily.arabic, fontSize: 26, color: '#fff', textAlign: 'right', lineHeight: 50, marginBottom: spacing.md }}>
-          {a.ar}
-        </Text>
-        <View style={{ height: 1, backgroundColor: W18, marginBottom: spacing.md }} />
-        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W90, lineHeight: 23, fontStyle: 'italic' }}>
-          « {a.fr} »
-        </Text>
-        <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.or, marginTop: spacing.sm, letterSpacing: 0.6 }}>
-          {a.ref}
-        </Text>
-      </View>
-    </Animated.View>
-  )
-}
-
 // ─── hadith du jour ───────────────────────────────────────────
 function HadithDuJour() {
   const jour = Math.floor(Date.now() / 86400000)
@@ -523,7 +465,7 @@ function HadithDuJour() {
         borderRadius: radius.xl + 4,
         padding: spacing.lg,
         borderLeftWidth: 4,
-        borderLeftColor: colors.or,
+        borderLeftColor: colors.bleu,
         shadowColor: '#3a4a5c',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.06,
@@ -531,8 +473,8 @@ function HadithDuJour() {
         elevation: 3,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-          <IcoQuote size={20} color={colors.or} />
-          <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.orFonce, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+          <IcoQuote size={20} color={colors.bleu} />
+          <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.bleu, letterSpacing: 1.2, textTransform: 'uppercase' }}>
             Hadith du jour
           </Text>
         </View>
@@ -687,9 +629,6 @@ export default function Accueil() {
 
         <CarteReprendre />
         <AccesRapide onNav={naviguer} />
-        <View style={{ height: spacing.xl }} />
-        <AyahDuJour />
-        <View style={{ height: spacing.md }} />
         <HadithDuJour />
         <Decouvrir onNav={naviguer} />
       </ScrollView>
