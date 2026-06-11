@@ -28,7 +28,7 @@ import {
 } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Svg, { Circle } from 'react-native-svg'
+import Svg, { Circle, Path } from 'react-native-svg'
 
 type PriereInfo = { nom: string; heure: string; cle: string }
 
@@ -128,6 +128,19 @@ const ICONES: Record<string, ComponentType<{ size?: number; color?: string; stro
   Tahajjud: MoonStar,
 }
 
+// ─── icône personne en duaa (mains levées) ───────────────────
+function IcoDuaa({ size = 20, color = '#d6ad3a' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx="12" cy="4" r="2.2" fill={color} />
+      <Path stroke={color} strokeWidth="2" strokeLinecap="round" fill="none"
+        d="M12 6.5 L12 14 M12 14 L10 20 M12 14 L14 20 M12 9 Q8.5 6 6 8 M12 9 Q15.5 6 18 8" />
+      <Circle cx="5.5" cy="8.5" r="1.5" fill={color} />
+      <Circle cx="18.5" cy="8.5" r="1.5" fill={color} />
+    </Svg>
+  )
+}
+
 // ─── anneau de progression ────────────────────────────────────
 const RAYON = 88
 const CIRCONF = 2 * Math.PI * RAYON
@@ -211,7 +224,6 @@ export default function Prieres() {
 
   const now = nowMin()
   const principales = horaires.filter(p => !['Sunrise', 'MoitieNuit', 'Tahajjud'].includes(p.cle))
-  const nuit = horaires.filter(p => ['MoitieNuit', 'Tahajjud'].includes(p.cle))
   const idx = principales.findIndex(p => enMinutes(p.heure) > now)
   const prochaine = principales.length
     ? (idx === -1 ? { nom: 'Fajr', heure: fajrDemain, cle: 'Fajr' } : principales[idx])
@@ -364,145 +376,106 @@ export default function Prieres() {
         </View>
 
         {!loading && !erreur && (
-          <>
-            {/* ── Aujourd'hui ── */}
-            <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.xl }}>
-              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte, marginBottom: spacing.md }}>
-                Aujourd'hui
-              </Text>
-              <View style={{
-                backgroundColor: colors.blanc,
-                borderRadius: radius.xl + 4,
-                overflow: 'hidden',
-                shadowColor: '#3a4a5c',
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.06,
-                shadowRadius: 18,
-                elevation: 3,
-              }}>
-                {horaires.filter(p => !['MoitieNuit', 'Tahajjud'].includes(p.cle)).map((p, i, arr) => {
-                  const estProchaine = prochaine?.cle === p.cle && prochaine?.heure === p.heure
-                  const estPassee = enMinutes(p.heure) < now && !estProchaine
-                  const estSunrise = p.cle === 'Sunrise'
-                  const Icone = ICONES[p.cle] ?? Sun
-                  return (
-                    <Animated.View key={p.cle} entering={FadeInDown.duration(400).delay(60 * i)}>
-                      <View style={{
-                        flexDirection: 'row', alignItems: 'center',
-                        paddingHorizontal: spacing.lg,
-                        paddingVertical: 14,
-                        gap: spacing.md,
-                        backgroundColor: estProchaine ? colors.bleu : 'transparent',
-                        borderBottomWidth: i < arr.length - 1 ? 1 : 0,
-                        borderBottomColor: colors.bordure,
-                      }}>
-                        <View style={{
-                          width: 40, height: 40, borderRadius: 13,
-                          backgroundColor: estProchaine ? 'rgba(255,255,255,0.15)' : estPassee ? '#f1f0ee' : '#dce8f5',
-                          alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <Icone
-                            size={20}
-                            color={estProchaine ? colors.or : estPassee ? '#b5b2ac' : colors.bleu}
-                            strokeWidth={2}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{
-                            fontFamily: estProchaine ? typography.fontFamily.bold : typography.fontFamily.medium,
-                            fontSize: typography.size.md,
-                            color: estProchaine ? '#fff' : estPassee ? '#b5b2ac' : colors.texte,
-                          }}>
-                            {p.nom}
-                          </Text>
-                          {estProchaine && (
-                            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: colors.or, marginTop: 2, fontVariant: ['tabular-nums'] }}>
-                              dans {tempsRestant(p.heure)}
-                            </Text>
-                          )}
-                          {estSunrise && !estProchaine && (
-                            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.texteMuted, marginTop: 2 }}>
-                              Fin de l'heure du Fajr
-                            </Text>
-                          )}
-                        </View>
-                        <Text style={{
-                          fontFamily: typography.fontFamily.bold,
-                          fontSize: typography.size.lg,
-                          color: estProchaine ? colors.or : estPassee ? '#c9c6c0' : colors.bleu,
-                          fontVariant: ['tabular-nums'],
-                        }}>
-                          {p.heure}
+          <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.xl, gap: 8 }}>
+            {horaires.map((p, i) => {
+              const estIndicateur = p.cle === 'MoitieNuit' || p.cle === 'Tahajjud'
+              const estProchaine = prochaine?.cle === p.cle && prochaine?.heure === p.heure
+              const estPassee = !estIndicateur && enMinutes(p.heure) < now && !estProchaine
+              const estSunrise = p.cle === 'Sunrise'
+              const Icone = ICONES[p.cle] ?? Sun
+
+              if (estIndicateur) {
+                return (
+                  <Animated.View key={p.cle} entering={FadeInDown.duration(400).delay(60 * i)}
+                    style={{ borderRadius: radius.xl, overflow: 'hidden' }}>
+                    <LinearGradient
+                      colors={[NUIT_TOP, NUIT_BOT]}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 14, gap: spacing.md }}
+                    >
+                      <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: 'rgba(214,173,58,0.16)', alignItems: 'center', justifyContent: 'center' }}>
+                        {p.cle === 'Tahajjud'
+                          ? <IcoDuaa size={22} color={colors.or} />
+                          : <Icone size={20} color={colors.or} strokeWidth={2} />
+                        }
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: '#fff' }}>
+                          {p.nom}
+                        </Text>
+                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>
+                          {p.cle === 'Tahajjud' ? 'Tahajjud — prière de la nuit' : 'Milieu de la nuit'}
                         </Text>
                       </View>
-                    </Animated.View>
-                  )
-                })}
-              </View>
-            </View>
-
-            {/* ── La nuit ── */}
-            {nuit.length > 0 && (
-              <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.xl }}>
-                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte, marginBottom: spacing.md }}>
-                  La nuit
-                </Text>
-                <Animated.View entering={FadeInDown.duration(450).delay(380)} style={{ borderRadius: radius.xl + 4, overflow: 'hidden' }}>
-                  <LinearGradient
-                    colors={[NUIT_TOP, NUIT_BOT]}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                    style={{ padding: 4 }}
-                  >
-                    {nuit.map((p, i) => {
-                      const Icone = ICONES[p.cle] ?? MoonStar
-                      return (
-                        <View key={p.cle} style={{
-                          flexDirection: 'row', alignItems: 'center',
-                          paddingHorizontal: spacing.md,
-                          paddingVertical: 14,
-                          gap: spacing.md,
-                          borderBottomWidth: i < nuit.length - 1 ? 1 : 0,
-                          borderBottomColor: 'rgba(255,255,255,0.08)',
-                        }}>
-                          <View style={{
-                            width: 40, height: 40, borderRadius: 13,
-                            backgroundColor: 'rgba(214,173,58,0.16)',
-                            alignItems: 'center', justifyContent: 'center',
-                          }}>
-                            <Icone size={20} color={colors.or} strokeWidth={2} />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: '#fff' }}>
-                              {p.nom}
-                            </Text>
-                            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>
-                              {p.cle === 'Tahajjud' ? 'Tahajjud — prière de la nuit' : 'Fin de l\'heure du Isha'}
-                            </Text>
-                          </View>
-                          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.or, fontVariant: ['tabular-nums'] }}>
-                            {p.heure}
+                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                        <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.or, fontVariant: ['tabular-nums'] }}>
+                          {p.heure}
+                        </Text>
+                        <View style={{ backgroundColor: 'rgba(214,173,58,0.22)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                          <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: 10, color: colors.or, letterSpacing: 0.4 }}>
+                            Indicateur
                           </Text>
                         </View>
-                      )
-                    })}
-                  </LinearGradient>
-                </Animated.View>
-              </View>
-            )}
+                      </View>
+                    </LinearGradient>
+                  </Animated.View>
+                )
+              }
 
-            {/* méthode de calcul */}
-            {methodeNom ? (
-              <Text style={{
-                textAlign: 'center',
-                fontFamily: typography.fontFamily.regular,
-                fontSize: typography.size.xs,
-                color: '#b5b2ac',
-                marginTop: spacing.xl,
-              }}>
-                Méthode de calcul : {methodeNom}
-              </Text>
-            ) : null}
-          </>
+              return (
+                <Animated.View key={p.cle} entering={FadeInDown.duration(400).delay(60 * i)}>
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: estProchaine ? colors.bleu : colors.blanc,
+                    borderRadius: radius.xl,
+                    paddingHorizontal: spacing.lg,
+                    paddingVertical: 14,
+                    gap: spacing.md,
+                    shadowColor: '#3a4a5c',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: estProchaine ? 0.22 : 0.06,
+                    shadowRadius: 12,
+                    elevation: estProchaine ? 4 : 2,
+                  }}>
+                    <View style={{
+                      width: 40, height: 40, borderRadius: 13,
+                      backgroundColor: estProchaine ? 'rgba(255,255,255,0.15)' : estPassee ? '#f1f0ee' : '#dce8f5',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Icone size={20} color={estProchaine ? colors.or : estPassee ? '#b5b2ac' : colors.bleu} strokeWidth={2} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        fontFamily: estProchaine ? typography.fontFamily.bold : typography.fontFamily.medium,
+                        fontSize: typography.size.md,
+                        color: estProchaine ? '#fff' : estPassee ? '#b5b2ac' : colors.texte,
+                      }}>
+                        {p.nom}
+                      </Text>
+                      {estProchaine && (
+                        <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: colors.or, marginTop: 2, fontVariant: ['tabular-nums'] }}>
+                          dans {tempsRestant(p.heure)}
+                        </Text>
+                      )}
+                      {estSunrise && !estProchaine && (
+                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#b5b2ac', marginTop: 2 }}>
+                          Fin de l'heure du Fajr
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={{
+                      fontFamily: typography.fontFamily.bold,
+                      fontSize: typography.size.lg,
+                      color: estProchaine ? colors.or : estPassee ? '#c9c6c0' : colors.bleu,
+                      fontVariant: ['tabular-nums'],
+                    }}>
+                      {p.heure}
+                    </Text>
+                  </View>
+                </Animated.View>
+              )
+            })}
+          </View>
         )}
       </ScrollView>
     </View>
