@@ -2,10 +2,9 @@ import { colors, radius, spacing, typography } from '@/constants/theme'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import * as Location from 'expo-location'
-import { useRouter } from 'expo-router'
-import { Magnetometer } from 'expo-sensors'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { ArrowLeft } from 'lucide-react-native'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Dimensions, Pressable, StatusBar, Text, View } from 'react-native'
 import Animated, {
   Easing,
@@ -16,10 +15,19 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg'
+import Svg, {
+  Circle,
+  Defs,
+  Line,
+  LinearGradient as SvgGradient,
+  Path,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg'
+import { useTabBar } from '@/contexts/TabBarContext'
 
 const { width } = Dimensions.get('window')
-const DIAL = width * 0.86
+const DIAL = width * 0.88
 const DIAL_R = DIAL / 2
 
 const KAABA_LAT = 21.4225
@@ -30,6 +38,7 @@ const BG_MID = '#1a3050'
 const BG_BOT = '#2d578c'
 const W90 = 'rgba(255,255,255,0.90)'
 const W60 = 'rgba(255,255,255,0.60)'
+const W40 = 'rgba(255,255,255,0.40)'
 const W30 = 'rgba(255,255,255,0.30)'
 const W14 = 'rgba(255,255,255,0.14)'
 const W07 = 'rgba(255,255,255,0.07)'
@@ -55,24 +64,24 @@ function distanceTo(lat: number, lng: number): number {
 
 function norm(a: number) { return ((a % 360) + 360) % 360 }
 
-// ─── SVG : cadran avec graduations + points cardinaux ────────
+const CARDINAUX = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO']
+
+// ─── cadran : graduations + labels tangentiels ───────────────
 function DialSvg({ size }: { size: number }) {
   const cx = size / 2, cy = size / 2
-  const OR = size / 2 - 5
+  const OR = size / 2 - 6
 
   const ticks: React.ReactElement[] = []
   for (let i = 0; i < 72; i++) {
     const deg = i * 5
     const rad = (deg - 90) * Math.PI / 180
     const major = deg % 90 === 0
-    const med = !major && deg % 45 === 0
-    const len = major ? 22 : med ? 14 : 7
-    const r1 = OR - len
-    const r2 = OR
+    const med = !major && deg % 30 === 0
+    const len = major ? 20 : med ? 13 : 7
     ticks.push(
       <Line key={i}
-        x1={cx + r1 * Math.cos(rad)} y1={cy + r1 * Math.sin(rad)}
-        x2={cx + r2 * Math.cos(rad)} y2={cy + r2 * Math.sin(rad)}
+        x1={cx + (OR - len) * Math.cos(rad)} y1={cy + (OR - len) * Math.sin(rad)}
+        x2={cx + OR * Math.cos(rad)} y2={cy + OR * Math.sin(rad)}
         stroke={major ? W90 : med ? W60 : W30}
         strokeWidth={major ? 2.5 : 1.5}
         strokeLinecap="round"
@@ -80,57 +89,70 @@ function DialSvg({ size }: { size: number }) {
     )
   }
 
-  const LR = OR - 34
-  const DIRS: { l: string; deg: number; color: string; fs: number; fw: 'bold' | 'normal' }[] = [
-    { l: 'N', deg: 0, color: colors.or, fs: 16, fw: 'bold' },
-    { l: 'NE', deg: 45, color: W60, fs: 9, fw: 'normal' },
-    { l: 'E', deg: 90, color: W90, fs: 13, fw: 'bold' },
-    { l: 'SE', deg: 135, color: W60, fs: 9, fw: 'normal' },
-    { l: 'S', deg: 180, color: W90, fs: 13, fw: 'bold' },
-    { l: 'SO', deg: 225, color: W60, fs: 9, fw: 'normal' },
-    { l: 'O', deg: 270, color: W90, fs: 13, fw: 'bold' },
-    { l: 'NO', deg: 315, color: W60, fs: 9, fw: 'normal' },
-  ]
+  // Labels placés en haut puis tournés autour du centre :
+  // ils restent tangents au cercle et se lisent à l'endroit en haut
+  const LBL_R = OR - 36
+  const DEG_R = OR - 60
 
   return (
     <Svg width={size} height={size} style={{ position: 'absolute' }}>
       {ticks}
-      {DIRS.map(({ l, deg, color, fs, fw }) => {
-        const rad = (deg - 90) * Math.PI / 180
+      {CARDINAUX.map((l, i) => {
+        const deg = i * 45
+        const principal = deg % 90 === 0
         return (
           <SvgText key={l}
-            x={cx + LR * Math.cos(rad)} y={cy + LR * Math.sin(rad) + fs * 0.37}
+            x={cx} y={cy - LBL_R + (principal ? 6 : 4)}
+            transform={`rotate(${deg} ${cx} ${cy})`}
             textAnchor="middle"
-            fill={color} fontSize={fs} fontWeight={fw}
+            fill={l === 'N' ? colors.or : principal ? W90 : W40}
+            fontSize={principal ? 17 : 10}
+            fontWeight={principal ? 'bold' : 'normal'}
           >{l}</SvgText>
         )
       })}
+      {[30, 60, 120, 150, 210, 240, 300, 330].map(deg => (
+        <SvgText key={deg}
+          x={cx} y={cy - DEG_R + 3}
+          transform={`rotate(${deg} ${cx} ${cy})`}
+          textAnchor="middle"
+          fill={W30} fontSize={9}
+        >{deg}</SvgText>
+      ))}
     </Svg>
   )
 }
 
-// ─── SVG : aiguille diamant ───────────────────────────────────
+// ─── aiguille : flèche dorée effilée avec pointe barbelée ────
 function NeedleSvg({ size, aligne }: { size: number; aligne: boolean }) {
   const cx = size / 2, cy = size / 2
-  const hw = size * 0.044
-  const tipT = cy - size * 0.33
-  const tipB = cy + size * 0.23
+  const tipY = cy - size * 0.355
+  const tailY = cy + size * 0.20
 
   return (
     <Svg width={size} height={size} style={{ position: 'absolute' }}>
-      {/* Pointe dorée vers la Qibla */}
+      <Defs>
+        <SvgGradient id="goldNeedle" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={aligne ? '#ffffff' : '#f0d488'} />
+          <Stop offset="1" stopColor={aligne ? '#f0d488' : '#c8992b'} />
+        </SvgGradient>
+      </Defs>
+      {/* flèche : pointe + barbes + fût effilé */}
       <Path
-        d={`M ${cx} ${tipT} L ${cx + hw * 2.4} ${cy} L ${cx} ${cy - hw * 1.4} L ${cx - hw * 2.4} ${cy} Z`}
-        fill={aligne ? '#ffffff' : colors.or}
+        d={`M ${cx} ${tipY}
+            L ${cx + 13} ${tipY + 34}
+            L ${cx + 4.5} ${tipY + 27}
+            L ${cx + 4.5} ${cy}
+            L ${cx - 4.5} ${cy}
+            L ${cx - 4.5} ${tipY + 27}
+            L ${cx - 13} ${tipY + 34}
+            Z`}
+        fill="url(#goldNeedle)"
       />
-      {/* Contrepoids semi-transparent */}
-      <Path
-        d={`M ${cx} ${tipB} L ${cx + hw * 1.8} ${cy} L ${cx} ${cy - hw * 1.4} L ${cx - hw * 1.8} ${cy} Z`}
-        fill={W30}
-      />
-      {/* Centre */}
-      <Circle cx={cx} cy={cy} r={hw * 2.4} fill={aligne ? colors.or : W90} />
-      <Circle cx={cx} cy={cy} r={hw * 1.1} fill={BG_MID} />
+      {/* queue fine avec disque terminal */}
+      <Line x1={cx} y1={cy} x2={cx} y2={tailY - 8}
+        stroke={W40} strokeWidth={3} strokeLinecap="round" />
+      <Circle cx={cx} cy={tailY} r={5.5} fill="none" stroke={W40} strokeWidth={3} />
     </Svg>
   )
 }
@@ -138,12 +160,14 @@ function NeedleSvg({ size, aligne }: { size: number; aligne: boolean }) {
 export default function QiblaPage() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const { hideTabBar, showTabBar } = useTabBar()
 
   const [perm, setPerm] = useState<'idle' | 'granted' | 'denied'>('idle')
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null)
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null)
   const [distance, setDistance] = useState<number | null>(null)
   const [boussole, setBoussole] = useState(0)
+  const [precision, setPrecision] = useState(3)
   const [aligne, setAligne] = useState(false)
 
   const lastHaptic = useRef(0)
@@ -153,17 +177,21 @@ export default function QiblaPage() {
   const dialRot = useSharedValue(0)
   const needleRot = useSharedValue(0)
   const glowOpacity = useSharedValue(0)
-  const glowScale = useSharedValue(1)
   const pulseScale = useSharedValue(1)
 
-  // Glow + haptic quand aligné
+  // plein écran : pas de barre de menu sur cette page
+  useFocusEffect(useCallback(() => {
+    hideTabBar()
+    return () => showTabBar()
+  }, []))
+
+  // Glow + vibration quand aligné
   useEffect(() => {
     if (aligne) {
       glowOpacity.value = withTiming(1, { duration: 350 })
-      glowScale.value = withTiming(1.045, { duration: 600 })
       pulseScale.value = withRepeat(
         withSequence(
-          withTiming(1.015, { duration: 700 }),
+          withTiming(1.018, { duration: 700 }),
           withTiming(1, { duration: 700 }),
         ),
         -1,
@@ -176,42 +204,47 @@ export default function QiblaPage() {
       }
     } else {
       glowOpacity.value = withTiming(0, { duration: 300 })
-      glowScale.value = withTiming(1, { duration: 400 })
       pulseScale.value = withTiming(1, { duration: 200 })
     }
   }, [aligne])
 
-  // GPS + angle Qibla
+  // GPS + cap compensé (référencé au haut du téléphone, vrai nord)
   useEffect(() => {
+    let headingSub: Location.LocationSubscription | null = null
+    let actif = true
+
     async function init() {
       const { status } = await Location.requestForegroundPermissionsAsync()
       if (status !== 'granted') { setPerm('denied'); return }
+      if (!actif) return
       setPerm('granted')
+
+      headingSub = await Location.watchHeadingAsync(h => {
+        // trueHeading = vrai nord (corrige la déclinaison magnétique),
+        // déjà compensé en inclinaison et référencé au haut de l'appareil
+        const cap = h.trueHeading >= 0 ? h.trueHeading : h.magHeading
+        setBoussole(norm(cap))
+        setPrecision(h.accuracy)
+      })
+
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+      if (!actif) return
       const { latitude: lat, longitude: lng } = loc.coords
       setPos({ lat, lng })
       setQiblaAngle(qiblaFrom(lat, lng))
       setDistance(distanceTo(lat, lng))
     }
     init().catch(e => console.warn('qibla init:', e))
+    return () => { actif = false; headingSub?.remove() }
   }, [])
 
-  // Magnétomètre
-  useEffect(() => {
-    Magnetometer.setUpdateInterval(80)
-    const sub = Magnetometer.addListener(({ x, y }) => {
-      setBoussole(norm(-Math.atan2(y, x) * 180 / Math.PI))
-    })
-    return () => sub.remove()
-  }, [])
-
-  // Rotation du cadran (rose des vents)
+  // Rotation du cadran
   useEffect(() => {
     let delta = boussole - prevDial.current
     if (delta > 180) delta -= 360
     if (delta < -180) delta += 360
     prevDial.current += delta
-    dialRot.value = withTiming(-prevDial.current, { duration: 110, easing: Easing.out(Easing.quad) })
+    dialRot.value = withTiming(-prevDial.current, { duration: 120, easing: Easing.out(Easing.quad) })
   }, [boussole])
 
   // Rotation de l'aiguille Qibla
@@ -222,8 +255,8 @@ export default function QiblaPage() {
     if (delta > 180) delta -= 360
     if (delta < -180) delta += 360
     prevNeedle.current += delta
-    needleRot.value = withTiming(prevNeedle.current, { duration: 110, easing: Easing.out(Easing.quad) })
-    setAligne(target < 3.5 || target > 356.5)
+    needleRot.value = withTiming(prevNeedle.current, { duration: 120, easing: Easing.out(Easing.quad) })
+    setAligne(target < 4 || target > 356)
   }, [boussole, qiblaAngle])
 
   const dialStyle = useAnimatedStyle(() => ({
@@ -234,11 +267,16 @@ export default function QiblaPage() {
   }))
   const glowStyle = useAnimatedStyle(() => ({
     opacity: glowOpacity.value,
-    transform: [{ scale: glowScale.value }],
   }))
   const compassWrapStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
   }))
+
+  // écart signé vers la Qibla (pour le guidage gauche/droite)
+  const ecart = qiblaAngle !== null
+    ? (() => { let d = norm(qiblaAngle - boussole); if (d > 180) d -= 360; return d })()
+    : 0
+  const cardinalActuel = CARDINAUX[Math.round(boussole / 45) % 8]
 
   // ── Permission refusée ───────────────────────────────────────
   if (perm === 'denied') {
@@ -250,7 +288,7 @@ export default function QiblaPage() {
           Accès refusé
         </Text>
         <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W60, textAlign: 'center', lineHeight: 22 }}>
-          Autorise la localisation dans les réglages pour utiliser la Qibla.
+          Autorisez la localisation dans les réglages pour utiliser la Qibla.
         </Text>
       </LinearGradient>
     )
@@ -273,7 +311,7 @@ export default function QiblaPage() {
   }
 
   return (
-    <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} locations={[0, 0.45, 1]} style={{ flex: 1 }}>
+    <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} locations={[0, 0.5, 1]} style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" />
 
       {/* ── Header ── */}
@@ -282,7 +320,6 @@ export default function QiblaPage() {
         paddingHorizontal: spacing.xl,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: spacing.md,
       }}>
         <Pressable
           onPress={() => {
@@ -310,26 +347,31 @@ export default function QiblaPage() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* ── Indicateur de cap en direct ── */}
-      <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
-        <Text style={{
-          fontFamily: typography.fontFamily.bold,
-          fontSize: 52,
-          color: aligne ? colors.or : W90,
-          fontVariant: ['tabular-nums'],
-          lineHeight: 58,
-        }}>
-          {Math.round(boussole)}°
-        </Text>
-        <Text style={{
-          fontFamily: typography.fontFamily.regular,
-          fontSize: typography.size.xs,
-          color: aligne ? colors.or : W60,
-          letterSpacing: 1.4,
-          textTransform: 'uppercase',
-        }}>
-          Cap actuel
-        </Text>
+      {/* ── Cap actuel ── */}
+      <View style={{ alignItems: 'center', marginTop: spacing.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+          <Text style={{
+            fontFamily: typography.fontFamily.bold,
+            fontSize: 54,
+            color: aligne ? colors.or : W90,
+            fontVariant: ['tabular-nums'],
+            lineHeight: 60,
+          }}>
+            {Math.round(boussole)}°
+          </Text>
+          <Text style={{
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.size.xl,
+            color: aligne ? colors.or : W60,
+          }}>
+            {cardinalActuel}
+          </Text>
+        </View>
+        {precision <= 1 && (
+          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: 'rgba(240,180,80,0.85)', marginTop: 4 }}>
+            Précision faible — dessinez un 8 avec votre téléphone
+          </Text>
+        )}
       </View>
 
       {/* ── Boussole ── */}
@@ -340,15 +382,14 @@ export default function QiblaPage() {
             {/* Halo doré quand aligné */}
             <Animated.View style={[{
               position: 'absolute',
-              top: -10, left: -10, right: -10, bottom: -10,
-              borderRadius: (DIAL + 20) / 2,
+              top: -12, left: -12, right: -12, bottom: -12,
+              borderRadius: (DIAL + 24) / 2,
               borderWidth: 2,
               borderColor: colors.or,
               shadowColor: colors.or,
               shadowOffset: { width: 0, height: 0 },
               shadowOpacity: 0.8,
-              shadowRadius: 20,
-              elevation: 0,
+              shadowRadius: 22,
             }, glowStyle]} />
 
             {/* Anneau extérieur */}
@@ -361,31 +402,26 @@ export default function QiblaPage() {
 
             {/* Disque intérieur (verre dépoli) */}
             <View style={{
-              position: 'absolute', top: 14, left: 14, right: 14, bottom: 14,
-              borderRadius: (DIAL - 28) / 2,
+              position: 'absolute', top: 12, left: 12, right: 12, bottom: 12,
+              borderRadius: (DIAL - 24) / 2,
               backgroundColor: W07,
               borderWidth: 1,
               borderColor: W14,
             }} />
 
-            {/* Cadran rotatif (graduations + cardinaux) */}
+            {/* Cadran rotatif */}
             <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, dialStyle]}>
               <DialSvg size={DIAL} />
             </Animated.View>
 
-            {/* Indicateur Nord fixe (triangle doré en haut) */}
-            <View style={{
-              position: 'absolute',
-              top: 18,
-              left: DIAL_R - 6,
-              width: 12, height: 12,
-            }}>
-              <Svg width={12} height={12} viewBox="0 0 12 12">
-                <Path d="M 6 0 L 12 12 L 0 12 Z" fill={colors.or} opacity={0.9} />
+            {/* Repère fixe en haut = direction du regard */}
+            <View style={{ position: 'absolute', top: -4, left: DIAL_R - 8, width: 16, height: 18 }}>
+              <Svg width={16} height={18} viewBox="0 0 16 18">
+                <Path d="M 8 18 L 0 0 L 8 5 L 16 0 Z" fill={aligne ? colors.or : '#fff'} />
               </Svg>
             </View>
 
-            {/* Aiguille Qibla (tourne vers La Mecque) */}
+            {/* Aiguille Qibla */}
             <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, needleStyle]}>
               <NeedleSvg size={DIAL} aligne={aligne} />
             </Animated.View>
@@ -393,13 +429,13 @@ export default function QiblaPage() {
             {/* Centre Kaaba */}
             <View style={{
               position: 'absolute',
-              top: DIAL_R - 27,
-              left: DIAL_R - 27,
-              width: 54, height: 54,
-              borderRadius: 27,
-              backgroundColor: aligne ? colors.or : BG_MID,
+              top: DIAL_R - 26,
+              left: DIAL_R - 26,
+              width: 52, height: 52,
+              borderRadius: 26,
+              backgroundColor: aligne ? colors.or : '#16263e',
               borderWidth: 2,
-              borderColor: aligne ? 'rgba(255,255,255,0.5)' : W30,
+              borderColor: aligne ? 'rgba(255,255,255,0.55)' : W30,
               alignItems: 'center', justifyContent: 'center',
               shadowColor: aligne ? colors.or : '#000',
               shadowOffset: { width: 0, height: 4 },
@@ -407,25 +443,24 @@ export default function QiblaPage() {
               shadowRadius: 10,
               elevation: 8,
             }}>
-              <Text style={{ fontSize: 24 }}>🕋</Text>
+              <Text style={{ fontSize: 23 }}>🕋</Text>
             </View>
 
           </View>
         </Animated.View>
       </View>
 
-      {/* ── Badge alignement ── */}
-      <View style={{ alignItems: 'center', marginVertical: spacing.lg }}>
+      {/* ── Guidage ── */}
+      <View style={{ alignItems: 'center', marginBottom: spacing.lg, minHeight: 46, justifyContent: 'center' }}>
         {aligne ? (
           <View style={{
             backgroundColor: 'rgba(214,173,58,0.14)',
             borderRadius: radius.full,
             paddingHorizontal: spacing.xl, paddingVertical: spacing.sm + 2,
             borderWidth: 1.5, borderColor: colors.or,
-            flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
           }}>
             <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.base, color: colors.or }}>
-              ✓  Face à la Qibla
+              ✓  Vous faites face à la Qibla
             </Text>
           </View>
         ) : (
@@ -434,9 +469,16 @@ export default function QiblaPage() {
             borderRadius: radius.full,
             paddingHorizontal: spacing.xl, paddingVertical: spacing.sm + 2,
             borderWidth: 1, borderColor: W30,
+            flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
           }}>
+            <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: W90 }}>
+              {ecart > 0 ? '↻' : '↺'}
+            </Text>
             <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.base, color: W60 }}>
-              Tournez-vous vers la Qibla
+              Tournez {ecart > 0 ? 'à droite' : 'à gauche'} de{' '}
+              <Text style={{ color: W90, fontFamily: typography.fontFamily.bold, fontVariant: ['tabular-nums'] }}>
+                {Math.abs(Math.round(ecart))}°
+              </Text>
             </Text>
           </View>
         )}
@@ -446,7 +488,7 @@ export default function QiblaPage() {
       <View style={{
         flexDirection: 'row',
         marginHorizontal: spacing.xl,
-        marginBottom: insets.bottom + spacing.xl,
+        marginBottom: insets.bottom + spacing.lg,
         backgroundColor: W07,
         borderRadius: radius.xl,
         borderWidth: 1,
@@ -455,8 +497,8 @@ export default function QiblaPage() {
       }}>
         {([
           { label: 'Qibla', value: `${Math.round(qiblaAngle)}°` },
-          { label: 'Distance', value: `${distance!.toLocaleString()} km` },
-          { label: 'Coordonnées', value: `${pos.lat.toFixed(2)}°, ${pos.lng.toFixed(2)}°` },
+          { label: 'Distance', value: `${distance!.toLocaleString('fr-FR')} km` },
+          { label: 'Position', value: `${pos.lat.toFixed(2)}°, ${pos.lng.toFixed(2)}°` },
         ] as const).map((item, i, arr) => (
           <View key={item.label} style={{
             flex: 1,
