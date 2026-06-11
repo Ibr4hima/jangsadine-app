@@ -2,7 +2,6 @@ import { colors, radius, spacing, typography } from '@/constants/theme'
 import { Piste, useAudio } from '@/contexts/AudioContext'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { geocoderInverse } from '@/lib/geo'
-import { supabase } from '@/lib/supabase'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as adhan from 'adhan'
 import * as Haptics from 'expo-haptics'
@@ -489,99 +488,6 @@ function HadithDuJour() {
   )
 }
 
-// ─── découvrir : derniers cours ───────────────────────────────
-function Decouvrir({ onNav }: { onNav: (href: string) => void }) {
-  const [livres, setLivres] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
-  const [serieMap, setSerieMap] = useState<Record<string, string>>({})
-
-  useEffect(() => {
-    async function charger() {
-      const [{ data: l }, { data: cats }, { data: series }] = await Promise.all([
-        supabase.from('livres').select('*').order('created_at', { ascending: false }).limit(8),
-        supabase.from('categories').select('*'),
-        supabase.from('cours').select('id, livre_id').eq('serie_unique', true),
-      ])
-      if (l) setLivres(l)
-      if (cats) setCategories(cats)
-      if (series) {
-        const map: Record<string, string> = {}
-        series.forEach((c: any) => { if (c.livre_id) map[c.livre_id] = c.id })
-        setSerieMap(map)
-      }
-    }
-    charger().catch(() => { })
-  }, [])
-
-  if (livres.length === 0) return null
-
-  const ouvrirLivre = (livre: any) => {
-    if (serieMap[livre.id]) onNav(`/audio/${serieMap[livre.id]}`)
-    else onNav(`/audio/livre/${livre.id}`)
-  }
-
-  return (
-    <Animated.View entering={FadeInDown.duration(500).delay(540)} style={{ marginTop: spacing.xl }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, marginBottom: spacing.md }}>
-        <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte }}>
-          Découvrir
-        </Text>
-        <Pressable onPress={() => onNav('/audio')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>
-            Voir tout
-          </Text>
-        </Pressable>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: spacing.md }}
-      >
-        {livres.map(livre => {
-          const cat = categories.find(c => c.id === livre.categorie_id)
-          const couleurs = cat ? (colors.categories as any)[cat.nom] : null
-          return (
-            <PressableScale key={livre.id} onPress={() => ouvrirLivre(livre)} style={{
-              width: 168,
-              backgroundColor: colors.blanc,
-              borderRadius: radius.xl,
-              padding: spacing.md,
-              gap: spacing.sm,
-              shadowColor: '#3a4a5c',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.06,
-              shadowRadius: 14,
-              elevation: 3,
-            }}>
-              <View style={{
-                height: 76, borderRadius: radius.lg,
-                backgroundColor: couleurs?.bg ?? '#e8f0f8',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <IcoBook size={30} color={couleurs?.txt ?? colors.bleu} />
-              </View>
-              {cat && (
-                <View style={{ alignSelf: 'flex-start', backgroundColor: couleurs?.bg ?? '#eee', borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 3 }}>
-                  <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.medium, fontSize: 10, color: couleurs?.txt ?? '#666' }}>
-                    {cat.nom}
-                  </Text>
-                </View>
-              )}
-              <Text numberOfLines={2} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.texte, lineHeight: 18 }}>
-                {livre.titre}
-              </Text>
-              {livre.titre_arabe ? (
-                <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.arabic, fontSize: typography.size.xs, color: colors.texteMuted }}>
-                  {livre.titre_arabe}
-                </Text>
-              ) : null}
-            </PressableScale>
-          )
-        })}
-      </ScrollView>
-    </Animated.View>
-  )
-}
 
 // ─── page ─────────────────────────────────────────────────────
 export default function Accueil() {
@@ -630,7 +536,6 @@ export default function Accueil() {
         <CarteReprendre />
         <AccesRapide onNav={naviguer} />
         <HadithDuJour />
-        <Decouvrir onNav={naviguer} />
       </ScrollView>
     </View>
   )
