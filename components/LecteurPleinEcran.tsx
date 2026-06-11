@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Moon, Volume1, Volume2 } from 'lucide-react-native'
-import { useEffect, useRef, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import {
     Dimensions,
     Image,
@@ -17,6 +17,7 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
     cancelAnimation,
+    interpolateColor,
     runOnJS,
     useAnimatedStyle,
     useSharedValue,
@@ -29,40 +30,40 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 import TextTicker from 'react-native-text-ticker'
 
-// ─── colour tokens ────────────────────────────────────────────
-const BG_TOP    = '#2C4060'
-const BG_MID    = '#1E2F47'
-const BG_BOT    = '#111E2F'
-const W80       = 'rgba(255,255,255,0.80)'
-const W60       = 'rgba(255,255,255,0.60)'
-const W30       = 'rgba(255,255,255,0.30)'
-const W12       = 'rgba(255,255,255,0.12)'
-const W06       = 'rgba(255,255,255,0.06)'
-const OR_DIM    = 'rgba(217,172,42,0.20)'
+// ─── palette : bleu du logo (#28558b) ─────────────────────────
+const BG_TOP  = '#33639F'
+const BG_MID  = '#28558b'
+const BG_BOT  = '#1B3C64'
+const W85     = 'rgba(255,255,255,0.85)'
+const W60     = 'rgba(255,255,255,0.60)'
+const W35     = 'rgba(255,255,255,0.35)'
+const W15     = 'rgba(255,255,255,0.15)'
+const W08     = 'rgba(255,255,255,0.08)'
+const OR_DIM  = 'rgba(217,172,42,0.22)'
 
 // ─── icons ────────────────────────────────────────────────────
-function IcoBack({ size = 32, color = '#fff' }: { size?: number; color?: string }) {
+function IcoBack({ size = 36, color = '#fff' }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
             <Path d="M339.5-108.5q-65.5-28.5-114-77t-77-114Q120-365 120-440h80q0 117 81.5 198.5T480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720h-6l62 62-56 58-160-160 160-160 56 58-62 62h6q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-440q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80q-75 0-140.5-28.5ZM360-320v-180h-60v-60h120v240h-60Zm140 0q-17 0-28.5-11.5T460-360v-160q0-17 11.5-28.5T500-560h80q17 0 28.5 11.5T620-520v160q0 17-11.5 28.5T580-320h-80Zm20-60h40v-120h-40v120Z" fill={color} />
         </Svg>
     )
 }
-function IcoFwd({ size = 32, color = '#fff' }: { size?: number; color?: string }) {
+function IcoFwd({ size = 36, color = '#fff' }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
             <Path d="M360-320v-180h-60v-60h120v240h-60Zm140 0q-17 0-28.5-11.5T460-360v-160q0-17 11.5-28.5T500-560h80q17 0 28.5 11.5T620-520v160q0 17-11.5 28.5T580-320h-80Zm20-60h40v-120h-40v120ZM339.5-108.5q-65.5-28.5-114-77t-77-114Q120-365 120-440t28.5-140.5q28.5-65.5 77-114t114-77Q405-800 480-800h6l-62-62 56-58 160 160-160 160-56-58 62-62h-6q-117 0-198.5 81.5T200-440q0 117 81.5 198.5T480-160q117 0 198.5-81.5T760-440h80q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80q-75 0-140.5-28.5Z" fill={color} />
         </Svg>
     )
 }
-function IcoPlay({ size = 36, color = '#1E2F47' }: { size?: number; color?: string }) {
+function IcoPlay({ size = 36, color = BG_MID }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
             <Path d="M320-200v-560l440 280-440 280Z" fill={color} />
         </Svg>
     )
 }
-function IcoPause({ size = 36, color = '#1E2F47' }: { size?: number; color?: string }) {
+function IcoPause({ size = 36, color = BG_MID }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
             <Path d="M555-200v-560h205v560H555Zm-355 0v-560h205v560H200Z" fill={color} />
@@ -116,9 +117,12 @@ function fmt(s: number) {
 }
 const fmtVitesse = (v: number) => String(v).replace('.', ',')
 
-// ─── Artwork ──────────────────────────────────────────────────
-// Bug fix: never unmount this — use opacity/pointerEvents to hide
-// so the Image never loses its loaded state.
+function clamp01(v: number) {
+    'worklet'
+    return Math.max(0, Math.min(1, v))
+}
+
+// ─── Artwork (always mounted) ─────────────────────────────────
 function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean }) {
     const scale = useSharedValue(enLecture ? 1 : 0.78)
 
@@ -140,21 +144,15 @@ function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean })
         >
             <Animated.View style={[{
                 width: ART_SIZE, height: ART_SIZE,
-                borderRadius: 22,
+                borderRadius: 24,
                 backgroundColor: '#fff',
                 alignItems: 'center', justifyContent: 'center',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 24 },
-                shadowOpacity: 0.55,
-                shadowRadius: 36,
+                shadowColor: '#0A1B30',
+                shadowOffset: { width: 0, height: 26 },
+                shadowOpacity: 0.5,
+                shadowRadius: 40,
                 elevation: 24,
             }, style]}>
-                {/* subtle inner top-edge highlight */}
-                <View style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-                    backgroundColor: 'rgba(255,255,255,0.9)',
-                    borderTopLeftRadius: 22, borderTopRightRadius: 22,
-                }} />
                 <Image
                     source={require('../assets/images/logo.png')}
                     style={{ width: ART_SIZE * 0.56, height: ART_SIZE * 0.56 }}
@@ -165,63 +163,132 @@ function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean })
     )
 }
 
-// ─── Progress bar ─────────────────────────────────────────────
+// ─── Progress bar — 100% UI thread while scrubbing ────────────
+// Shared values drive the fill, height, thumb and floating time
+// bubble directly on the UI thread; React state is only used for
+// the small time labels.
 function Progress({ tempsActuel, dureeTotal, onSeek }: {
     tempsActuel: number; dureeTotal: number; onSeek: (pct: number) => void
 }) {
-    const [scrub, setScrub] = useState<number | null>(null)
-    const barW = useRef(W - spacing.xl * 2)
-    const isScrubbing = scrub !== null
+    const barW      = useSharedValue(W - spacing.xl * 2)
+    const prog      = useSharedValue(dureeTotal > 0 ? tempsActuel / dureeTotal : 0)
+    const scrub     = useSharedValue(0)
+    const scrubbing = useSharedValue(0)
+    const [scrubLabel, setScrubLabel] = useState<number | null>(null)
+    const isScrubbing = scrubLabel !== null
 
-    const pct = (x: number) => Math.max(0, Math.min(100, (x / barW.current) * 100))
+    useEffect(() => {
+        if (isScrubbing) return
+        const p = dureeTotal > 0 ? tempsActuel / dureeTotal : 0
+        // Glide between the 500ms status ticks → continuous motion
+        prog.value = withTiming(p, { duration: 480 })
+    }, [tempsActuel, dureeTotal, isScrubbing])
+
+    const finDeSeek = (v: number) => {
+        onSeek(v * 100)
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    }
 
     const gesture = Gesture.Pan()
         .minDistance(0)
-        .runOnJS(true)
-        .onBegin(e  => setScrub(pct(e.x)))
-        .onUpdate(e => setScrub(pct(e.x)))
-        .onEnd(e => {
-            onSeek(pct(e.x))
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        .onBegin(e => {
+            scrubbing.value = withTiming(1, { duration: 130 })
+            scrub.value = clamp01(e.x / barW.value)
+            runOnJS(setScrubLabel)(scrub.value)
         })
-        .onFinalize(() => setScrub(null))
+        .onUpdate(e => {
+            scrub.value = clamp01(e.x / barW.value)
+            runOnJS(setScrubLabel)(scrub.value)
+        })
+        .onEnd(() => {
+            prog.value = scrub.value
+            runOnJS(finDeSeek)(scrub.value)
+        })
+        .onFinalize(() => {
+            scrubbing.value = withTiming(0, { duration: 180 })
+            runOnJS(setScrubLabel)(null)
+        })
 
-    const live     = isScrubbing ? scrub! : (dureeTotal > 0 ? (tempsActuel / dureeTotal) * 100 : 0)
-    const tDisplay = isScrubbing && dureeTotal > 0 ? (scrub! / 100) * dureeTotal : tempsActuel
+    const trackStyle = useAnimatedStyle(() => {
+        const h = 6 + scrubbing.value * 8
+        return { height: h, borderRadius: h / 2 }
+    })
+
+    const fillStyle = useAnimatedStyle(() => {
+        const p = scrubbing.value * scrub.value + (1 - scrubbing.value) * prog.value
+        return {
+            width: p * barW.value,
+            backgroundColor: interpolateColor(scrubbing.value, [0, 1], [W85, colors.or]),
+        }
+    })
+
+    const thumbStyle = useAnimatedStyle(() => {
+        const p = scrubbing.value * scrub.value + (1 - scrubbing.value) * prog.value
+        return {
+            opacity: scrubbing.value,
+            transform: [
+                { translateX: p * barW.value - 9 },
+                { scale: 0.4 + scrubbing.value * 0.6 },
+            ],
+        }
+    })
+
+    const bubbleStyle = useAnimatedStyle(() => {
+        const x = scrub.value * barW.value
+        return {
+            opacity: scrubbing.value,
+            transform: [
+                { translateX: Math.max(0, Math.min(x - 34, barW.value - 68)) },
+                { translateY: -6 + scrubbing.value * 6 },
+            ],
+        }
+    })
+
+    const tDisplay = isScrubbing && dureeTotal > 0 ? scrubLabel! * dureeTotal : tempsActuel
     const restant  = Math.max(0, dureeTotal - tDisplay)
-    const H        = isScrubbing ? 12 : 6
 
     return (
         <View>
+            {/* floating time bubble */}
+            <View style={{ height: 34 }}>
+                <Animated.View style={[{
+                    position: 'absolute', bottom: 2,
+                    width: 68, paddingVertical: 4,
+                    borderRadius: radius.full,
+                    backgroundColor: colors.or,
+                    alignItems: 'center',
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
+                }, bubbleStyle]}>
+                    <Text style={{
+                        fontFamily: typography.fontFamily.bold,
+                        fontSize: 13, color: BG_BOT,
+                        fontVariant: ['tabular-nums'],
+                    }}>
+                        {fmt(tDisplay)}
+                    </Text>
+                </Animated.View>
+            </View>
+
             <GestureDetector gesture={gesture}>
                 <View
-                    onLayout={e => { barW.current = e.nativeEvent.layout.width }}
-                    style={{ height: 38, justifyContent: 'center' }}
+                    onLayout={e => { barW.value = e.nativeEvent.layout.width }}
+                    style={{ height: 36, justifyContent: 'center' }}
                 >
-                    {/* track */}
-                    <View style={{
-                        height: H, backgroundColor: W12,
-                        borderRadius: H / 2, overflow: 'hidden',
-                    }}>
-                        <View style={{
-                            width: `${live}%` as any, height: '100%', borderRadius: H / 2,
-                            backgroundColor: isScrubbing ? colors.or : W80,
-                        }} />
-                    </View>
-                    {/* thumb dot when scrubbing */}
-                    {isScrubbing && (
-                        <View style={{
-                            position: 'absolute',
-                            left: `${live}%` as any,
-                            width: 16, height: 16, borderRadius: 8,
-                            backgroundColor: colors.or,
-                            marginLeft: -8,
-                            shadowColor: colors.or, shadowOffset: { width: 0, height: 0 },
-                            shadowOpacity: 0.8, shadowRadius: 8,
-                        }} />
-                    )}
+                    <Animated.View style={[{ backgroundColor: W15, overflow: 'hidden' }, trackStyle]}>
+                        <Animated.View style={[{ height: '100%', borderRadius: 8 }, fillStyle]} />
+                    </Animated.View>
+                    <Animated.View style={[{
+                        position: 'absolute',
+                        width: 18, height: 18, borderRadius: 9,
+                        backgroundColor: colors.or,
+                        borderWidth: 2.5, borderColor: '#fff',
+                        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.35, shadowRadius: 5,
+                    }, thumbStyle]} />
                 </View>
             </GestureDetector>
+
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 }}>
                 <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: isScrubbing ? colors.or : W60, fontVariant: ['tabular-nums'] }}>
                     {fmt(tDisplay)}
@@ -235,7 +302,7 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
 }
 
 // ─── Volume bar ────────────────────────────────────────────────
-function Volume({ volume, onChange }: { volume: number; onChange: (v: number) => void }) {
+function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number) => void }) {
     const [local, setLocal] = useState(volume)
     const [drag, setDrag] = useState(false)
     const barW   = useRef(W - spacing.xl * 2 - 72)
@@ -254,7 +321,7 @@ function Volume({ volume, onChange }: { volume: number; onChange: (v: number) =>
     const gesture = Gesture.Pan()
         .minDistance(0)
         .runOnJS(true)
-        .onBegin(e => { isDrag.current = true; setDrag(true);  send(vol(e.x)) })
+        .onBegin(e => { isDrag.current = true; setDrag(true); send(vol(e.x)) })
         .onUpdate(e => send(vol(e.x)))
         .onEnd(e    => send(vol(e.x), true))
         .onFinalize(() => { isDrag.current = false; setDrag(false) })
@@ -269,11 +336,11 @@ function Volume({ volume, onChange }: { volume: number; onChange: (v: number) =>
                     onLayout={e => { barW.current = e.nativeEvent.layout.width }}
                     style={{ flex: 1, height: 36, justifyContent: 'center' }}
                 >
-                    <View style={{ height: H, backgroundColor: W12, borderRadius: H/2, overflow: 'hidden' }}>
+                    <View style={{ height: H, backgroundColor: W15, borderRadius: H/2, overflow: 'hidden' }}>
                         <View style={{
                             width: `${local * 100}%` as any,
                             height: '100%', borderRadius: H/2,
-                            backgroundColor: drag ? '#fff' : 'rgba(255,255,255,0.65)',
+                            backgroundColor: drag ? '#fff' : 'rgba(255,255,255,0.7)',
                         }} />
                     </View>
                     {drag && (
@@ -290,7 +357,7 @@ function Volume({ volume, onChange }: { volume: number; onChange: (v: number) =>
     )
 }
 
-// ─── Play / Pause button with glow ────────────────────────────
+// ─── Play / Pause with pulsing glow ───────────────────────────
 function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () => void }) {
     const glow = useSharedValue(0)
 
@@ -309,39 +376,35 @@ function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () =>
     }, [enLecture])
 
     const ringStyle = useAnimatedStyle(() => ({
-        opacity: glow.value * 0.18,
-        transform: [{ scale: 1 + glow.value * 0.12 }],
+        opacity: glow.value * 0.20,
+        transform: [{ scale: 1 + glow.value * 0.14 }],
     }))
 
     return (
         <Pressable
             onPress={onPress}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={({ pressed }) => ({
-                transform: [{ scale: pressed ? 0.90 : 1 }],
-            })}
+            style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.90 : 1 }] })}
         >
-            <View style={{ alignItems: 'center', justifyContent: 'center', width: 88, height: 88 }}>
-                {/* pulsing glow ring */}
+            <View style={{ alignItems: 'center', justifyContent: 'center', width: 90, height: 90 }}>
                 <Animated.View style={[{
                     position: 'absolute',
-                    width: 88, height: 88, borderRadius: 44,
+                    width: 90, height: 90, borderRadius: 45,
                     backgroundColor: '#fff',
                 }, ringStyle]} />
-                {/* main circle */}
                 <View style={{
-                    width: 80, height: 80, borderRadius: 40,
+                    width: 82, height: 82, borderRadius: 41,
                     backgroundColor: '#fff',
                     alignItems: 'center', justifyContent: 'center',
                     shadowColor: '#fff',
                     shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.22,
-                    shadowRadius: 14,
-                    elevation: 10,
+                    shadowOpacity: 0.25,
+                    shadowRadius: 16,
+                    elevation: 12,
                 }}>
                     {enLecture
-                        ? <IcoPause size={34} color={BG_MID} />
-                        : <IcoPlay  size={34} color={BG_MID} />
+                        ? <IcoPause size={36} color={BG_MID} />
+                        : <IcoPlay  size={36} color={BG_MID} />
                     }
                 </View>
             </View>
@@ -349,91 +412,9 @@ function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () =>
     )
 }
 
-// ─── Skip button (icon + label) ───────────────────────────────
-function Skip({ direction, onPress }: { direction: 'back' | 'fwd'; onPress: () => void }) {
-    return (
-        <Pressable
-            onPress={onPress}
-            hitSlop={{ top: 14, bottom: 14, left: 10, right: 10 }}
-            style={({ pressed }) => ({
-                alignItems: 'center', gap: 5,
-                opacity: pressed ? 0.5 : 1,
-                transform: [{ scale: pressed ? 0.86 : 1 }],
-            })}
-        >
-            {direction === 'back'
-                ? <IcoBack size={36} color="#fff" />
-                : <IcoFwd  size={36} color="#fff" />
-            }
-            <Text style={{
-                fontFamily: typography.fontFamily.semibold,
-                fontSize: 11,
-                color: W60,
-                letterSpacing: 0.2,
-            }}>
-                10 sec
-            </Text>
-        </Pressable>
-    )
-}
-
-// ─── Speed pill ───────────────────────────────────────────────
-function SpeedPill({ vitesse, onPress }: { vitesse: number; onPress: () => void }) {
-    const active = vitesse !== 1
-    return (
-        <Pressable
-            onPress={onPress}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={{ width: 56, alignItems: 'center' }}
-        >
-            <View style={{
-                paddingHorizontal: 10, paddingVertical: 6,
-                borderRadius: radius.full,
-                backgroundColor: active ? OR_DIM : W06,
-                borderWidth: 1,
-                borderColor: active ? colors.or : W30,
-            }}>
-                <Text style={{
-                    fontFamily: typography.fontFamily.bold,
-                    fontSize: 13,
-                    color: active ? colors.or : W80,
-                    letterSpacing: 0.2,
-                }}>
-                    ×{fmtVitesse(vitesse)}
-                </Text>
-            </View>
-        </Pressable>
-    )
-}
-
-// ─── Sleep button ─────────────────────────────────────────────
-function SleepBtn({ actif, restant, onPress }: { actif: boolean; restant: number; onPress: () => void }) {
-    return (
-        <Pressable
-            onPress={onPress}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={{ width: 56, alignItems: 'center' }}
-        >
-            {actif ? (
-                <View style={{ alignItems: 'center', gap: 3 }}>
-                    <Moon size={22} color={colors.or} strokeWidth={2} fill={colors.or} />
-                    <Text style={{
-                        fontFamily: typography.fontFamily.semibold,
-                        fontSize: 10, color: colors.or, fontVariant: ['tabular-nums'],
-                    }}>
-                        {fmt(restant)}
-                    </Text>
-                </View>
-            ) : (
-                <Moon size={24} color={W60} strokeWidth={2} />
-            )}
-        </Pressable>
-    )
-}
-
 // ─── Tab bar button ───────────────────────────────────────────
 function TabBtn({ label, active, children, onPress }: {
-    label: string; active: boolean; children: React.ReactNode; onPress: () => void
+    label: string; active: boolean; children: ReactNode; onPress: () => void
 }) {
     return (
         <Pressable
@@ -445,7 +426,7 @@ function TabBtn({ label, active, children, onPress }: {
             <Text style={{
                 fontFamily: typography.fontFamily.medium,
                 fontSize: typography.size.xs,
-                color: active ? colors.or : W30,
+                color: active ? colors.or : W35,
             }}>
                 {label}
             </Text>
@@ -461,13 +442,13 @@ export default function LecteurPleinEcran() {
         changerVitesse, changerVolume, file, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
 
-    const [panel, setPanel]           = useState<'none' | 'description' | 'chapters' | 'queue'>('none')
-    const [showSleep, setShowSleep]   = useState(false)
-    const [sleepMin, setSleepMin]     = useState(0)
-    const [sleepLeft, setSleepLeft]   = useState(0)
+    const [panel, setPanel]         = useState<'none' | 'description' | 'chapters' | 'queue'>('none')
+    const [showSleep, setShowSleep] = useState(false)
+    const [sleepMin, setSleepMin]   = useState(0)
+    const [sleepLeft, setSleepLeft] = useState(0)
     const sleepRef = useRef<ReturnType<typeof setInterval> | null>(null)
-    const [markers, setMarkers]       = useState<{ id: string; titre: string; temps_secondes: number }[]>([])
-    const [desc, setDesc]             = useState<string | null>(null)
+    const [markers, setMarkers]     = useState<{ id: string; titre: string; temps_secondes: number }[]>([])
+    const [desc, setDesc]           = useState<string | null>(null)
 
     const translateY = useSharedValue(SCREEN_H)
 
@@ -477,19 +458,33 @@ export default function LecteurPleinEcran() {
             : SCREEN_H
     }, [lecteurOuvert])
 
+    const finDeDrag = (ty: number, vy: number) => {
+        'worklet'
+        if (ty > SCREEN_H * 0.15 || vy > 500) {
+            translateY.value = withTiming(SCREEN_H, { duration: 240 }, () => {
+                runOnJS(setLecteurOuvert)(false)
+            })
+        } else {
+            translateY.value = withSpring(0, { damping: 22, stiffness: 200 })
+        }
+    }
+
+    const isQueue = panel === 'queue'
+
+    // Full-screen drag-down to dismiss (disabled on queue so its
+    // ScrollView keeps scrolling normally — use the handle there)
     const dismissGesture = Gesture.Pan()
-        .activeOffsetY([0, 8])
-        .failOffsetX([-22, 22])
+        .enabled(!isQueue)
+        .activeOffsetY(12)
+        .failOffsetX([-18, 18])
         .onUpdate(e => { if (e.translationY > 0) translateY.value = e.translationY })
-        .onEnd(e => {
-            if (e.translationY > SCREEN_H * 0.18 || e.velocityY > 600) {
-                translateY.value = withTiming(SCREEN_H, { duration: 260 }, () => {
-                    runOnJS(setLecteurOuvert)(false)
-                })
-            } else {
-                translateY.value = withSpring(0, { damping: 22, stiffness: 200 })
-            }
-        })
+        .onEnd(e => finDeDrag(e.translationY, e.velocityY))
+
+    // Handle zone always drags, instantly, even on the queue
+    const handleGesture = Gesture.Pan()
+        .minDistance(0)
+        .onUpdate(e => { translateY.value = Math.max(0, e.translationY) })
+        .onEnd(e => finDeDrag(e.translationY, e.velocityY))
 
     const animStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: translateY.value }],
@@ -512,7 +507,7 @@ export default function LecteurPleinEcran() {
         return () => { if (sleepRef.current) clearInterval(sleepRef.current) }
     }, [sleepMin])
 
-    // Load metadata
+    // Metadata
     useEffect(() => {
         if (!piste) return
         setMarkers([])
@@ -546,8 +541,7 @@ export default function LecteurPleinEcran() {
         fn(10)
     }
 
-    const panelOpen = panel !== 'none'
-    const isQueue = panel === 'queue'
+    const panelOpen = panel === 'description' || panel === 'chapters'
 
     return (
         <Animated.View style={[{
@@ -555,38 +549,34 @@ export default function LecteurPleinEcran() {
         }, animStyle]}>
             <GestureDetector gesture={dismissGesture}>
                 <View style={{ flex: 1 }}>
-                    {/* ── Background ── */}
+                    {/* ── Background : bleu logo + brume ── */}
                     <LinearGradient
                         colors={[BG_TOP, BG_MID, BG_BOT]}
                         locations={[0, 0.5, 1]}
                         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                     />
-                    {/* Fog blobs — large circles far off-screen give a soft edge = "smoke" */}
-                    <View style={{ position: 'absolute', width: 700, height: 700, borderRadius: 350, backgroundColor: 'rgba(50,100,180,0.13)', top: -280, left: -200 }} />
-                    <View style={{ position: 'absolute', width: 600, height: 600, borderRadius: 300, backgroundColor: 'rgba(30,70,140,0.10)', top: 250, right: -220 }} />
-                    <View style={{ position: 'absolute', width: 500, height: 500, borderRadius: 250, backgroundColor: 'rgba(20,55,110,0.14)', bottom: -180, left: -150 }} />
-                    <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(60,110,190,0.08)', bottom: 200, right: -80 }} />
+                    <View style={{ position: 'absolute', width: 700, height: 700, borderRadius: 350, backgroundColor: 'rgba(120,165,220,0.13)', top: -300, left: -220 }} />
+                    <View style={{ position: 'absolute', width: 560, height: 560, borderRadius: 280, backgroundColor: 'rgba(90,140,200,0.11)', top: 280, right: -240 }} />
+                    <View style={{ position: 'absolute', width: 520, height: 520, borderRadius: 260, backgroundColor: 'rgba(40,85,139,0.35)', bottom: -200, left: -160 }} />
+                    <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(150,190,235,0.07)', bottom: 240, right: -100 }} />
 
                     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
                         <StatusBar barStyle="light-content" />
 
-                        {/* ── Drag handle ── */}
-                        <View style={{ alignItems: 'center', paddingTop: spacing.xs, paddingBottom: spacing.md }}>
-                            <View style={{ width: 38, height: 5, borderRadius: 3, backgroundColor: W30 }} />
-                        </View>
+                        {/* ── Drag handle (always draggable) ── */}
+                        <GestureDetector gesture={handleGesture}>
+                            <View style={{ alignItems: 'center', paddingTop: spacing.xs, paddingBottom: spacing.md, alignSelf: 'stretch' }}>
+                                <View style={{ width: 42, height: 5, borderRadius: 3, backgroundColor: W35 }} />
+                            </View>
+                        </GestureDetector>
 
-                        {/* ── Player or Queue ── */}
                         {!isQueue ? (
                             <View style={{ flex: 1, paddingHorizontal: spacing.xl }}>
 
-                                {/* Artwork zone — always mounted */}
-                                <View style={{
-                                    flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0,
-                                }}>
-                                    {/* Artwork: position:absolute when panel open so it stays mounted */}
+                                {/* Artwork / panel */}
+                                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                                     <Artwork enLecture={enLecture} hidden={panelOpen} />
 
-                                    {/* Panel content on top */}
                                     {panelOpen && (
                                         <ScrollView
                                             style={{ alignSelf: 'stretch' }}
@@ -594,10 +584,10 @@ export default function LecteurPleinEcran() {
                                             contentContainerStyle={{ paddingVertical: spacing.sm }}
                                         >
                                             <View style={{
-                                                backgroundColor: W06,
+                                                backgroundColor: W08,
                                                 borderRadius: radius.xl,
                                                 borderWidth: 1,
-                                                borderColor: W12,
+                                                borderColor: W15,
                                                 overflow: 'hidden',
                                             }}>
                                                 {panel === 'description' && (
@@ -605,7 +595,7 @@ export default function LecteurPleinEcran() {
                                                         <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.or, marginBottom: spacing.sm }}>
                                                             Description
                                                         </Text>
-                                                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.md, color: desc ? W80 : W60, lineHeight: 23 }}>
+                                                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.md, color: desc ? W85 : W60, lineHeight: 23 }}>
                                                             {desc ?? 'Aucune description disponible'}
                                                         </Text>
                                                     </View>
@@ -629,15 +619,15 @@ export default function LecteurPleinEcran() {
                                                                     gap: spacing.md,
                                                                     paddingHorizontal: spacing.lg,
                                                                     paddingVertical: spacing.md,
-                                                                    backgroundColor: actif ? 'rgba(217,172,42,0.12)' : 'transparent',
+                                                                    backgroundColor: actif ? OR_DIM : 'transparent',
                                                                     borderBottomWidth: i < markers.length - 1 ? 1 : 0,
-                                                                    borderBottomColor: W06,
+                                                                    borderBottomColor: W08,
                                                                 }}
                                                             >
-                                                                <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: actif ? colors.or : W30, minWidth: 44, fontVariant: ['tabular-nums'] }}>
+                                                                <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: actif ? colors.or : W35, minWidth: 44, fontVariant: ['tabular-nums'] }}>
                                                                     {fmt(m.temps_secondes)}
                                                                 </Text>
-                                                                <Text style={{ flex: 1, fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.regular, fontSize: typography.size.md, color: actif ? colors.or : W80 }}>
+                                                                <Text style={{ flex: 1, fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.regular, fontSize: typography.size.md, color: actif ? colors.or : W85 }}>
                                                                     {m.titre}
                                                                 </Text>
                                                             </Pressable>
@@ -650,7 +640,7 @@ export default function LecteurPleinEcran() {
                                 </View>
 
                                 {/* Title + Sheikh */}
-                                <View style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>
+                                <View style={{ marginTop: spacing.lg, marginBottom: 2 }}>
                                     <TextTicker
                                         style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: '#fff', lineHeight: 28 }}
                                         loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
@@ -668,28 +658,79 @@ export default function LecteurPleinEcran() {
                                 {/* Controls */}
                                 <View style={{
                                     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                                    marginTop: spacing.lg, marginBottom: spacing.md,
+                                    marginTop: spacing.md, marginBottom: spacing.md,
                                 }}>
-                                    <SpeedPill vitesse={vitesse} onPress={cyclerVitesse} />
-                                    <Skip direction="back" onPress={() => skip(reculer)} />
+                                    {/* speed pill */}
+                                    <Pressable
+                                        onPress={cyclerVitesse}
+                                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                        style={{ width: 56, alignItems: 'center' }}
+                                    >
+                                        <View style={{
+                                            paddingHorizontal: 10, paddingVertical: 6,
+                                            borderRadius: radius.full,
+                                            backgroundColor: vitesse !== 1 ? OR_DIM : W08,
+                                            borderWidth: 1,
+                                            borderColor: vitesse !== 1 ? colors.or : W35,
+                                        }}>
+                                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 13, color: vitesse !== 1 ? colors.or : W85 }}>
+                                                ×{fmtVitesse(vitesse)}
+                                            </Text>
+                                        </View>
+                                    </Pressable>
+
+                                    <Pressable
+                                        onPress={() => skip(reculer)}
+                                        hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
+                                        style={({ pressed }) => ({
+                                            opacity: pressed ? 0.5 : 1,
+                                            transform: [{ scale: pressed ? 0.86 : 1 }],
+                                        })}
+                                    >
+                                        <IcoBack size={38} color="#fff" />
+                                    </Pressable>
+
                                     <BoutonPlay enLecture={enLecture} onPress={togglePlay} />
-                                    <Skip direction="fwd" onPress={() => skip(avancer)} />
-                                    <SleepBtn
-                                        actif={sleepMin > 0}
-                                        restant={sleepLeft}
+
+                                    <Pressable
+                                        onPress={() => skip(avancer)}
+                                        hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
+                                        style={({ pressed }) => ({
+                                            opacity: pressed ? 0.5 : 1,
+                                            transform: [{ scale: pressed ? 0.86 : 1 }],
+                                        })}
+                                    >
+                                        <IcoFwd size={38} color="#fff" />
+                                    </Pressable>
+
+                                    {/* sleep */}
+                                    <Pressable
                                         onPress={() => { Haptics.selectionAsync(); setShowSleep(p => !p) }}
-                                    />
+                                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                        style={{ width: 56, alignItems: 'center' }}
+                                    >
+                                        {sleepMin > 0 ? (
+                                            <View style={{ alignItems: 'center', gap: 3 }}>
+                                                <Moon size={22} color={colors.or} strokeWidth={2} fill={colors.or} />
+                                                <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: 10, color: colors.or, fontVariant: ['tabular-nums'] }}>
+                                                    {fmt(sleepLeft)}
+                                                </Text>
+                                            </View>
+                                        ) : (
+                                            <Moon size={24} color={W60} strokeWidth={2} />
+                                        )}
+                                    </Pressable>
                                 </View>
 
                                 {/* Volume */}
-                                <Volume volume={volume} onChange={changerVolume} />
+                                <VolumeBar volume={volume} onChange={changerVolume} />
 
                                 {/* Sleep panel */}
                                 {showSleep && (
                                     <View style={{
-                                        backgroundColor: W06, borderRadius: radius.xl,
+                                        backgroundColor: W08, borderRadius: radius.xl,
                                         padding: spacing.md, marginTop: spacing.md,
-                                        borderWidth: 1, borderColor: W12,
+                                        borderWidth: 1, borderColor: W15,
                                     }}>
                                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' }}>
                                             {SLEEP_OPTS.map(opt => (
@@ -701,10 +742,10 @@ export default function LecteurPleinEcran() {
                                                         borderRadius: radius.full,
                                                         backgroundColor: sleepMin === opt.minutes ? OR_DIM : 'transparent',
                                                         borderWidth: 1,
-                                                        borderColor: sleepMin === opt.minutes ? colors.or : W30,
+                                                        borderColor: sleepMin === opt.minutes ? colors.or : W35,
                                                     }}
                                                 >
-                                                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: sleepMin === opt.minutes ? colors.or : W80 }}>
+                                                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: sleepMin === opt.minutes ? colors.or : W85 }}>
                                                         {opt.label}
                                                     </Text>
                                                 </Pressable>
@@ -725,7 +766,7 @@ export default function LecteurPleinEcran() {
                                     En cours
                                 </Text>
 
-                                <View style={{ backgroundColor: W06, borderRadius: radius.lg, padding: spacing.md, flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl, borderWidth: 1, borderColor: W12 }}>
+                                <View style={{ backgroundColor: W08, borderRadius: radius.lg, padding: spacing.md, flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl, borderWidth: 1, borderColor: W15 }}>
                                     <View style={{ width: 36, height: 36, borderRadius: radius.full, backgroundColor: colors.or, alignItems: 'center', justifyContent: 'center', marginRight: spacing.md }}>
                                         {enLecture
                                             ? <View style={{ flexDirection: 'row', gap: 3, alignItems: 'flex-end', height: 16 }}>
@@ -755,10 +796,10 @@ export default function LecteurPleinEcran() {
                                         </Text>
                                       </View>
                                     : file.map((p, i) => (
-                                        <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: i < file.length - 1 ? 1 : 0, borderBottomColor: W06 }}>
-                                            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: W30, width: 28, fontVariant: ['tabular-nums'] }}>{i + 1}</Text>
+                                        <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: i < file.length - 1 ? 1 : 0, borderBottomColor: W08 }}>
+                                            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: W35, width: 28, fontVariant: ['tabular-nums'] }}>{i + 1}</Text>
                                             <View style={{ flex: 1 }}>
-                                                <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.base, color: W80 }}>{p.titre}</Text>
+                                                <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.base, color: W85 }}>{p.titre}</Text>
                                                 <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W60, marginTop: 2 }}>{p.sheikh}</Text>
                                             </View>
                                         </View>
@@ -767,35 +808,33 @@ export default function LecteurPleinEcran() {
                             </ScrollView>
                         )}
 
-                        {/* ── Bottom tab bar ── */}
+                        {/* ── Bottom tabs ── */}
                         <View style={{
                             flexDirection: 'row', alignItems: 'center',
                             paddingHorizontal: spacing.xl,
                             paddingTop: spacing.md, paddingBottom: spacing.sm,
-                            borderTopWidth: 1, borderTopColor: W06,
+                            borderTopWidth: 1, borderTopColor: W08,
                         }}>
                             <TabBtn
                                 label="Description"
                                 active={panel === 'description'}
                                 onPress={() => { Haptics.selectionAsync(); setPanel(p => p === 'description' ? 'none' : 'description') }}
                             >
-                                <IcoInfo size={22} color={panel === 'description' ? colors.or : W30} />
+                                <IcoInfo size={22} color={panel === 'description' ? colors.or : W35} />
                             </TabBtn>
-
                             <TabBtn
                                 label="Chapitres"
                                 active={panel === 'chapters'}
                                 onPress={() => { Haptics.selectionAsync(); setPanel(p => p === 'chapters' ? 'none' : 'chapters') }}
                             >
-                                <IcoChapters size={22} color={panel === 'chapters' ? colors.or : W30} />
+                                <IcoChapters size={22} color={panel === 'chapters' ? colors.or : W35} />
                             </TabBtn>
-
                             <TabBtn
                                 label="File"
-                                active={panel === 'queue'}
+                                active={isQueue}
                                 onPress={() => { Haptics.selectionAsync(); setPanel(p => p === 'queue' ? 'none' : 'queue') }}
                             >
-                                <IcoQueue size={22} color={panel === 'queue' ? colors.or : W30} />
+                                <IcoQueue size={22} color={isQueue ? colors.or : W35} />
                             </TabBtn>
                         </View>
                     </SafeAreaView>

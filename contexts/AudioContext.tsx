@@ -44,6 +44,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const tempsRef = useRef(0)
   const dureeRef = useRef(0)
   const vitesseRef = useRef(1)
+  // Ignore stale status updates briefly after a seek so the progress
+  // bar never jumps backwards while expo-av catches up
+  const ignoreJusquaRef = useRef(0)
 
   const [piste, setPiste] = useState<Piste | null>(null)
   const [file, setFile] = useState<Piste[]>([])
@@ -84,9 +87,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     const t = (status.positionMillis ?? 0) / 1000
     const d = (status.durationMillis ?? 0) / 1000
     setEnLecture(status.isPlaying)
-    setTempsActuel(t)
     setDureeTotal(d)
-    setProgression(d > 0 ? (t / d) * 100 : 0)
+    if (Date.now() >= ignoreJusquaRef.current) {
+      setTempsActuel(t)
+      setProgression(d > 0 ? (t / d) * 100 : 0)
+    }
     if (status.didJustFinish) pisterSuivante()
   }, [pisterSuivante])
 
@@ -131,25 +136,26 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     await soundRef.current?.playAsync()
   }, [])
 
+  const seekOptimiste = async (newTime: number) => {
+    setTempsActuel(newTime)
+    if (dureeRef.current > 0) setProgression((newTime / dureeRef.current) * 100)
+    ignoreJusquaRef.current = Date.now() + 900
+    await soundRef.current?.setPositionAsync(newTime * 1000)
+  }
+
   const seeker = useCallback(async (pct: number) => {
     if (!soundRef.current || dureeRef.current === 0) return
-    await soundRef.current.setPositionAsync((pct / 100) * dureeRef.current * 1000)
+    await seekOptimiste((pct / 100) * dureeRef.current)
   }, [])
 
   const avancer = useCallback(async (sec: number) => {
     if (!soundRef.current) return
-    const newTime = Math.min(tempsRef.current + sec, dureeRef.current)
-    setTempsActuel(newTime)
-    if (dureeRef.current > 0) setProgression((newTime / dureeRef.current) * 100)
-    await soundRef.current.setPositionAsync(newTime * 1000)
+    await seekOptimiste(Math.min(tempsRef.current + sec, dureeRef.current))
   }, [])
 
   const reculer = useCallback(async (sec: number) => {
     if (!soundRef.current) return
-    const newTime = Math.max(tempsRef.current - sec, 0)
-    setTempsActuel(newTime)
-    if (dureeRef.current > 0) setProgression((newTime / dureeRef.current) * 100)
-    await soundRef.current.setPositionAsync(newTime * 1000)
+    await seekOptimiste(Math.max(tempsRef.current - sec, 0))
   }, [])
 
   const changerVolume = useCallback(async (v: number) => {
