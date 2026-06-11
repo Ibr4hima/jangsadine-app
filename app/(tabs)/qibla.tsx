@@ -69,7 +69,7 @@ export default function Qibla() {
       setPosition({ lat, lng })
       setQiblaAngle(calculerQibla(lat, lng))
     }
-    init()
+    init().catch(e => console.warn('init:', e))
   }, [])
 
   // Magnétomètre

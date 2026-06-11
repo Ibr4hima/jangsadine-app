@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createDownloadResumable, deleteAsync, documentDirectory, DownloadProgressData, getInfoAsync, makeDirectoryAsync } from 'expo-file-system'
+import { createDownloadResumable, deleteAsync, documentDirectory, DownloadProgressData, getInfoAsync, makeDirectoryAsync } from 'expo-file-system/legacy'
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 
 const DOSSIER = documentDirectory + 'audio/'
@@ -71,7 +71,7 @@ export function TelechargementProvider({ children }: { children: React.ReactNode
                 }
             }
         }
-        init()
+        init().catch(e => console.warn('init téléchargements:', e))
     }, [])
 
     const telecharger = useCallback(async (episode: {

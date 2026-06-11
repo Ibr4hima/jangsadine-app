@@ -1,5 +1,6 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
+import { geocoderInverse } from '@/lib/geo'
 import * as adhan from 'adhan'
 import * as Location from 'expo-location'
 import { useRouter } from 'expo-router'
@@ -92,8 +93,8 @@ export default function Accueil() {
       if (status !== 'granted') return
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
       const { latitude, longitude } = loc.coords
-      const geo = await Location.reverseGeocodeAsync({ latitude, longitude })
-      const countryCode = geo[0]?.isoCountryCode ?? 'FR'
+      const geo = await geocoderInverse(latitude, longitude)
+      const countryCode = geo.isoCountryCode ?? 'FR'
       const coords = new adhan.Coordinates(latitude, longitude)
       let params = adhan.CalculationMethod.MoonsightingCommittee()
       if (['US','CA','MX'].includes(countryCode)) params = adhan.CalculationMethod.NorthAmerica()
@@ -110,7 +111,7 @@ export default function Accueil() {
       const p = prieres.find(p => enMinutes(p.heure) > now) ?? prieres[0]
       setProchaine(p)
     }
-    init()
+    init().catch(e => console.warn('init:', e))
   }, [])
 
   const naviguer = (href: string) => {

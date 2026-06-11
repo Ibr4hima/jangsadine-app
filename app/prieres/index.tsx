@@ -1,4 +1,5 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
+import { geocoderInverse } from '@/lib/geo'
 import * as adhan from 'adhan'
 import * as Location from 'expo-location'
 import { useRouter } from 'expo-router'
@@ -121,10 +122,10 @@ export default function Prieres() {
       const { latitude, longitude } = loc.coords
 
       // Géocodage inverse
-      const geo = await Location.reverseGeocodeAsync({ latitude, longitude })
-      const countryCode = geo[0]?.isoCountryCode ?? 'FR'
-      const nomVille = geo[0]?.city ?? geo[0]?.region ?? ''
-      const nomPays = geo[0]?.country ?? ''
+      const geo = await geocoderInverse(latitude, longitude)
+      const countryCode = geo.isoCountryCode ?? 'FR'
+      const nomVille = geo.city ?? geo.region ?? ''
+      const nomPays = geo.country ?? ''
       setVille(nomVille && nomPays ? `${nomVille}, ${nomPays}` : nomVille || nomPays)
       setMethodeNom(getNomMethode(countryCode))
 
@@ -168,7 +169,7 @@ export default function Prieres() {
       ])
       setLoading(false)
     }
-    init()
+    init().catch(e => console.warn('init:', e))
   }, [])
 
   const now = nowMin()

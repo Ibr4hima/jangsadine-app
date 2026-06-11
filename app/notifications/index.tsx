@@ -1,5 +1,6 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { geocoderInverse } from '@/lib/geo'
 import * as adhan from 'adhan'
 import * as Location from 'expo-location'
 import * as Notifications from 'expo-notifications'
@@ -64,7 +65,7 @@ export default function NotificationsScreen() {
       setPermissionOk(status === 'granted')
       setLoading(false)
     }
-    init()
+    init().catch(e => console.warn('init:', e))
   }, [])
 
   const demanderPermission = async () => {
@@ -101,8 +102,8 @@ export default function NotificationsScreen() {
 
     const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
     const { latitude, longitude } = loc.coords
-    const geo = await Location.reverseGeocodeAsync({ latitude, longitude })
-    const countryCode = geo[0]?.isoCountryCode ?? 'FR'
+    const geo = await geocoderInverse(latitude, longitude)
+    const countryCode = geo.isoCountryCode ?? 'FR'
 
     const coords = new adhan.Coordinates(latitude, longitude)
     const params = getMethode(countryCode)

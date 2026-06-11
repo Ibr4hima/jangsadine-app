@@ -1,4 +1,5 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
+import { geocoderInverse } from '@/lib/geo'
 import * as adhan from 'adhan'
 import * as Location from 'expo-location'
 import { useEffect, useState } from 'react'
@@ -99,10 +100,10 @@ export default function Prieres() {
             if (status !== 'granted') { setErreur('Position refusée'); setLoading(false); return }
             const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
             const { latitude, longitude } = loc.coords
-            const geo = await Location.reverseGeocodeAsync({ latitude, longitude })
-            const countryCode = geo[0]?.isoCountryCode ?? 'FR'
-            const nomVille = geo[0]?.city ?? geo[0]?.region ?? ''
-            const nomPays = geo[0]?.country ?? ''
+            const geo = await geocoderInverse(latitude, longitude)
+            const countryCode = geo.isoCountryCode ?? 'FR'
+            const nomVille = geo.city ?? geo.region ?? ''
+            const nomPays = geo.country ?? ''
             setVille(nomVille && nomPays ? `${nomVille}, ${nomPays}` : nomVille || nomPays)
             setMethodeNom(getNomMethode(countryCode))
             try {
@@ -138,7 +139,7 @@ export default function Prieres() {
             ])
             setLoading(false)
         }
-        init()
+        init().catch(e => console.warn('init:', e))
     }, [])
 
     const now = nowMin()
