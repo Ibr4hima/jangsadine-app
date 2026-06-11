@@ -128,15 +128,11 @@ const ICONES: Record<string, ComponentType<{ size?: number; color?: string; stro
   Tahajjud: MoonStar,
 }
 
-// ─── icône personne en duaa (mains levées) ───────────────────
+// ─── icône mains jointes (Material Symbols folded_hands) ─────
 function IcoDuaa({ size = 20, color = '#d6ad3a' }: { size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle cx="12" cy="4" r="2.2" fill={color} />
-      <Path stroke={color} strokeWidth="2" strokeLinecap="round" fill="none"
-        d="M12 6.5 L12 14 M12 14 L10 20 M12 14 L14 20 M12 9 Q8.5 6 6 8 M12 9 Q15.5 6 18 8" />
-      <Circle cx="5.5" cy="8.5" r="1.5" fill={color} />
-      <Circle cx="18.5" cy="8.5" r="1.5" fill={color} />
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path fill={color} d="M620-320v-109l-45-81q-7 5-11 13t-4 17v229L663-80h-93l-90-148v-252q0-31 15-57t41-43l-56-99q-20-38-17.5-80.5T495-832l68-68 276 324 41 496h-80l-39-464-203-238-6 6q-10 10-11.5 23t4.5 25l155 278v130h-80Zm-360 0v-130l155-278q6-12 4.5-25T408-776l-6-6-203 238-39 464H80l41-496 276-324 68 68q30 30 32.5 72.5T480-679l-56 99q26 17 41 43t15 57v252L390-80h-93l103-171v-229q0-9-4-17t-11-13l-45 81v109h-80Z" />
     </Svg>
   )
 }
@@ -403,20 +399,13 @@ export default function Prieres() {
                         <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: '#fff' }}>
                           {p.nom}
                         </Text>
-                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>
-                          {p.cle === 'Tahajjud' ? 'Tahajjud — prière de la nuit' : 'Milieu de la nuit'}
+                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.or, marginTop: 2 }}>
+                          {p.cle === 'Tahajjud' ? 'Tahajjud — prière de la nuit' : "Fin de l'heure du Isha"}
                         </Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                        <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.or, fontVariant: ['tabular-nums'] }}>
-                          {p.heure}
-                        </Text>
-                        <View style={{ backgroundColor: 'rgba(214,173,58,0.22)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
-                          <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: 10, color: colors.or, letterSpacing: 0.4 }}>
-                            Indicateur
-                          </Text>
-                        </View>
-                      </View>
+                      <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.or, fontVariant: ['tabular-nums'] }}>
+                        {p.heure}
+                      </Text>
                     </LinearGradient>
                   </Animated.View>
                 )
