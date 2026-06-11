@@ -102,6 +102,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         soundRef.current = null
       }
       setPiste(p)
+      setLecteurOuvert(true)
       setFile(suivantes)
       setProgression(0)
       setTempsActuel(0)

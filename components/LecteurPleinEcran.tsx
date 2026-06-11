@@ -3,7 +3,7 @@ import { useAudio } from '@/contexts/AudioContext'
 import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Moon, Volume1, Volume2 } from 'lucide-react-native'
+import { Moon } from 'lucide-react-native'
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import {
     Dimensions,
@@ -30,16 +30,16 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 import TextTicker from 'react-native-text-ticker'
 
-// ─── palette : bleu du logo (#28558b) ─────────────────────────
-const BG_TOP  = '#33639F'
-const BG_MID  = '#28558b'
-const BG_BOT  = '#1B3C64'
+// ─── palette : bleu du logo (#2d578c) ─────────────────────────
+const BG_TOP  = '#3d6ba3'
+const BG_MID  = '#2d578c'
+const BG_BOT  = '#1c3d66'
 const W85     = 'rgba(255,255,255,0.85)'
 const W60     = 'rgba(255,255,255,0.60)'
 const W35     = 'rgba(255,255,255,0.35)'
 const W15     = 'rgba(255,255,255,0.15)'
 const W08     = 'rgba(255,255,255,0.08)'
-const OR_DIM  = 'rgba(217,172,42,0.22)'
+const OR_DIM  = 'rgba(214,173,58,0.22)'
 
 // ─── icons ────────────────────────────────────────────────────
 function IcoBack({ size = 36, color = '#fff' }: { size?: number; color?: string }) {
@@ -88,6 +88,21 @@ function IcoQueue({ size = 22, color = '#fff' }: { size?: number; color?: string
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
             <Path d="M560-160v-80h240v80H560Zm0-160v-80h240v80H560ZM120-560v-80h240v80H120Zm0-160v-80h240v80H120Zm160 520L120-360l56-56 104 104 264-264 56 56-320 320Zm280-120v-80h240v80H560Z" fill={color} />
+        </Svg>
+    )
+}
+
+function IcoVolumeMute({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M792-56 671-177q-25 16-53 27.5T560-131v-82q14-5 27.5-10t25.5-12L480-368v208L280-360H120v-240h128L56-792l56-56 736 736-56 56Zm-8-232-58-58q17-31 25.5-65t8.5-70q0-94-55-168T560-749v-82q124 28 202 125.5T840-500q0 53-14.5 102T784-288ZM650-422l-90-90v-130q47 22 73.5 66t26.5 96q0 15-2.5 29.5T650-422ZM480-592 376-696l104-104v208Zm-80 238v-94l-72-72H200v80h114l86 86Zm-36-130Z" fill={color} />
+        </Svg>
+    )
+}
+function IcoVolumeUp({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M560-131v-82q90-26 145-100t55-187q0-113-55-187T560-787v-82q124 28 202 125.5T840-500q0 127-78 224.5T560-131ZM120-360v-240h160l200-280v800L280-360H120Zm440 40v-362q47 22 73.5 66t26.5 96q0 51-26.5 94.5T560-320ZM400-606l-86 86H200v80h114l86 86v-252Zm-36 126Z" fill={color} />
         </Svg>
     )
 }
@@ -155,7 +170,7 @@ function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean })
             }, style]}>
                 <Image
                     source={require('../assets/images/logo.png')}
-                    style={{ width: ART_SIZE * 0.56, height: ART_SIZE * 0.56 }}
+                    style={{ width: ART_SIZE * 0.63, height: ART_SIZE * 0.63 }}
                     resizeMode="contain"
                 />
             </Animated.View>
@@ -301,58 +316,90 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
     )
 }
 
-// ─── Volume bar ────────────────────────────────────────────────
+// ─── Volume bar — 100% UI thread while dragging ───────────────
 function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number) => void }) {
-    const [local, setLocal] = useState(volume)
-    const [drag, setDrag] = useState(false)
-    const barW   = useRef(W - spacing.xl * 2 - 72)
-    const isDrag = useRef(false)
-    const lastT  = useRef(0)
+    const barW      = useSharedValue(W - spacing.xl * 2 - 72)
+    const vol       = useSharedValue(volume)
+    const scrubbing = useSharedValue(0)
+    const isDragging = useRef(false)
+    const lastChange = useRef(0)
 
-    useEffect(() => { if (!isDrag.current) setLocal(volume) }, [volume])
+    useEffect(() => {
+        if (!isDragging.current) vol.value = volume
+    }, [volume])
 
-    const vol = (x: number) => Math.max(0, Math.min(1, x / barW.current))
-    const send = (v: number, force = false) => {
-        setLocal(v)
+    const setDragging = (v: boolean) => { isDragging.current = v }
+    const hapticLight = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    const sendThrottled = (v: number) => {
         const now = Date.now()
-        if (force || now - lastT.current > 60) { lastT.current = now; onChange(v) }
+        if (now - lastChange.current > 50) { lastChange.current = now; onChange(v) }
     }
 
     const gesture = Gesture.Pan()
         .minDistance(0)
-        .runOnJS(true)
-        .onBegin(e => { isDrag.current = true; setDrag(true); send(vol(e.x)) })
-        .onUpdate(e => send(vol(e.x)))
-        .onEnd(e    => send(vol(e.x), true))
-        .onFinalize(() => { isDrag.current = false; setDrag(false) })
+        .onBegin(e => {
+            scrubbing.value = withTiming(1, { duration: 130 })
+            const v = clamp01(e.x / barW.value)
+            vol.value = v
+            runOnJS(setDragging)(true)
+            runOnJS(onChange)(v)
+        })
+        .onUpdate(e => {
+            const v = clamp01(e.x / barW.value)
+            vol.value = v
+            runOnJS(sendThrottled)(v)
+        })
+        .onEnd(e => {
+            const v = clamp01(e.x / barW.value)
+            vol.value = v
+            runOnJS(onChange)(v)
+            runOnJS(hapticLight)()
+        })
+        .onFinalize(() => {
+            scrubbing.value = withTiming(0, { duration: 180 })
+            runOnJS(setDragging)(false)
+        })
 
-    const H = drag ? 8 : 4
+    const trackStyle = useAnimatedStyle(() => {
+        const h = 4 + scrubbing.value * 6
+        return { height: h, borderRadius: h / 2 }
+    })
+
+    const fillStyle = useAnimatedStyle(() => ({
+        width: vol.value * barW.value,
+        backgroundColor: interpolateColor(scrubbing.value, [0, 1], ['rgba(255,255,255,0.7)', colors.or]),
+    }))
+
+    const thumbStyle = useAnimatedStyle(() => ({
+        opacity: scrubbing.value,
+        transform: [
+            { translateX: vol.value * barW.value - 9 },
+            { scale: 0.4 + scrubbing.value * 0.6 },
+        ],
+    }))
 
     return (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Volume1 size={18} color={W60} strokeWidth={2} />
+            <IcoVolumeMute size={20} color={W60} />
             <GestureDetector gesture={gesture}>
                 <View
-                    onLayout={e => { barW.current = e.nativeEvent.layout.width }}
+                    onLayout={e => { barW.value = e.nativeEvent.layout.width }}
                     style={{ flex: 1, height: 36, justifyContent: 'center' }}
                 >
-                    <View style={{ height: H, backgroundColor: W15, borderRadius: H/2, overflow: 'hidden' }}>
-                        <View style={{
-                            width: `${local * 100}%` as any,
-                            height: '100%', borderRadius: H/2,
-                            backgroundColor: drag ? '#fff' : 'rgba(255,255,255,0.7)',
-                        }} />
-                    </View>
-                    {drag && (
-                        <View style={{
-                            position: 'absolute', left: `${local * 100}%` as any,
-                            width: 14, height: 14, borderRadius: 7, backgroundColor: '#fff',
-                            marginLeft: -7,
-                        }} />
-                    )}
+                    <Animated.View style={[{ backgroundColor: W15, overflow: 'hidden' }, trackStyle]}>
+                        <Animated.View style={[{ height: '100%', borderRadius: 8 }, fillStyle]} />
+                    </Animated.View>
+                    <Animated.View style={[{
+                        position: 'absolute',
+                        width: 18, height: 18, borderRadius: 9,
+                        backgroundColor: colors.or,
+                        borderWidth: 2.5, borderColor: '#fff',
+                        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.35, shadowRadius: 5,
+                    }, thumbStyle]} />
                 </View>
             </GestureDetector>
-            <Volume2 size={18} color={W60} strokeWidth={2} />
+            <IcoVolumeUp size={20} color={W60} />
         </View>
     )
 }
