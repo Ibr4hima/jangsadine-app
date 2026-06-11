@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Audio, AVPlaybackStatus } from 'expo-av'
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 
@@ -104,6 +105,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setPiste(p)
       setLecteurOuvert(true)
       setFile(suivantes)
+      AsyncStorage.setItem('jsd_derniere_piste', JSON.stringify(p)).catch(() => {})
       setProgression(0)
       setTempsActuel(0)
       setDureeTotal(0)
