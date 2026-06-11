@@ -1,438 +1,492 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
+import * as Haptics from 'expo-haptics'
+import { LinearGradient } from 'expo-linear-gradient'
 import * as Location from 'expo-location'
+import { useRouter } from 'expo-router'
 import { Magnetometer } from 'expo-sensors'
+import { ArrowLeft } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
-import {
-  Animated, Dimensions, Easing, StyleSheet,
-  Text, View
-} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { Dimensions, Pressable, StatusBar, Text, View } from 'react-native'
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg'
 
 const { width } = Dimensions.get('window')
-const COMPASS_SIZE = width * 0.82
+const DIAL = width * 0.86
+const DIAL_R = DIAL / 2
 
-// Coordonnées de la Kaaba
 const KAABA_LAT = 21.4225
 const KAABA_LNG = 39.8262
 
-function calculerQibla(lat: number, lng: number): number {
-  const dLng = (KAABA_LNG - lng) * (Math.PI / 180)
-  const lat1 = lat * (Math.PI / 180)
-  const lat2 = KAABA_LAT * (Math.PI / 180)
-  const y = Math.sin(dLng) * Math.cos(lat2)
-  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng)
-  const bearing = Math.atan2(y, x) * (180 / Math.PI)
-  return (bearing + 360) % 360
+const BG_TOP = '#0d1b2e'
+const BG_MID = '#1a3050'
+const BG_BOT = '#2d578c'
+const W90 = 'rgba(255,255,255,0.90)'
+const W60 = 'rgba(255,255,255,0.60)'
+const W30 = 'rgba(255,255,255,0.30)'
+const W14 = 'rgba(255,255,255,0.14)'
+const W07 = 'rgba(255,255,255,0.07)'
+
+// ─── maths ───────────────────────────────────────────────────
+function qiblaFrom(lat: number, lng: number): number {
+  const dLng = (KAABA_LNG - lng) * Math.PI / 180
+  const φ1 = lat * Math.PI / 180
+  const φ2 = KAABA_LAT * Math.PI / 180
+  const y = Math.sin(dLng) * Math.cos(φ2)
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(dLng)
+  return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360
 }
 
-function normaliserAngle(angle: number): number {
-  return ((angle % 360) + 360) % 360
+function distanceTo(lat: number, lng: number): number {
+  const R = 6371
+  const dLat = (KAABA_LAT - lat) * Math.PI / 180
+  const dLng = (KAABA_LNG - lng) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat * Math.PI / 180) * Math.cos(KAABA_LAT * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
 }
 
-export default function Qibla() {
-  const [permission, setPermission] = useState<'idle' | 'granted' | 'denied'>('idle')
-  const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
+function norm(a: number) { return ((a % 360) + 360) % 360 }
+
+// ─── SVG : cadran avec graduations + points cardinaux ────────
+function DialSvg({ size }: { size: number }) {
+  const cx = size / 2, cy = size / 2
+  const OR = size / 2 - 5
+
+  const ticks: React.ReactElement[] = []
+  for (let i = 0; i < 72; i++) {
+    const deg = i * 5
+    const rad = (deg - 90) * Math.PI / 180
+    const major = deg % 90 === 0
+    const med = !major && deg % 45 === 0
+    const len = major ? 22 : med ? 14 : 7
+    const r1 = OR - len
+    const r2 = OR
+    ticks.push(
+      <Line key={i}
+        x1={cx + r1 * Math.cos(rad)} y1={cy + r1 * Math.sin(rad)}
+        x2={cx + r2 * Math.cos(rad)} y2={cy + r2 * Math.sin(rad)}
+        stroke={major ? W90 : med ? W60 : W30}
+        strokeWidth={major ? 2.5 : 1.5}
+        strokeLinecap="round"
+      />
+    )
+  }
+
+  const LR = OR - 34
+  const DIRS: { l: string; deg: number; color: string; fs: number; fw: 'bold' | 'normal' }[] = [
+    { l: 'N', deg: 0, color: colors.or, fs: 16, fw: 'bold' },
+    { l: 'NE', deg: 45, color: W60, fs: 9, fw: 'normal' },
+    { l: 'E', deg: 90, color: W90, fs: 13, fw: 'bold' },
+    { l: 'SE', deg: 135, color: W60, fs: 9, fw: 'normal' },
+    { l: 'S', deg: 180, color: W90, fs: 13, fw: 'bold' },
+    { l: 'SO', deg: 225, color: W60, fs: 9, fw: 'normal' },
+    { l: 'O', deg: 270, color: W90, fs: 13, fw: 'bold' },
+    { l: 'NO', deg: 315, color: W60, fs: 9, fw: 'normal' },
+  ]
+
+  return (
+    <Svg width={size} height={size} style={{ position: 'absolute' }}>
+      {ticks}
+      {DIRS.map(({ l, deg, color, fs, fw }) => {
+        const rad = (deg - 90) * Math.PI / 180
+        return (
+          <SvgText key={l}
+            x={cx + LR * Math.cos(rad)} y={cy + LR * Math.sin(rad) + fs * 0.37}
+            textAnchor="middle"
+            fill={color} fontSize={fs} fontWeight={fw}
+          >{l}</SvgText>
+        )
+      })}
+    </Svg>
+  )
+}
+
+// ─── SVG : aiguille diamant ───────────────────────────────────
+function NeedleSvg({ size, aligne }: { size: number; aligne: boolean }) {
+  const cx = size / 2, cy = size / 2
+  const hw = size * 0.044
+  const tipT = cy - size * 0.33
+  const tipB = cy + size * 0.23
+
+  return (
+    <Svg width={size} height={size} style={{ position: 'absolute' }}>
+      {/* Pointe dorée vers la Qibla */}
+      <Path
+        d={`M ${cx} ${tipT} L ${cx + hw * 2.4} ${cy} L ${cx} ${cy - hw * 1.4} L ${cx - hw * 2.4} ${cy} Z`}
+        fill={aligne ? '#ffffff' : colors.or}
+      />
+      {/* Contrepoids semi-transparent */}
+      <Path
+        d={`M ${cx} ${tipB} L ${cx + hw * 1.8} ${cy} L ${cx} ${cy - hw * 1.4} L ${cx - hw * 1.8} ${cy} Z`}
+        fill={W30}
+      />
+      {/* Centre */}
+      <Circle cx={cx} cy={cy} r={hw * 2.4} fill={aligne ? colors.or : W90} />
+      <Circle cx={cx} cy={cy} r={hw * 1.1} fill={BG_MID} />
+    </Svg>
+  )
+}
+
+export default function QiblaPage() {
+  const router = useRouter()
+  const insets = useSafeAreaInsets()
+
+  const [perm, setPerm] = useState<'idle' | 'granted' | 'denied'>('idle')
+  const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null)
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null)
+  const [distance, setDistance] = useState<number | null>(null)
   const [boussole, setBoussole] = useState(0)
   const [aligne, setAligne] = useState(false)
 
-  const rotationAnim = useRef(new Animated.Value(0)).current
-  const aiguilleAnim = useRef(new Animated.Value(0)).current
-  const pulseAnim = useRef(new Animated.Value(1)).current
-  const prevBoussole = useRef(0)
-  const prevAiguille = useRef(0)
+  const lastHaptic = useRef(0)
+  const prevDial = useRef(0)
+  const prevNeedle = useRef(0)
 
-  // Pulse quand aligné
+  const dialRot = useSharedValue(0)
+  const needleRot = useSharedValue(0)
+  const glowOpacity = useSharedValue(0)
+  const glowScale = useSharedValue(1)
+  const pulseScale = useSharedValue(1)
+
+  // Glow + haptic quand aligné
   useEffect(() => {
     if (aligne) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.08, duration: 600, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-        ])
-      ).start()
+      glowOpacity.value = withTiming(1, { duration: 350 })
+      glowScale.value = withTiming(1.045, { duration: 600 })
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.015, { duration: 700 }),
+          withTiming(1, { duration: 700 }),
+        ),
+        -1,
+        true,
+      )
+      const now = Date.now()
+      if (now - lastHaptic.current > 2200) {
+        lastHaptic.current = now
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      }
     } else {
-      pulseAnim.stopAnimation()
-      pulseAnim.setValue(1)
+      glowOpacity.value = withTiming(0, { duration: 300 })
+      glowScale.value = withTiming(1, { duration: 400 })
+      pulseScale.value = withTiming(1, { duration: 200 })
     }
   }, [aligne])
 
-  // Permission + position GPS
+  // GPS + angle Qibla
   useEffect(() => {
     async function init() {
       const { status } = await Location.requestForegroundPermissionsAsync()
-      if (status !== 'granted') { setPermission('denied'); return }
-      setPermission('granted')
+      if (status !== 'granted') { setPerm('denied'); return }
+      setPerm('granted')
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
-      const lat = loc.coords.latitude
-      const lng = loc.coords.longitude
-      setPosition({ lat, lng })
-      setQiblaAngle(calculerQibla(lat, lng))
+      const { latitude: lat, longitude: lng } = loc.coords
+      setPos({ lat, lng })
+      setQiblaAngle(qiblaFrom(lat, lng))
+      setDistance(distanceTo(lat, lng))
     }
-    init().catch(e => console.warn('init:', e))
+    init().catch(e => console.warn('qibla init:', e))
   }, [])
 
   // Magnétomètre
   useEffect(() => {
-    Magnetometer.setUpdateInterval(100)
+    Magnetometer.setUpdateInterval(80)
     const sub = Magnetometer.addListener(({ x, y }) => {
-      let angle = Math.atan2(y, x) * (180 / Math.PI)
-      angle = normaliserAngle(-angle)
-      setBoussole(angle)
+      setBoussole(norm(-Math.atan2(y, x) * 180 / Math.PI))
     })
     return () => sub.remove()
   }, [])
 
-  // Animation boussole (rose)
+  // Rotation du cadran (rose des vents)
   useEffect(() => {
-    let delta = boussole - prevBoussole.current
+    let delta = boussole - prevDial.current
     if (delta > 180) delta -= 360
     if (delta < -180) delta += 360
-    const next = prevBoussole.current + delta
-    prevBoussole.current = next
-    Animated.timing(rotationAnim, {
-      toValue: -next,
-      duration: 150,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start()
+    prevDial.current += delta
+    dialRot.value = withTiming(-prevDial.current, { duration: 110, easing: Easing.out(Easing.quad) })
   }, [boussole])
 
-  // Animation aiguille Qibla
+  // Rotation de l'aiguille Qibla
   useEffect(() => {
     if (qiblaAngle === null) return
-    const aiguille = normaliserAngle(qiblaAngle - boussole)
-    let delta = aiguille - prevAiguille.current
+    const target = norm(qiblaAngle - boussole)
+    let delta = target - prevNeedle.current
     if (delta > 180) delta -= 360
     if (delta < -180) delta += 360
-    const next = prevAiguille.current + delta
-    prevAiguille.current = next
-    Animated.timing(aiguilleAnim, {
-      toValue: next,
-      duration: 150,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start()
-
-    // Détecter alignement (±3°)
-    const diff = Math.abs(((aiguille + 180) % 360) - 180)
-    setAligne(diff < 3)
+    prevNeedle.current += delta
+    needleRot.value = withTiming(prevNeedle.current, { duration: 110, easing: Easing.out(Easing.quad) })
+    setAligne(target < 3.5 || target > 356.5)
   }, [boussole, qiblaAngle])
 
-  const rotationCompass = rotationAnim.interpolate({
-    inputRange: [-360, 360],
-    outputRange: ['-360deg', '360deg'],
-  })
-  const rotationAiguille = aiguilleAnim.interpolate({
-    inputRange: [-360, 360],
-    outputRange: ['-360deg', '360deg'],
-  })
+  const dialStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${dialRot.value}deg` }],
+  }))
+  const needleStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${needleRot.value}deg` }],
+  }))
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+    transform: [{ scale: glowScale.value }],
+  }))
+  const compassWrapStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }))
 
-  // ── Écran permission refusée ──
-  if (permission === 'denied') {
+  // ── Permission refusée ───────────────────────────────────────
+  if (perm === 'denied') {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.centré}>
-          <Text style={styles.emoji}>📍</Text>
-          <Text style={styles.titre}>Accès refusé</Text>
-          <Text style={styles.sousTitre}>
-            Active la localisation dans les réglages pour utiliser la Qibla.
-          </Text>
-        </View>
-      </SafeAreaView>
+      <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
+        <StatusBar barStyle="light-content" />
+        <Text style={{ fontSize: 52, marginBottom: spacing.lg }}>📍</Text>
+        <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: W90, marginBottom: spacing.sm, textAlign: 'center' }}>
+          Accès refusé
+        </Text>
+        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W60, textAlign: 'center', lineHeight: 22 }}>
+          Autorise la localisation dans les réglages pour utiliser la Qibla.
+        </Text>
+      </LinearGradient>
     )
   }
 
-  // ── Chargement ──
-  if (!position || qiblaAngle === null) {
+  // ── Chargement ───────────────────────────────────────────────
+  if (!pos || qiblaAngle === null) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.centré}>
-          <Text style={styles.emoji}>🧭</Text>
-          <Text style={styles.titre}>Calcul en cours…</Text>
-          <Text style={styles.sousTitre}>Détection de ta position GPS</Text>
-        </View>
-      </SafeAreaView>
+      <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
+        <StatusBar barStyle="light-content" />
+        <Text style={{ fontSize: 52, marginBottom: spacing.lg }}>🧭</Text>
+        <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: W90, marginBottom: spacing.sm }}>
+          Calcul en cours…
+        </Text>
+        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W60 }}>
+          Détection de votre position GPS
+        </Text>
+      </LinearGradient>
     )
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} locations={[0, 0.45, 1]} style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.labelOr}>Direction de prière</Text>
-        <Text style={styles.titreHeader}>Qibla</Text>
+      {/* ── Header ── */}
+      <View style={{
+        paddingTop: insets.top + spacing.sm,
+        paddingHorizontal: spacing.xl,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingBottom: spacing.md,
+      }}>
+        <Pressable
+          onPress={() => {
+            Haptics.selectionAsync()
+            router.canGoBack() ? router.back() : router.push('/' as any)
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={({ pressed }) => ({
+            width: 40, height: 40, borderRadius: 20,
+            backgroundColor: W07, borderWidth: 1, borderColor: W30,
+            alignItems: 'center', justifyContent: 'center',
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <ArrowLeft size={20} color="#fff" strokeWidth={2.2} />
+        </Pressable>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: '#fff' }}>
+            Qibla
+          </Text>
+          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: W60 }}>
+            Direction de La Mecque
+          </Text>
+        </View>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Boussole */}
-      <View style={styles.boussoleContainer}>
-        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      {/* ── Indicateur de cap en direct ── */}
+      <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
+        <Text style={{
+          fontFamily: typography.fontFamily.bold,
+          fontSize: 52,
+          color: aligne ? colors.or : W90,
+          fontVariant: ['tabular-nums'],
+          lineHeight: 58,
+        }}>
+          {Math.round(boussole)}°
+        </Text>
+        <Text style={{
+          fontFamily: typography.fontFamily.regular,
+          fontSize: typography.size.xs,
+          color: aligne ? colors.or : W60,
+          letterSpacing: 1.4,
+          textTransform: 'uppercase',
+        }}>
+          Cap actuel
+        </Text>
+      </View>
 
-          {/* Cercle extérieur */}
-          <View style={[styles.cercleBord, aligne && styles.cercleBordAligne]}>
+      {/* ── Boussole ── */}
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <Animated.View style={compassWrapStyle}>
+          <View style={{ width: DIAL, height: DIAL }}>
 
-            {/* Rose des vents animée */}
-            <Animated.View style={[styles.roseContainer, { transform: [{ rotate: rotationCompass }] }]}>
-              {/* Points cardinaux */}
-              {[
-                { label: 'N', angle: 0 },
-                { label: 'E', angle: 90 },
-                { label: 'S', angle: 180 },
-                { label: 'O', angle: 270 },
-              ].map(({ label, angle }) => (
-                <View
-                  key={label}
-                  style={[styles.cardinal, { transform: [{ rotate: `${angle}deg` }, { translateY: -(COMPASS_SIZE / 2 - 24) }] }]}
-                >
-                  <Text style={[styles.cardinalTxt, label === 'N' && styles.cardinalN]}>
-                    {label}
-                  </Text>
-                </View>
-              ))}
+            {/* Halo doré quand aligné */}
+            <Animated.View style={[{
+              position: 'absolute',
+              top: -10, left: -10, right: -10, bottom: -10,
+              borderRadius: (DIAL + 20) / 2,
+              borderWidth: 2,
+              borderColor: colors.or,
+              shadowColor: colors.or,
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.8,
+              shadowRadius: 20,
+              elevation: 0,
+            }, glowStyle]} />
 
-              {/* Graduations */}
-              {Array.from({ length: 72 }).map((_, i) => {
-                const isMajor = i % 9 === 0
-                return (
-                  <View
-                    key={i}
-                    style={[
-                      styles.graduation,
-                      {
-                        height: isMajor ? 12 : 6,
-                        opacity: isMajor ? 0.5 : 0.2,
-                        transform: [
-                          { rotate: `${i * 5}deg` },
-                          { translateY: -(COMPASS_SIZE / 2 - 8) },
-                        ],
-                      },
-                    ]}
-                  />
-                )
-              })}
+            {/* Anneau extérieur */}
+            <View style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              borderRadius: DIAL_R,
+              borderWidth: 1.5,
+              borderColor: aligne ? colors.or : W30,
+            }} />
+
+            {/* Disque intérieur (verre dépoli) */}
+            <View style={{
+              position: 'absolute', top: 14, left: 14, right: 14, bottom: 14,
+              borderRadius: (DIAL - 28) / 2,
+              backgroundColor: W07,
+              borderWidth: 1,
+              borderColor: W14,
+            }} />
+
+            {/* Cadran rotatif (graduations + cardinaux) */}
+            <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, dialStyle]}>
+              <DialSvg size={DIAL} />
             </Animated.View>
 
-            {/* Aiguille Qibla */}
-            <Animated.View style={[styles.aiguilleContainer, { transform: [{ rotate: rotationAiguille }] }]}>
-              <View style={styles.aiguille}>
-                {/* Pointe vers Qibla */}
-                <View style={[styles.aiguilleHaut, aligne && styles.aiguillеAligne]} />
-                <View style={styles.aiguilleBas} />
-              </View>
+            {/* Indicateur Nord fixe (triangle doré en haut) */}
+            <View style={{
+              position: 'absolute',
+              top: 18,
+              left: DIAL_R - 6,
+              width: 12, height: 12,
+            }}>
+              <Svg width={12} height={12} viewBox="0 0 12 12">
+                <Path d="M 6 0 L 12 12 L 0 12 Z" fill={colors.or} opacity={0.9} />
+              </Svg>
+            </View>
+
+            {/* Aiguille Qibla (tourne vers La Mecque) */}
+            <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, needleStyle]}>
+              <NeedleSvg size={DIAL} aligne={aligne} />
             </Animated.View>
 
-            {/* Centre */}
-            <View style={[styles.centre, aligne && styles.centreAligne]}>
-              <Text style={styles.kaaba}>🕋</Text>
+            {/* Centre Kaaba */}
+            <View style={{
+              position: 'absolute',
+              top: DIAL_R - 27,
+              left: DIAL_R - 27,
+              width: 54, height: 54,
+              borderRadius: 27,
+              backgroundColor: aligne ? colors.or : BG_MID,
+              borderWidth: 2,
+              borderColor: aligne ? 'rgba(255,255,255,0.5)' : W30,
+              alignItems: 'center', justifyContent: 'center',
+              shadowColor: aligne ? colors.or : '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.5,
+              shadowRadius: 10,
+              elevation: 8,
+            }}>
+              <Text style={{ fontSize: 24 }}>🕋</Text>
             </View>
 
           </View>
         </Animated.View>
       </View>
 
-      {/* Infos bas */}
-      <View style={styles.infos}>
+      {/* ── Badge alignement ── */}
+      <View style={{ alignItems: 'center', marginVertical: spacing.lg }}>
         {aligne ? (
-          <View style={styles.alignéBadge}>
-            <Text style={styles.alignéTxt}>✓ Direction correcte</Text>
+          <View style={{
+            backgroundColor: 'rgba(214,173,58,0.14)',
+            borderRadius: radius.full,
+            paddingHorizontal: spacing.xl, paddingVertical: spacing.sm + 2,
+            borderWidth: 1.5, borderColor: colors.or,
+            flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+          }}>
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.base, color: colors.or }}>
+              ✓  Face à la Qibla
+            </Text>
           </View>
         ) : (
-          <View style={styles.angleBadge}>
-            <Text style={styles.angleTxt}>
-              {Math.round(qiblaAngle)}° depuis le Nord
+          <View style={{
+            backgroundColor: W07,
+            borderRadius: radius.full,
+            paddingHorizontal: spacing.xl, paddingVertical: spacing.sm + 2,
+            borderWidth: 1, borderColor: W30,
+          }}>
+            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.base, color: W60 }}>
+              Tournez-vous vers la Qibla
             </Text>
           </View>
         )}
-
-        <Text style={styles.coords}>
-          {position.lat.toFixed(4)}°N · {position.lng.toFixed(4)}°E
-        </Text>
       </View>
 
-    </SafeAreaView>
+      {/* ── Barre d'infos ── */}
+      <View style={{
+        flexDirection: 'row',
+        marginHorizontal: spacing.xl,
+        marginBottom: insets.bottom + spacing.xl,
+        backgroundColor: W07,
+        borderRadius: radius.xl,
+        borderWidth: 1,
+        borderColor: W14,
+        overflow: 'hidden',
+      }}>
+        {([
+          { label: 'Qibla', value: `${Math.round(qiblaAngle)}°` },
+          { label: 'Distance', value: `${distance!.toLocaleString()} km` },
+          { label: 'Coordonnées', value: `${pos.lat.toFixed(2)}°, ${pos.lng.toFixed(2)}°` },
+        ] as const).map((item, i, arr) => (
+          <View key={item.label} style={{
+            flex: 1,
+            alignItems: 'center',
+            paddingVertical: spacing.lg,
+            borderRightWidth: i < arr.length - 1 ? 1 : 0,
+            borderRightColor: W14,
+          }}>
+            <Text style={{
+              fontFamily: typography.fontFamily.bold,
+              fontSize: i === 2 ? typography.size.sm : typography.size.md,
+              color: W90,
+              marginBottom: 3,
+              fontVariant: ['tabular-nums'],
+            }}>
+              {item.value}
+            </Text>
+            <Text style={{
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.size.xs,
+              color: W60,
+              letterSpacing: 0.8,
+              textTransform: 'uppercase',
+            }}>
+              {item.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+    </LinearGradient>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.fondCreme,
-  },
-  centré: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  emoji: {
-    fontSize: 48,
-    marginBottom: spacing.lg,
-  },
-  titre: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size['2xl'],
-    color: colors.texte,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  sousTitre: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.base,
-    color: colors.texteMuted,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  header: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
-  labelOr: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size.xs,
-    letterSpacing: 2,
-    color: colors.or,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  titreHeader: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.size['2xl'],
-    color: colors.texte,
-  },
-  boussoleContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cercleBord: {
-    width: COMPASS_SIZE,
-    height: COMPASS_SIZE,
-    borderRadius: COMPASS_SIZE / 2,
-    borderWidth: 2,
-    borderColor: colors.bordure,
-    backgroundColor: colors.blanc,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  cercleBordAligne: {
-    borderColor: '#2d7a4f',
-    borderWidth: 3,
-    shadowColor: '#2d7a4f',
-    shadowOpacity: 0.2,
-  },
-  roseContainer: {
-    position: 'absolute',
-    width: COMPASS_SIZE,
-    height: COMPASS_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardinal: {
-    position: 'absolute',
-  },
-  cardinalTxt: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: 13,
-    color: colors.texteMuted,
-  },
-  cardinalN: {
-    color: colors.bleu,
-    fontSize: 15,
-  },
-  graduation: {
-    position: 'absolute',
-    width: 1.5,
-    backgroundColor: colors.texte,
-    borderRadius: 1,
-  },
-  aiguilleContainer: {
-    position: 'absolute',
-    width: COMPASS_SIZE,
-    height: COMPASS_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiguille: {
-    position: 'absolute',
-    alignItems: 'center',
-    height: COMPASS_SIZE * 0.6,
-    justifyContent: 'center',
-  },
-  aiguilleHaut: {
-    width: 4,
-    height: COMPASS_SIZE * 0.27,
-    backgroundColor: colors.or,
-    borderRadius: 2,
-    marginBottom: 2,
-  },
-  aiguillеAligne: {
-    backgroundColor: '#2d7a4f',
-  },
-  aiguilleBas: {
-    width: 4,
-    height: COMPASS_SIZE * 0.27,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    borderRadius: 2,
-    marginTop: 2,
-  },
-  centre: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.fondCreme,
-    borderWidth: 2,
-    borderColor: colors.bordure,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centreAligne: {
-    borderColor: '#2d7a4f',
-    backgroundColor: '#eaf4ee',
-  },
-  kaaba: {
-    fontSize: 22,
-  },
-  infos: {
-    alignItems: 'center',
-    paddingBottom: spacing['3xl'],
-    gap: spacing.sm,
-  },
-  alignéBadge: {
-    backgroundColor: '#eaf4ee',
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: '#2d7a4f',
-  },
-  alignéTxt: {
-    fontFamily: typography.fontFamily.semibold,
-    fontSize: typography.size.base,
-    color: '#2d7a4f',
-  },
-  angleBadge: {
-    backgroundColor: colors.blanc,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.bordure,
-  },
-  angleTxt: {
-    fontFamily: typography.fontFamily.semibold,
-    fontSize: typography.size.base,
-    color: colors.texte,
-  },
-  coords: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.size.xs,
-    color: colors.texteMuted,
-  },
-})
