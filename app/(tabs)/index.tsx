@@ -12,7 +12,6 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { ReactNode, useCallback, useEffect, useState } from 'react'
 import {
   Dimensions,
-  Image,
   Pressable,
   ScrollView,
   StatusBar,
@@ -122,6 +121,17 @@ function capitaliser(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+// ─── ayahs pour le carrousel ─────────────────────────────────
+const AYAHS = [
+  { ar: 'اقْرَأْ بِاسْمِ رَبِّكَ الَّذِي خَلَقَ', fr: 'Lis au nom de ton Seigneur qui a créé.', ref: 'Al-ʿAlaq · 96:1' },
+  { ar: 'وَقُل رَّبِّ زِدْنِي عِلْمًا', fr: 'Dis : Seigneur, augmente mes connaissances.', ref: 'Ṭā Hā · 20:114' },
+  { ar: 'إِنَّمَا يَخْشَى اللَّهَ مِنْ عِبَادِهِ الْعُلَمَاءُ', fr: 'Parmi Ses serviteurs, seuls les savants craignent réellement Allah.', ref: 'Fāṭir · 35:28' },
+  { ar: 'يَرْفَعِ اللَّهُ الَّذِينَ آمَنُوا مِنكُمْ وَالَّذِينَ أُوتُوا الْعِلْمَ دَرَجَاتٍ', fr: 'Allah élève de nombreux degrés ceux qui ont cru et ceux qui ont reçu le savoir.', ref: 'Al-Mujādala · 58:11' },
+  { ar: 'وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا', fr: 'Ceux qui luttent pour Nous, Nous les guidons vers Nos voies.', ref: 'Al-ʿAnkabūt · 29:69' },
+  { ar: 'فَاعْلَمْ أَنَّهُ لَا إِلَٰهَ إِلَّا اللَّهُ', fr: 'Sache qu\'il n\'y a point de divinité digne d\'adoration, sinon Allah.', ref: 'Muḥammad · 47:19' },
+  { ar: 'إِنَّ هَٰذَا الْقُرْآنَ يَهْدِي لِلَّتِي هِيَ أَقْوَمُ', fr: 'Ce Coran guide vers ce qu\'il y a de plus droit.', ref: 'Al-Isrāʾ · 17:9' },
+]
+
 // ─── hadith du jour ───────────────────────────────────────────
 const HADITHS = [
   { texte: 'Les actions ne valent que par les intentions, et chacun n\'a pour lui que ce qu\'il a eu réellement l\'intention de faire.', source: 'Boukhari & Mouslim' },
@@ -225,34 +235,18 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
       <View style={{ position: 'absolute', width: 380, height: 380, borderRadius: 190, backgroundColor: 'rgba(140,180,230,0.13)', top: -160, right: -120 }} />
       <View style={{ position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(214,173,58,0.08)', bottom: -120, left: -90 }} />
 
-      <View style={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl + 26 }}>
+      <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl + 26 }}>
 
-        {/* salutation + logo */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: '#fff' }}>
-              Assalāmu ʿalaykum
+        {/* date */}
+        <View style={{ marginBottom: spacing.lg }}>
+          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: '#fff', letterSpacing: -0.2 }}>
+            {dateFr}
+          </Text>
+          {dateHijri ? (
+            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W55, marginTop: 3, letterSpacing: 0.3 }}>
+              {dateHijri}
             </Text>
-            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70, marginTop: 4 }}>
-              {dateFr}{dateHijri ? `  ·  ${dateHijri}` : ''}
-            </Text>
-          </View>
-          <View style={{
-            width: 46, height: 46, borderRadius: 23, backgroundColor: '#fff',
-            alignItems: 'center', justifyContent: 'center',
-            shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
-          }}>
-            <Image source={require('../../assets/images/logo.png')} style={{ width: 32, height: 32 }} resizeMode="contain" />
-          </View>
-        </View>
-
-        {/* basmallah */}
-        <View style={{ alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.md }}>
-          <Image
-            source={require('../../assets/images/basmallah.png')}
-            style={{ width: W * 0.52, height: 42, tintColor: 'rgba(255,255,255,0.92)' }}
-            resizeMode="contain"
-          />
+          ) : null}
         </View>
 
         {/* carte prière */}
@@ -390,23 +384,26 @@ function CarteReprendre() {
 
 // ─── accès rapide ─────────────────────────────────────────────
 const SECTIONS = [
-  { label: 'Cours audio', sub: 'Apprendre en écoutant', icon: IcoHeadphones, href: '/audio', bg: '#e8f0f8', tint: '#2d578c' },
-  { label: 'Prières', sub: 'Horaires & rappels', icon: IcoMosque, href: '/(tabs)/prieres', bg: '#eaf4ee', tint: '#2d7a4f' },
-  { label: 'Mon programme', sub: 'Suivi personnalisé', icon: IcoBook, href: '/programme', bg: '#faf3dc', tint: '#b8911f' },
-  { label: 'Qibla', sub: 'Direction de la Mecque', icon: IcoCompass, href: '/qibla', bg: '#f2eefa', tint: '#6b3db5' },
+  { label: 'Cours audio',    icon: IcoHeadphones, href: '/audio'           },
+  { label: 'Prières',        icon: IcoMosque,     href: '/(tabs)/prieres'  },
+  { label: 'Mon programme',  icon: IcoBook,       href: '/programme'       },
+  { label: 'Qibla',          icon: IcoCompass,    href: '/qibla'           },
 ]
 
 const RACCOURCIS = [
-  { label: 'Coran', icon: IcoQuran, href: '/coran' },
-  { label: 'Notes', icon: IcoNotes, href: '/notes' },
-  { label: 'Téléchargements', icon: IcoDownload, href: '/telechargements' },
-  { label: 'Paramètres', icon: IcoSettings, href: '/parametres' },
+  { label: 'Coran',           icon: IcoQuran,    href: '/coran'          },
+  { label: 'Notes',           icon: IcoNotes,    href: '/notes'          },
+  { label: 'Téléchargements', icon: IcoDownload, href: '/telechargements'},
+  { label: 'Paramètres',      icon: IcoSettings, href: '/parametres'     },
 ]
 
 function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
   const CARD_W = (W - spacing.xl * 2 - spacing.md) / 2
   return (
     <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.xl }}>
+      <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte, marginBottom: spacing.md }}>
+        Accès rapide
+      </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
         {SECTIONS.map((s, i) => {
           const Icon = s.icon
@@ -416,25 +413,26 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
                 width: CARD_W,
                 backgroundColor: colors.blanc,
                 borderRadius: radius.xl + 4,
-                padding: spacing.lg,
-                gap: spacing.md,
+                paddingVertical: spacing.xl,
+                paddingHorizontal: spacing.md,
+                alignItems: 'center',
+                gap: spacing.sm,
                 shadowColor: '#3a4a5c',
                 shadowOffset: { width: 0, height: 8 },
                 shadowOpacity: 0.07,
                 shadowRadius: 18,
                 elevation: 4,
               }}>
-                <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: s.bg, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon size={24} color={s.tint} />
+                <View style={{
+                  width: 54, height: 54, borderRadius: 18,
+                  backgroundColor: '#dce8f5',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icon size={26} color={colors.bleu} />
                 </View>
-                <View>
-                  <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: colors.texte }}>
-                    {s.label}
-                  </Text>
-                  <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.texteMuted, marginTop: 3 }}>
-                    {s.sub}
-                  </Text>
-                </View>
+                <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte, textAlign: 'center' }}>
+                  {s.label}
+                </Text>
               </PressableScale>
             </Animated.View>
           )
@@ -471,12 +469,55 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
   )
 }
 
+// ─── ayah du jour ─────────────────────────────────────────────
+function AyahDuJour() {
+  const jour = Math.floor(Date.now() / 86400000)
+  const a = AYAHS[jour % AYAHS.length]
+  return (
+    <Animated.View entering={FadeInDown.duration(500).delay(460)} style={{ paddingHorizontal: spacing.xl }}>
+      <View style={{
+        backgroundColor: colors.bleu,
+        borderRadius: radius.xl + 4,
+        padding: spacing.xl,
+        overflow: 'hidden',
+        shadowColor: colors.bleu,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 20,
+        elevation: 6,
+      }}>
+        {/* brume décorative */}
+        <View style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)', top: -70, right: -70 }} />
+        <View style={{ position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.04)', bottom: -50, left: -40 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
+          <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: colors.or, alignItems: 'center', justifyContent: 'center' }}>
+            <IcoQuran size={14} color="#1c3d66" />
+          </View>
+          <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.or, letterSpacing: 1.4, textTransform: 'uppercase' }}>
+            Verset du jour
+          </Text>
+        </View>
+        <Text style={{ fontFamily: typography.fontFamily.arabic, fontSize: 26, color: '#fff', textAlign: 'right', lineHeight: 50, marginBottom: spacing.md }}>
+          {a.ar}
+        </Text>
+        <View style={{ height: 1, backgroundColor: W18, marginBottom: spacing.md }} />
+        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W90, lineHeight: 23, fontStyle: 'italic' }}>
+          « {a.fr} »
+        </Text>
+        <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.or, marginTop: spacing.sm, letterSpacing: 0.6 }}>
+          {a.ref}
+        </Text>
+      </View>
+    </Animated.View>
+  )
+}
+
 // ─── hadith du jour ───────────────────────────────────────────
 function HadithDuJour() {
   const jour = Math.floor(Date.now() / 86400000)
   const h = HADITHS[jour % HADITHS.length]
   return (
-    <Animated.View entering={FadeInDown.duration(500).delay(480)} style={{ paddingHorizontal: spacing.xl }}>
+    <Animated.View entering={FadeInDown.duration(500).delay(520)} style={{ paddingHorizontal: spacing.xl }}>
       <View style={{
         backgroundColor: colors.blanc,
         borderRadius: radius.xl + 4,
@@ -485,12 +526,12 @@ function HadithDuJour() {
         borderLeftColor: colors.or,
         shadowColor: '#3a4a5c',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.07,
+        shadowOpacity: 0.06,
         shadowRadius: 18,
-        elevation: 4,
+        elevation: 3,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-          <IcoQuote size={22} color={colors.or} />
+          <IcoQuote size={20} color={colors.or} />
           <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.orFonce, letterSpacing: 1.2, textTransform: 'uppercase' }}>
             Hadith du jour
           </Text>
@@ -639,13 +680,16 @@ export default function Accueil() {
           }}>
             <IcoSearch size={19} color={colors.bleu} />
             <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: '#9aa3ad', flex: 1 }}>
-              Rechercher un cours, un sheikh...
+              Rechercher...
             </Text>
           </PressableScale>
         </Animated.View>
 
         <CarteReprendre />
         <AccesRapide onNav={naviguer} />
+        <View style={{ height: spacing.xl }} />
+        <AyahDuJour />
+        <View style={{ height: spacing.md }} />
         <HadithDuJour />
         <Decouvrir onNav={naviguer} />
       </ScrollView>
