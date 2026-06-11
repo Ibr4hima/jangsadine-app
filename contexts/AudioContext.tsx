@@ -19,6 +19,9 @@ type AudioContextType = {
   tempsActuel: number
   dureeTotal: number
   vitesse: number
+  volume: number
+  lecteurOuvert: boolean
+  setLecteurOuvert: (v: boolean) => void
   jouer: (p: Piste, suivantes?: Piste[]) => void
   pause: () => void
   reprendre: () => void
@@ -26,6 +29,7 @@ type AudioContextType = {
   avancer: (sec: number) => void
   reculer: (sec: number) => void
   changerVitesse: (v: number) => void
+  changerVolume: (v: number) => void
   pisterSuivante: () => void
   pistePrecedente: () => void
   file: Piste[]
@@ -48,6 +52,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [tempsActuel, setTempsActuel] = useState(0)
   const [dureeTotal, setDureeTotal] = useState(0)
   const [vitesse, setVitesse] = useState(1)
+  const [volume, setVolume] = useState(1)
+  const [lecteurOuvert, setLecteurOuvert] = useState(false)
 
   useEffect(() => {
     Audio.setAudioModeAsync({
@@ -132,12 +138,23 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const avancer = useCallback(async (sec: number) => {
     if (!soundRef.current) return
-    await soundRef.current.setPositionAsync(Math.min((tempsRef.current + sec) * 1000, dureeRef.current * 1000))
+    const newTime = Math.min(tempsRef.current + sec, dureeRef.current)
+    setTempsActuel(newTime)
+    if (dureeRef.current > 0) setProgression((newTime / dureeRef.current) * 100)
+    await soundRef.current.setPositionAsync(newTime * 1000)
   }, [])
 
   const reculer = useCallback(async (sec: number) => {
     if (!soundRef.current) return
-    await soundRef.current.setPositionAsync(Math.max((tempsRef.current - sec) * 1000, 0))
+    const newTime = Math.max(tempsRef.current - sec, 0)
+    setTempsActuel(newTime)
+    if (dureeRef.current > 0) setProgression((newTime / dureeRef.current) * 100)
+    await soundRef.current.setPositionAsync(newTime * 1000)
+  }, [])
+
+  const changerVolume = useCallback(async (v: number) => {
+    setVolume(v)
+    await soundRef.current?.setVolumeAsync(v)
   }, [])
 
   const changerVitesse = useCallback(async (v: number) => {
@@ -158,9 +175,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AudioCtx.Provider value={{
-      piste, enLecture, progression, tempsActuel, dureeTotal, vitesse,
+      piste, enLecture, progression, tempsActuel, dureeTotal, vitesse, volume,
+      lecteurOuvert, setLecteurOuvert,
       jouer, pause, reprendre, seeker, avancer, reculer,
-      changerVitesse, pisterSuivante, pistePrecedente,
+      changerVitesse, changerVolume, pisterSuivante, pistePrecedente,
       file, ajouterAFile,
     }}>
       {children}

@@ -1,6 +1,7 @@
 import LecteurPersistant from '@/components/LecteurPersistant'
+import LecteurPleinEcran from '@/components/LecteurPleinEcran'
 import { colors, spacing, typography } from '@/constants/theme'
-import { AudioProvider } from '@/contexts/AudioContext'
+import { AudioProvider, useAudio } from '@/contexts/AudioContext'
 import { NotesProvider } from '@/contexts/NotesContext'
 import { ScrollProvider } from '@/contexts/ScrollContext'
 import { TabBarProvider, useTabBar } from '@/contexts/TabBarContext'
@@ -10,6 +11,7 @@ import { Stack, usePathname, useRouter } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect } from 'react'
 import { Pressable, Text, View } from 'react-native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
@@ -38,6 +40,7 @@ function AppShell() {
   const pathname = usePathname()
   const router = useRouter()
   const { tabBarVisible, hideTabBar } = useTabBar()
+  const { lecteurOuvert, piste } = useAudio()
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/' || pathname === '/index'
@@ -48,6 +51,7 @@ function AppShell() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
       <Stack screenOptions={{ headerShown: false }} />
+      {piste && <LecteurPleinEcran />}
 
       {tabBarVisible && (
         <SafeAreaView edges={['bottom']} style={{ backgroundColor: 'transparent' }}>
@@ -115,16 +119,18 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null
 
   return (
-    <AudioProvider>
-      <NotesProvider>
-        <TelechargementProvider>
-          <ScrollProvider>
-            <TabBarProvider>
-              <AppShell />
-            </TabBarProvider>
-          </ScrollProvider>
-        </TelechargementProvider>
-      </NotesProvider>
-    </AudioProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AudioProvider>
+        <NotesProvider>
+          <TelechargementProvider>
+            <ScrollProvider>
+              <TabBarProvider>
+                <AppShell />
+              </TabBarProvider>
+            </ScrollProvider>
+          </TelechargementProvider>
+        </NotesProvider>
+      </AudioProvider>
+    </GestureHandlerRootView>
   )
 }

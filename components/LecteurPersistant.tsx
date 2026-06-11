@@ -110,11 +110,10 @@ function Egaliseur({ enLecture }: { enLecture: boolean }) {
 }
 
 export default function LecteurPersistant() {
-    const { piste, enLecture, progression, tempsActuel, dureeTotal, pause, reprendre, pisterSuivante } = useAudio()
+    const { piste, enLecture, progression, tempsActuel, dureeTotal, pause, reprendre, pisterSuivante, setLecteurOuvert } = useAudio()
     const { ajouterNote } = useNotes()
     const [noteVisible, setNoteVisible] = useState(false)
     const [texteNote, setTexteNote] = useState('')
-    const [pleinEcran, setPleinEcran] = useState(false)
 
     if (!piste) return null
 
@@ -202,7 +201,7 @@ export default function LecteurPersistant() {
             )}
 
             {/* Mini player */}
-            <Pressable onPress={() => setPleinEcran(true)}>
+            <Pressable onPress={() => setLecteurOuvert(true)}>
                 <View style={{
                     backgroundColor: colors.blanc,
                     borderRadius: 22,
@@ -305,11 +304,6 @@ export default function LecteurPersistant() {
                 </View>
             </Pressable>
 
-            {/* Full screen player */}
-            {pleinEcran && (() => {
-                const LecteurPleinEcran = require('./LecteurPleinEcran').default
-                return <LecteurPleinEcran visible={pleinEcran} onClose={() => setPleinEcran(false)} />
-            })()}
         </KeyboardAvoidingView>
     )
 }

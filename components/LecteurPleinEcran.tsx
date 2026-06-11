@@ -1,13 +1,11 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import { supabase } from '@/lib/supabase'
-import { ChevronDown, ListMusic, Moon } from 'lucide-react-native'
+import { ChevronDown, ListMusic, Moon, Volume, Volume2 } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
 import {
-    Animated as RNAnimated,
     Dimensions,
     Image,
-    Modal,
     PanResponder,
     Pressable,
     ScrollView,
@@ -15,14 +13,17 @@ import {
     Text,
     View,
 } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
+    runOnJS,
     useAnimatedStyle,
     useSharedValue,
     withSpring,
+    withTiming,
 } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import TextTicker from 'react-native-text-ticker'
 import Svg, { Path } from 'react-native-svg'
+import TextTicker from 'react-native-text-ticker'
 
 function IconReplay10({ size = 34, color = colors.texte }: { size?: number; color?: string }) {
     return (
@@ -72,10 +73,9 @@ function IconListChapters({ size = 20, color = colors.texte }: { size?: number; 
     )
 }
 
-const { width, height } = Dimensions.get('window')
+const { width, height: SCREEN_HEIGHT } = Dimensions.get('window')
 const ARTWORK_SIZE = width - spacing.xl * 2
 
-// Tap on ×N cycles through speeds, Apple Podcasts style
 const VITESSES = [1, 1.25, 1.5, 2, 0.75]
 const SLEEP_OPTIONS = [
     { label: 'Désactivé', minutes: 0 },
@@ -97,11 +97,9 @@ function formaterTemps(s: number) {
 }
 
 function formaterVitesse(v: number) {
-    // 1 -> "1", 1.25 -> "1,25", 0.75 -> "0,75"
     return String(v).replace('.', ',')
 }
 
-// Artwork that shrinks when paused, Apple Podcasts style
 function ArtworkAnime({ enLecture }: { enLecture: boolean }) {
     const scale = useSharedValue(enLecture ? 1 : 0.78)
 
@@ -141,7 +139,6 @@ function ArtworkAnime({ enLecture }: { enLecture: boolean }) {
     )
 }
 
-// Apple-style scrub bar: no thumb, thickens while scrubbing, drag anywhere on it
 function BarreProgression({
     tempsActuel, dureeTotal, onSeek,
 }: { tempsActuel: number; dureeTotal: number; onSeek: (pct: number) => void }) {
@@ -164,12 +161,8 @@ function BarreProgression({
         onPanResponderTerminate: () => setScrubPct(null),
     })).current
 
-    const livePct = scrubbing
-        ? scrubPct!
-        : (dureeTotal > 0 ? (tempsActuel / dureeTotal) * 100 : 0)
-    const tempsAffiche = scrubbing && dureeTotal > 0
-        ? (scrubPct! / 100) * dureeTotal
-        : tempsActuel
+    const livePct = scrubbing ? scrubPct! : (dureeTotal > 0 ? (tempsActuel / dureeTotal) * 100 : 0)
+    const tempsAffiche = scrubbing && dureeTotal > 0 ? (scrubPct! / 100) * dureeTotal : tempsActuel
     const restant = dureeTotal > 0 ? dureeTotal - tempsAffiche : 0
     const barH = scrubbing ? 12 : 7
 
@@ -180,12 +173,7 @@ function BarreProgression({
                 onLayout={e => setBarWidth(e.nativeEvent.layout.width)}
                 style={{ height: 36, justifyContent: 'center' }}
             >
-                <View style={{
-                    height: barH,
-                    backgroundColor: '#E5E8EE',
-                    borderRadius: barH / 2,
-                    overflow: 'hidden',
-                }}>
+                <View style={{ height: barH, backgroundColor: '#E5E8EE', borderRadius: barH / 2, overflow: 'hidden' }}>
                     <View style={{
                         width: `${livePct}%` as any,
                         height: '100%',
@@ -216,16 +204,67 @@ function BarreProgression({
     )
 }
 
-type Props = {
-    visible: boolean
-    onClose: () => void
+function BarreVolume({ volume, onChange }: { volume: number; onChange: (v: number) => void }) {
+    const [barWidth, setBarWidth] = useState(width - spacing.xl * 2 - 60)
+    const [localVol, setLocalVol] = useState(volume)
+    const scrubbing = useRef(false)
+
+    useEffect(() => {
+        if (!scrubbing.current) setLocalVol(volume)
+    }, [volume])
+
+    const pctFromX = (x: number) => Math.max(0, Math.min(1, x / barWidth))
+
+    const pan = useRef(PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: e => {
+            scrubbing.current = true
+            const v = pctFromX(e.nativeEvent.locationX)
+            setLocalVol(v)
+            onChange(v)
+        },
+        onPanResponderMove: e => {
+            const v = pctFromX(e.nativeEvent.locationX)
+            setLocalVol(v)
+            onChange(v)
+        },
+        onPanResponderRelease: e => {
+            const v = pctFromX(e.nativeEvent.locationX)
+            setLocalVol(v)
+            onChange(v)
+            scrubbing.current = false
+        },
+        onPanResponderTerminate: () => { scrubbing.current = false },
+    })).current
+
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Volume size={18} color="#9AA3B2" strokeWidth={2} />
+            <View
+                {...pan.panHandlers}
+                onLayout={e => setBarWidth(e.nativeEvent.layout.width)}
+                style={{ flex: 1, height: 36, justifyContent: 'center' }}
+            >
+                <View style={{ height: 4, backgroundColor: '#E5E8EE', borderRadius: 2, overflow: 'hidden' }}>
+                    <View style={{
+                        width: `${localVol * 100}%` as any,
+                        height: '100%',
+                        backgroundColor: '#9AA3B2',
+                        borderRadius: 2,
+                    }} />
+                </View>
+            </View>
+            <Volume2 size={18} color="#9AA3B2" strokeWidth={2} />
+        </View>
+    )
 }
 
-export default function LecteurPleinEcran({ visible, onClose }: Props) {
+export default function LecteurPleinEcran() {
     const {
         piste, enLecture, tempsActuel, dureeTotal,
-        vitesse, pause, reprendre, seeker, avancer, reculer,
-        changerVitesse, file,
+        vitesse, volume, pause, reprendre, seeker, avancer, reculer,
+        changerVitesse, changerVolume, file, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
 
     const [onglet, setOnglet] = useState<'player' | 'file'>('player')
@@ -238,19 +277,41 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
     const [markers, setMarkers] = useState<{ id: string; titre: string; temps_secondes: number }[]>([])
     const [description, setDescription] = useState<string | null>(null)
 
-    const slideAnim = useRef(new RNAnimated.Value(height)).current
+    const translateY = useSharedValue(SCREEN_HEIGHT)
+
+    const close = () => {
+        translateY.value = withTiming(SCREEN_HEIGHT, { duration: 300 }, () => {
+            runOnJS(setLecteurOuvert)(false)
+        })
+    }
 
     useEffect(() => {
-        if (visible) {
-            RNAnimated.spring(slideAnim, {
-                toValue: 0, useNativeDriver: true, tension: 65, friction: 12,
-            }).start()
+        if (lecteurOuvert) {
+            translateY.value = withSpring(0, { damping: 20, stiffness: 180, mass: 0.8 })
         } else {
-            RNAnimated.timing(slideAnim, {
-                toValue: height, duration: 280, useNativeDriver: true,
-            }).start()
+            translateY.value = SCREEN_HEIGHT
         }
-    }, [visible])
+    }, [lecteurOuvert])
+
+    const panGesture = Gesture.Pan()
+        .activeOffsetY([0, 8])
+        .failOffsetX([-20, 20])
+        .onUpdate(e => {
+            if (e.translationY > 0) translateY.value = e.translationY
+        })
+        .onEnd(e => {
+            if (e.translationY > SCREEN_HEIGHT * 0.18 || e.velocityY > 600) {
+                translateY.value = withTiming(SCREEN_HEIGHT, { duration: 260 }, () => {
+                    runOnJS(setLecteurOuvert)(false)
+                })
+            } else {
+                translateY.value = withSpring(0, { damping: 20, stiffness: 180 })
+            }
+        })
+
+    const animStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: translateY.value }],
+    }))
 
     useEffect(() => {
         if (sleepRef.current) clearInterval(sleepRef.current)
@@ -288,21 +349,6 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
             .then(({ data }) => { if (data?.description) setDescription(data.description) })
     }, [piste?.id])
 
-    // Drag-to-dismiss from anywhere on the screen (vertical pulls only,
-    // so taps and the horizontal scrub bar keep working)
-    const panResponder = useRef(PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, g) => g.dy > 12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.8,
-        onPanResponderMove: (_, g) => { if (g.dy > 0) slideAnim.setValue(g.dy) },
-        onPanResponderRelease: (_, g) => {
-            if (g.dy > height * 0.18 || g.vy > 0.5) {
-                RNAnimated.timing(slideAnim, { toValue: height, duration: 220, useNativeDriver: true }).start(onClose)
-            } else {
-                RNAnimated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 65, friction: 12 }).start()
-            }
-        },
-    })).current
-
     if (!piste) return null
 
     const sleepActif = sleepMinutes > 0
@@ -314,11 +360,12 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
     const panelOuvert = showDescription || showMarkers
 
     return (
-        <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
-            <RNAnimated.View
-                style={{ flex: 1, transform: [{ translateY: slideAnim }] }}
-                {...panResponder.panHandlers}
-            >
+        <Animated.View style={[{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 999,
+        }, animStyle]}>
+            <GestureDetector gesture={panGesture}>
                 <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top', 'bottom']}>
                     <StatusBar barStyle="dark-content" />
 
@@ -333,7 +380,7 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
                         paddingHorizontal: spacing.xl, paddingVertical: spacing.xs,
                     }}>
                         <Pressable
-                            onPress={onClose}
+                            onPress={close}
                             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                             style={{ width: 40 }}
                         >
@@ -368,10 +415,9 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
                     {onglet === 'player' ? (
                         <View style={{ flex: 1, paddingHorizontal: spacing.xl }}>
 
-                            {/* Artwork — takes the upper flexible space */}
+                            {/* Artwork */}
                             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                                 {panelOuvert ? (
-                                    /* Compact layout when a panel is open */
                                     <ScrollView
                                         style={{ alignSelf: 'stretch' }}
                                         showsVerticalScrollIndicator={false}
@@ -487,14 +533,13 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
                                 onSeek={seeker}
                             />
 
-                            {/* Main controls — Apple Podcasts balance:
-                                ×1 | -10 | PLAY | +10 | sleep */}
+                            {/* Main controls */}
                             <View style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 marginTop: spacing.lg,
-                                marginBottom: spacing.xl,
+                                marginBottom: spacing.md,
                             }}>
                                 <Pressable
                                     onPress={cyclerVitesse}
@@ -565,13 +610,16 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
                                 </Pressable>
                             </View>
 
+                            {/* Volume slider */}
+                            <BarreVolume volume={volume} onChange={changerVolume} />
+
                             {/* Sleep panel */}
                             {showSleep && (
                                 <View style={{
                                     backgroundColor: '#F7F8FA',
                                     borderRadius: radius.xl,
                                     padding: spacing.md,
-                                    marginBottom: spacing.lg,
+                                    marginTop: spacing.md,
                                     borderWidth: 1,
                                     borderColor: '#ECEEF3',
                                 }}>
@@ -608,7 +656,8 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: spacing['3xl'],
-                                paddingBottom: spacing.md,
+                                paddingTop: spacing.md,
+                                paddingBottom: spacing.sm,
                             }}>
                                 <Pressable
                                     onPress={() => { setShowDescription(p => !p); setShowMarkers(false) }}
@@ -645,7 +694,6 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
 
                         </View>
                     ) : (
-                        /* Queue */
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: 120, paddingTop: spacing.md }}>
                             <Text style={{
                                 fontFamily: typography.fontFamily.bold,
@@ -742,7 +790,7 @@ export default function LecteurPleinEcran({ visible, onClose }: Props) {
                         </ScrollView>
                     )}
                 </SafeAreaView>
-            </RNAnimated.View>
-        </Modal>
+            </GestureDetector>
+        </Animated.View>
     )
 }
