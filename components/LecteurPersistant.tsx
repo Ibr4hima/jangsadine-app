@@ -1,6 +1,7 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import { useNotes } from '@/contexts/NotesContext'
+import * as Haptics from 'expo-haptics'
 import { SkipForward } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native'
@@ -117,7 +118,10 @@ export default function LecteurPersistant() {
 
     if (!piste) return null
 
-    const onPressPlay = () => enLecture ? pause() : reprendre()
+    const onPressPlay = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        enLecture ? pause() : reprendre()
+    }
 
     const sauvegarderNote = async () => {
         if (!texteNote.trim() || !piste) return
