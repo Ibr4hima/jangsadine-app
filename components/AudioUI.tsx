@@ -105,55 +105,55 @@ export function PressableScale({ onPress, style, children }: {
     )
 }
 
-// ─── mini égaliseur (piste en cours de lecture) ───────────────
-export function MiniEgaliseur({ color = 'white', hauteur = 18 }: { color?: string, hauteur?: number }) {
-    const v1 = useSharedValue(0.3)
-    const v2 = useSharedValue(0.7)
-    const v3 = useSharedValue(0.45)
-    const v4 = useSharedValue(0.9)
-    const v5 = useSharedValue(0.35)
-    const v6 = useSharedValue(0.6)
+// ─── ondulation type Apple Podcasts ──────────────────────────
+// 5 points ronds qui s'étirent verticalement en capsules depuis
+// le centre, chacun avec son propre rythme organique
+export function MiniEgaliseur({ color = 'white', hauteur = 18, epaisseur = 4 }: { color?: string, hauteur?: number, epaisseur?: number }) {
+    const v1 = useSharedValue(0)
+    const v2 = useSharedValue(0)
+    const v3 = useSharedValue(0)
+    const v4 = useSharedValue(0)
+    const v5 = useSharedValue(0)
 
     useEffect(() => {
-        const anim = (v: typeof v1, lo: number, hi: number, dur: number) => {
-            v.value = withRepeat(withSequence(
-                withTiming(hi, { duration: dur, easing: Easing.inOut(Easing.ease) }),
-                withTiming(lo, { duration: Math.round(dur * 1.15), easing: Easing.inOut(Easing.ease) }),
-            ), -1, true)
+        const lancer = (v: typeof v1, etapes: [number, number][]) => {
+            v.value = withRepeat(
+                withSequence(...etapes.map(([h, d]) =>
+                    withTiming(h, { duration: d, easing: Easing.inOut(Easing.ease) })
+                )),
+                -1, false,
+            )
         }
-        anim(v1, 0.12, 1.00, 420)
-        anim(v2, 0.28, 0.72, 310)
-        anim(v3, 0.18, 1.00, 500)
-        anim(v4, 0.08, 0.65, 360)
-        anim(v5, 0.22, 0.88, 275)
-        anim(v6, 0.35, 1.00, 445)
+        lancer(v1, [[0.55, 260], [0.15, 300], [0.90, 240], [0.30, 320], [0.70, 280], [0.05, 300]])
+        lancer(v2, [[1.00, 230], [0.40, 270], [0.80, 250], [0.10, 310], [0.95, 260], [0.50, 240]])
+        lancer(v3, [[0.30, 280], [0.85, 240], [0.20, 300], [1.00, 250], [0.45, 290], [0.75, 230]])
+        lancer(v4, [[0.70, 250], [0.25, 290], [0.60, 260], [0.05, 280], [0.85, 240], [0.35, 300]])
+        lancer(v5, [[0.20, 300], [0.65, 250], [0.10, 290], [0.50, 270], [0.90, 230], [0.25, 310]])
         return () => {
             cancelAnimation(v1); cancelAnimation(v2); cancelAnimation(v3)
-            cancelAnimation(v4); cancelAnimation(v5); cancelAnimation(v6)
+            cancelAnimation(v4); cancelAnimation(v5)
         }
     }, [])
 
     const H = hauteur
-    const s1 = useAnimatedStyle(() => ({ height: Math.max(3, v1.value * H) }))
-    const s2 = useAnimatedStyle(() => ({ height: Math.max(3, v2.value * H) }))
-    const s3 = useAnimatedStyle(() => ({ height: Math.max(3, v3.value * H) }))
-    const s4 = useAnimatedStyle(() => ({ height: Math.max(3, v4.value * H) }))
-    const s5 = useAnimatedStyle(() => ({ height: Math.max(3, v5.value * H) }))
-    const s6 = useAnimatedStyle(() => ({ height: Math.max(3, v6.value * H) }))
-    const bar = { width: 3.5, borderRadius: 2, backgroundColor: color } as const
+    const ep = epaisseur
+    const s1 = useAnimatedStyle(() => ({ height: ep + v1.value * (H - ep) }))
+    const s2 = useAnimatedStyle(() => ({ height: ep + v2.value * (H - ep) }))
+    const s3 = useAnimatedStyle(() => ({ height: ep + v3.value * (H - ep) }))
+    const s4 = useAnimatedStyle(() => ({ height: ep + v4.value * (H - ep) }))
+    const s5 = useAnimatedStyle(() => ({ height: ep + v5.value * (H - ep) }))
+    const barre = { width: ep, borderRadius: ep / 2, backgroundColor: color } as const
 
     return (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2.5, height: H }}>
-            <Animated.View style={[bar, s1]} />
-            <Animated.View style={[bar, s2]} />
-            <Animated.View style={[bar, s3]} />
-            <Animated.View style={[bar, s4]} />
-            <Animated.View style={[bar, s5]} />
-            <Animated.View style={[bar, s6]} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: ep * 0.55, height: H }}>
+            <Animated.View style={[barre, s1]} />
+            <Animated.View style={[barre, s2]} />
+            <Animated.View style={[barre, s3]} />
+            <Animated.View style={[barre, s4]} />
+            <Animated.View style={[barre, s5]} />
         </View>
     )
 }
-
 // ─── squelettes de chargement (pulse) ─────────────────────────
 export function Squelette({ h, style }: { h: number, style?: ViewStyle }) {
     const op = useSharedValue(0.35)
