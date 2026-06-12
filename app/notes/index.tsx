@@ -103,11 +103,8 @@ export default function Notes() {
                     }}>
                         <IconNote size={34} color={colors.bleu} />
                     </View>
-                    <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: colors.texte, marginBottom: spacing.sm }}>
+                    <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: colors.texte }}>
                         Aucune note
-                    </Text>
-                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texteMuted, textAlign: 'center', lineHeight: 22, maxWidth: 290 }}>
-                        Pendant l'écoute, appuie sur « Notes » dans le lecteur pour noter ce que tu retiens, à l'instant exact où tu l'entends.
                     </Text>
                 </Animated.View>
             ) : (
