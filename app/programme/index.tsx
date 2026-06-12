@@ -3,7 +3,6 @@ import {
   EnTeteSection,
   HerosDetail,
   PressableScale,
-  W70,
 } from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { chargerProgrammes, genId, Programme, sauvegarderProgrammes } from '@/lib/programmes'
@@ -119,9 +118,6 @@ export default function MesProgrammes() {
           </View>
           <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: 'white' }}>
             Mon Programme
-          </Text>
-          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70, marginTop: 6, textAlign: 'center', maxWidth: 300 }}>
-            Compose tes parcours de cours audio et suis ta progression
           </Text>
           <View style={{ marginTop: spacing.lg }}>
             <BoutonHeros
