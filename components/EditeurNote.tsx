@@ -1,3 +1,4 @@
+import { MiniEgaliseur } from '@/components/AudioUI'
 import { segmenterInline, SURLIGNAGE_BG } from '@/components/NoteRiche'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
@@ -78,13 +79,6 @@ function IconPlayAudio({ size = 18, color = 'white' }: { size?: number; color?: 
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
             <Path d="M320-200v-560l440 280-440 280Z" fill={color} />
-        </Svg>
-    )
-}
-function IconPauseAudio({ size = 18, color = 'white' }: { size?: number; color?: string }) {
-    return (
-        <Svg width={size} height={size} viewBox="0 -960 960 960">
-            <Path d="M555-200v-560h205v560H555Zm-355 0v-560h205v560H200Z" fill={color} />
         </Svg>
     )
 }
@@ -393,16 +387,13 @@ function LecteurPassage({ note }: { note: Note }) {
                     {chargement
                         ? <ActivityIndicator size="small" color="white" />
                         : actif && enLecture
-                            ? <IconPauseAudio size={18} />
+                            ? <MiniEgaliseur color="white" hauteur={16} />
                             : <IconPlayAudio size={18} />}
                 </Pressable>
 
                 <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}>
                         Réécouter ce passage
-                    </Text>
-                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.texteMuted, marginTop: 2 }}>
-                        Reprend 45 s avant la note · {fmtTemps(debut)}
                     </Text>
                 </View>
 
