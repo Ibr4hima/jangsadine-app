@@ -212,7 +212,7 @@ function RangéePiste({ index, titre, sousTitre, badge, badgeCouleur, episode, a
 }) {
   return (
     <PressableScale onPress={onPress} style={{
-      backgroundColor: colors.blanc,
+      backgroundColor: actif ? '#f5f9fe' : colors.blanc,
       borderRadius: 18,
       paddingVertical: spacing.md,
       paddingHorizontal: spacing.md,
@@ -229,13 +229,16 @@ function RangéePiste({ index, titre, sousTitre, badge, badgeCouleur, episode, a
     }}>
       <PastillePlay actif={actif} enLecture={enLecture} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{
-          fontFamily: typography.fontFamily.semibold,
-          fontSize: typography.size.base,
-          color: actif ? colors.bleu : colors.texte,
-        }}>
+        <TextTicker
+          style={{
+            fontFamily: typography.fontFamily.semibold,
+            fontSize: typography.size.base,
+            color: actif ? colors.bleu : colors.texte,
+          }}
+          loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+        >
           {titre}
-        </Text>
+        </TextTicker>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
           <Text numberOfLines={1} style={{
             fontFamily: typography.fontFamily.regular,
@@ -396,7 +399,7 @@ function SectionCours({ recherche }: { recherche: string }) {
 
                         <TextTicker
                           style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte, lineHeight: 22 }}
-                          loop bounce={false} repeatSpacer={50} marqueeDelay={2500} scrollSpeed={10}
+                          loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
                         >
                           {l.titre}
                         </TextTicker>
@@ -649,11 +652,12 @@ function SectionFatwas({ recherche }: { recherche: string }) {
                   </View>
 
                   <View style={{ gap: spacing.sm }}>
-                    {fatwas.map((f: any) => {
+                    {fatwas.map((f: any, i: number) => {
                       const actif = piste?.id === f.id
                       return (
-                        <PressableScale key={f.id} onPress={() => onPiste(f)} style={{
-                          backgroundColor: colors.blanc,
+                        <Animated.View key={f.id} entering={FadeInDown.duration(350).delay(Math.min(i, 8) * 45)}>
+                        <PressableScale onPress={() => onPiste(f)} style={{
+                          backgroundColor: actif ? '#f5f9fe' : colors.blanc,
                           borderRadius: 18,
                           padding: spacing.md,
                           borderWidth: actif ? 1.5 : 0,
@@ -685,6 +689,7 @@ function SectionFatwas({ recherche }: { recherche: string }) {
                             }} />
                           </View>
                         </PressableScale>
+                        </Animated.View>
                       )
                     })}
                   </View>
@@ -848,9 +853,16 @@ export default function Audio() {
         <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.06)', bottom: -80, left: -70 }} />
 
         <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.md }}>
-          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: '#fff' }}>
-            Bibliothèque audio
-          </Text>
+          <View>
+            <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 6 }}>
+              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.8, color: colors.or, textTransform: 'uppercase' }}>
+                Médiathèque
+              </Text>
+            </View>
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: '#fff' }}>
+              Bibliothèque audio
+            </Text>
+          </View>
 
           {/* recherche */}
           <View style={{
