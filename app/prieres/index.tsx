@@ -19,6 +19,7 @@ import {
 } from 'lucide-react-native'
 import { ComponentType, useEffect, useState } from 'react'
 import {
+  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -65,7 +66,9 @@ function tempsRestant(heure: string): string {
   const hh = Math.floor(diff / 3600)
   const mm = Math.floor((diff % 3600) / 60)
   const ss = diff % 60
-  return hh.toString().padStart(2, '0') + ':' + mm.toString().padStart(2, '0') + ':' + ss.toString().padStart(2, '0')
+  if (hh > 0) return `${hh} h ${mm.toString().padStart(2, '0')} min`
+  if (mm > 0) return `${mm} min ${ss.toString().padStart(2, '0')} s`
+  return `${ss} s`
 }
 // Fraction écoulée entre la prière précédente et la prochaine
 function progressEntre(prevHeure: string, nextHeure: string): number {
@@ -302,11 +305,21 @@ export default function Prieres() {
                 </Text>
               ) : null}
               {ville ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: spacing.sm }}>
-                  <MapPin size={13} color={W55} strokeWidth={2} />
-                  <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W55 }}>
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: spacing.sm,
+                  backgroundColor: W10, borderRadius: radius.full,
+                  paddingHorizontal: 12, paddingVertical: 5,
+                  borderWidth: 1, borderColor: W18,
+                }}>
+                  <MapPin size={12} color={W55} strokeWidth={2} />
+                  <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70 }}>
                     {ville}
                   </Text>
+                  {methodeNom ? (
+                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: W55 }}>
+                      {'  ·  '}{methodeNom}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
             </View>
@@ -315,6 +328,14 @@ export default function Prieres() {
             {!loading && !erreur && prochaine && (
               <View style={{ alignItems: 'center' }}>
                 <View style={{ width: TAILLE_SVG, height: TAILLE_SVG, alignItems: 'center', justifyContent: 'center' }}>
+                  {/* disque de verre derrière le contenu */}
+                  <View style={{
+                    position: 'absolute',
+                    width: RAYON * 2 - 18, height: RAYON * 2 - 18,
+                    borderRadius: RAYON - 9,
+                    backgroundColor: W10,
+                    borderWidth: 1, borderColor: W18,
+                  }} />
                   <Svg width={TAILLE_SVG} height={TAILLE_SVG} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
                     <Circle cx={TAILLE_SVG / 2} cy={TAILLE_SVG / 2} r={RAYON} fill="none" stroke={W18} strokeWidth={9} />
                     <Circle
@@ -355,9 +376,10 @@ export default function Prieres() {
             )}
 
             {loading && (
-              <View style={{ alignItems: 'center', paddingVertical: spacing['2xl'] }}>
+              <View style={{ alignItems: 'center', paddingVertical: spacing['2xl'], gap: spacing.md }}>
+                <ActivityIndicator size="large" color={colors.or} />
                 <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W70 }}>
-                  Récupération de votre position...
+                  Détection de ta position…
                 </Text>
               </View>
             )}
@@ -373,6 +395,9 @@ export default function Prieres() {
 
         {!loading && !erreur && (
           <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.xl, gap: 8 }}>
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.6, color: colors.or, textTransform: 'uppercase', marginBottom: 4 }}>
+              Aujourd'hui
+            </Text>
             {horaires.map((p, i) => {
               const estIndicateur = p.cle === 'MoitieNuit' || p.cle === 'Tahajjud'
               const estProchaine = prochaine?.cle === p.cle && prochaine?.heure === p.heure
