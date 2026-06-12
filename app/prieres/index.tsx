@@ -315,11 +315,6 @@ export default function Prieres() {
                   <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70 }}>
                     {ville}
                   </Text>
-                  {methodeNom ? (
-                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: W55 }}>
-                      {'  ·  '}{methodeNom}
-                    </Text>
-                  ) : null}
                 </View>
               ) : null}
             </View>
