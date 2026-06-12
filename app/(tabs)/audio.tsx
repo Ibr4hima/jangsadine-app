@@ -396,20 +396,23 @@ function SectionCours({ recherche }: { recherche: string }) {
                       <PressableScale onPress={() => naviguerVers(l)} style={{
                         backgroundColor: colors.blanc,
                         borderRadius: 18,
-                        padding: spacing.lg,
+                        paddingVertical: spacing.md,
+                        paddingLeft: spacing.lg + 4,
+                        paddingRight: spacing.lg,
                         shadowColor: '#3a4a5c',
                         shadowOffset: { width: 0, height: 4 },
                         shadowOpacity: 0.06,
                         shadowRadius: 10,
                         elevation: 2,
                         overflow: 'hidden',
+                        gap: 6,
                       }}>
                         {/* accent latéral couleur catégorie */}
                         <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent, opacity: 0.85 }} />
 
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                           {nomCat ? (
-                            <View style={{ backgroundColor: couleurBg[nomCat] ?? '#f0f0f0', borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3.5 }}>
+                            <View style={{ backgroundColor: couleurBg[nomCat] ?? '#f0f0f0', borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
                               <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: accent }}>{nomCat}</Text>
                             </View>
                           ) : <View />}
@@ -420,23 +423,18 @@ function SectionCours({ recherche }: { recherche: string }) {
                           ) : null}
                         </View>
 
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                          <View style={{ flex: 1, minWidth: 0 }}>
-                            <TextTicker
-                              style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte, lineHeight: 22 }}
-                              loop bounce={false} repeatSpacer={50} marqueeDelay={2500} scrollSpeed={10}
-                            >
-                              {l.titre}
-                            </TextTicker>
-                          </View>
-                          <View style={{
-                            width: 32, height: 32, borderRadius: 16,
-                            backgroundColor: '#edf2f8',
-                            alignItems: 'center', justifyContent: 'center',
-                          }}>
-                            <IconChevron size={18} color={colors.bleu} />
-                          </View>
-                        </View>
+                        <TextTicker
+                          style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte, lineHeight: 22 }}
+                          loop bounce={false} repeatSpacer={50} marqueeDelay={2500} scrollSpeed={10}
+                        >
+                          {l.titre}
+                        </TextTicker>
+
+                        {l.sheikh ? (
+                          <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted }}>
+                            {l.sheikh}
+                          </Text>
+                        ) : null}
                       </PressableScale>
                     </Animated.View>
                   )
@@ -869,15 +867,10 @@ export default function Audio() {
         <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.12)', top: -140, right: -100 }} />
         <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.06)', bottom: -80, left: -70 }} />
 
-        <View style={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.md }}>
-          <View>
-            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: '#fff' }}>
-              Bibliothèque audio
-            </Text>
-            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W55, marginTop: 2 }}>
-              Cours, conférences, khoutbahs et fatwas
-            </Text>
-          </View>
+        <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.md }}>
+          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: '#fff' }}>
+            Bibliothèque audio
+          </Text>
 
           {/* recherche */}
           <View style={{
