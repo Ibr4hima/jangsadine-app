@@ -14,6 +14,13 @@ export type Piste = {
   episodeIndex?: number
 }
 
+export type OptionsLecture = {
+  // Démarre à cette position (secondes) au lieu de la reprise sauvegardée
+  position?: number
+  // false : ne pas ouvrir le lecteur plein écran au lancement
+  ouvrirLecteur?: boolean
+}
+
 type AudioContextType = {
   piste: Piste | null
   enLecture: boolean
@@ -24,7 +31,7 @@ type AudioContextType = {
   volume: number
   lecteurOuvert: boolean
   setLecteurOuvert: (v: boolean) => void
-  jouer: (p: Piste, suivantes?: Piste[]) => void
+  jouer: (p: Piste, suivantes?: Piste[], options?: OptionsLecture) => void
   pause: () => void
   reprendre: () => void
   seeker: (pct: number) => void
@@ -135,7 +142,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pisterSuivante])
 
-  const chargerEtJouer = async (p: Piste, suivantes: Piste[] = []) => {
+  const chargerEtJouer = async (p: Piste, suivantes: Piste[] = [], options?: OptionsLecture) => {
     const generation = ++chargementRef.current
     try {
       // Mémorise où on en était sur la piste précédente avant de zapper
@@ -152,12 +159,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       setPiste(p)
       pisteIdRef.current = p.id
-      setLecteurOuvert(true)
+      if (options?.ouvrirLecteur !== false) setLecteurOuvert(true)
       setFile(suivantes)
       AsyncStorage.setItem('jsd_derniere_piste', JSON.stringify(p)).catch(() => {})
 
-      // Reprise là où on s'était arrêté
-      const reprise = positionsRef.current[p.id] ?? 0
+      // Position explicite, sinon reprise là où on s'était arrêté
+      const reprise = options?.position ?? positionsRef.current[p.id] ?? 0
       setProgression(0)
       setTempsActuel(reprise)
       setDureeTotal(0)
@@ -176,7 +183,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
               rate: vitesseRef.current,
               progressUpdateIntervalMillis: 500,
               volume: 1.0,
-              positionMillis: reprise > 5 ? Math.round(reprise * 1000) : 0,
+              positionMillis: (options?.position != null ? reprise > 0 : reprise > 5) ? Math.round(reprise * 1000) : 0,
             },
             onUpdate
           )
@@ -205,8 +212,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const jouer = useCallback((p: Piste, suivantes: Piste[] = []) => {
-    chargerEtJouer(p, suivantes)
+  const jouer = useCallback((p: Piste, suivantes: Piste[] = [], options?: OptionsLecture) => {
+    chargerEtJouer(p, suivantes, options)
   }, [onUpdate])
 
   const pause = useCallback(async () => {

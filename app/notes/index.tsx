@@ -86,7 +86,7 @@ export default function Notes() {
                         }}>
                             <IconNote size={14} color={W70} />
                             <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: W70 }}>
-                                {notes.length} note{notes.length > 1 ? 's' : ''} · {groupes.length} écoute{groupes.length > 1 ? 's' : ''}
+                                {notes.length} note{notes.length > 1 ? 's' : ''}
                             </Text>
                         </View>
                     ) : null}
