@@ -19,6 +19,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
 // ─── icônes ───────────────────────────────────────────────────
+function IconDownloadDone({ size = 20, color = 'white' }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="M382-320 155-547l57-57 170 170 366-366 57 57-423 423ZM200-160v-80h560v80H200Z" fill={color} />
+    </Svg>
+  )
+}
 function IconDisque({ size = 22, color = colors.bleu }: { size?: number, color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
@@ -89,7 +96,6 @@ function GroupeContenu({
   const { supprimer } = useTelechargement()
   const { jouer, piste, enLecture, pause, reprendre } = useAudio()
 
-  const tailleGroupe = episodes.reduce((a, e) => a + e.taille, 0)
   const groupeActif = episodes.some(e => e.id === piste?.id)
 
   const episodesOrdres = [...episodes].sort((a, b) => (a.numero ?? 0) - (b.numero ?? 0))
@@ -135,25 +141,19 @@ function GroupeContenu({
           elevation: ouvert ? 0 : 2,
         }}
       >
-        {/* Bouton play groupe */}
+        {/* Icône du cours — toujours download_done */}
         <Pressable
           onPress={jouerGroupe}
           hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           style={{
             width: 40, height: 40, borderRadius: 20,
-            backgroundColor: groupeActif ? couleur : fond,
+            backgroundColor: couleur,
             alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            ...(groupeActif ? {
-              shadowColor: couleur, shadowOffset: { width: 0, height: 3 },
-              shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
-            } : {}),
+            shadowColor: couleur, shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
           }}
         >
-          {groupeActif && enLecture
-            ? <MiniEgaliseur color={groupeActif ? 'white' : couleur} hauteur={14} />
-            : groupeActif
-              ? <IconPause size={16} color="white" />
-              : <IconPlay size={16} color={couleur} />}
+          <IconDownloadDone size={20} color="white" />
         </Pressable>
 
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -161,7 +161,7 @@ function GroupeContenu({
             {titre}
           </Text>
           <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>
-            {episodes.length} épisode{episodes.length > 1 ? 's' : ''} · {formaterTaille(tailleGroupe)}
+            {episodes[0].sheikh ? `${episodes[0].sheikh} · ` : ''}{episodes.length} épisode{episodes.length > 1 ? 's' : ''}
           </Text>
         </View>
 
