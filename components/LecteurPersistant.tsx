@@ -4,7 +4,7 @@ import { useAudio } from '@/contexts/AudioContext'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode, useEffect } from 'react'
-import { Image, Pressable, Text, View, ViewStyle } from 'react-native'
+import { Pressable, Text, View, ViewStyle } from 'react-native'
 import Animated, {
     cancelAnimation,
     Easing,
@@ -34,6 +34,13 @@ function IconPlay({ size = 20, color = 'white' }: { size?: number; color?: strin
         </Svg>
     )
 }
+function IconPause({ size = 20, color = 'white' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M560-200v-560h160v560H560Zm-320 0v-560h160v560H240Z" fill={color} />
+        </Svg>
+    )
+}
 function IconSuivant({ size = 20, color = 'white' }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
@@ -49,6 +56,17 @@ function formaterTemps(s: number) {
     const sec = Math.floor(s % 60)
     if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
     return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+// ─── égaliseur au repos (5 points dorés statiques) ────────────
+function BarresRepos() {
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2.5 }}>
+            {[6, 11, 16, 11, 6].map((h, i) => (
+                <View key={i} style={{ width: 2.5, height: h, borderRadius: 1.5, backgroundColor: colors.or, opacity: 0.85 }} />
+            ))}
+        </View>
+    )
 }
 
 // ─── bouton scale ressort ─────────────────────────────────────
@@ -167,20 +185,19 @@ export default function LecteurPersistant() {
                         onPress={ouvrir}
                         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0 }}
                     >
-                        {/* Vignette logo */}
+                        {/* Vignette égaliseur */}
                         <Animated.View style={[{
                             width: 46, height: 46,
                             borderRadius: 14,
-                            overflow: 'hidden',
                             backgroundColor: W12,
                             borderWidth: 1,
                             borderColor: W18,
+                            alignItems: 'center',
+                            justifyContent: 'center',
                         }, artStyle]}>
-                            <Image
-                                source={require('../assets/images/logo.png')}
-                                style={{ width: 46, height: 46 }}
-                                resizeMode="cover"
-                            />
+                            {enLecture
+                                ? <MiniEgaliseur color={colors.or} hauteur={18} />
+                                : <BarresRepos />}
                         </Animated.View>
 
                         {/* Titre + sheikh + temps */}
@@ -233,7 +250,7 @@ export default function LecteurPersistant() {
                                 elevation: 7,
                             }}>
                                 {enLecture
-                                    ? <MiniEgaliseur color={colors.bleu} hauteur={15} />
+                                    ? <IconPause size={19} color={colors.bleu} />
                                     : <IconPlay size={19} color={colors.bleu} />}
                             </Tap>
                         </Animated.View>
