@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Audio, AVPlaybackStatus } from 'expo-av'
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { Alert } from 'react-native'
 
 export type Piste = {
   id: string
@@ -110,20 +111,37 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setTempsActuel(0)
       setDureeTotal(0)
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: p.url },
-        {
-          shouldPlay: true,
-          rate: vitesseRef.current,
-          progressUpdateIntervalMillis: 500,
-          volume: 1.0,
-        },
-        onUpdate
-      )
-      soundRef.current = sound
-      setEnLecture(true)
+      // Les connexions mobiles (3G…) font parfois échouer le handshake
+      // SSL (NSURLError -1200) : on retente avant d'abandonner
+      let derniereErreur: unknown = null
+      for (let essai = 0; essai < 3; essai++) {
+        try {
+          if (essai > 0) await new Promise(r => setTimeout(r, 800 * essai))
+          const { sound } = await Audio.Sound.createAsync(
+            { uri: p.url },
+            {
+              shouldPlay: true,
+              rate: vitesseRef.current,
+              progressUpdateIntervalMillis: 500,
+              volume: 1.0,
+            },
+            onUpdate
+          )
+          soundRef.current = sound
+          setEnLecture(true)
+          return
+        } catch (e) {
+          derniereErreur = e
+        }
+      }
+      throw derniereErreur
     } catch (e) {
       console.error('Erreur audio:', e)
+      setEnLecture(false)
+      Alert.alert(
+        'Lecture impossible',
+        'Le fichier audio n\'a pas pu être chargé. Vérifiez votre connexion internet puis réessayez.',
+      )
     }
   }
 
