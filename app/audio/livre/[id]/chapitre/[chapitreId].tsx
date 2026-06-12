@@ -189,7 +189,7 @@ export default function PageChapitre() {
                                                         } : {}),
                                                     }}>
                                                         {actif && enLecture
-                                                            ? <IconPause size={15} color="white" />
+                                                            ? <MiniEgaliseur color="white" hauteur={15} />
                                                             : actif
                                                                 ? <IconPlay size={15} color="white" />
                                                                 : <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>{ep.numero}</Text>}
@@ -218,6 +218,8 @@ export default function PageChapitre() {
                                                             coursId: chapitreId as string,
                                                             coursTitre: chapitre?.titre ?? '',
                                                             url: ep.url_audio,
+                                                            type: 'cours',
+                                                            numero: ep.numero,
                                                         }}
                                                     />
 

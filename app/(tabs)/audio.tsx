@@ -1,3 +1,5 @@
+import { MiniEgaliseur } from '@/components/AudioUI'
+import BoutonTelecharger from '@/components/BoutonTelecharger'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import { useScroll } from '@/contexts/ScrollContext'
@@ -140,7 +142,7 @@ function PastillePlay({ actif, enLecture, taille = 42 }: { actif: boolean, enLec
       } : {}),
     }}>
       {actif && enLecture
-        ? <IconPause size={16} color="white" />
+        ? <MiniEgaliseur color="white" hauteur={16} />
         : actif
           ? <IconPlay size={16} color="white" />
           : <IconPlay size={16} color={colors.bleu} />}
@@ -188,13 +190,22 @@ function EtatVide({ message }: { message: string }) {
 }
 
 // ─── rangée de piste (conférences, khoutbahs) ─────────────────
-function RangéePiste({ index, titre, sousTitre, badge, badgeCouleur, duree, actif, enLecture, onPress }: {
+function RangéePiste({ index, titre, sousTitre, badge, badgeCouleur, episode, actif, enLecture, onPress }: {
   index?: number
   titre: string
   sousTitre: string
   badge?: string
   badgeCouleur?: string
-  duree?: string
+  episode?: {
+    id: string
+    titre: string
+    sheikh: string
+    coursId: string
+    coursTitre: string
+    url: string
+    type?: 'cours' | 'conference' | 'khoutbah' | 'fatwa'
+    numero?: number
+  }
   actif: boolean
   enLecture: boolean
   onPress: () => void
@@ -243,11 +254,7 @@ function RangéePiste({ index, titre, sousTitre, badge, badgeCouleur, duree, act
           ) : null}
         </View>
       </View>
-      {duree ? (
-        <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#aab4c0', flexShrink: 0, fontVariant: ['tabular-nums'] }}>
-          {duree}
-        </Text>
-      ) : null}
+      {episode ? <BoutonTelecharger episode={episode} /> : null}
     </PressableScale>
   )
 }
@@ -449,7 +456,11 @@ function SectionConferences({ recherche }: { recherche: string }) {
                   <RangéePiste
                     titre={c.titre}
                     sousTitre={c.sheikh}
-                    duree={c.duree}
+                    episode={{
+                      id: c.id, titre: c.titre, sheikh: c.sheikh,
+                      coursId: 'conferences', coursTitre: 'Conférences',
+                      url: c.url_audio, type: 'conference',
+                    }}
                     actif={piste?.id === c.id}
                     enLecture={enLecture}
                     onPress={() => onPiste(c)}
@@ -505,7 +516,12 @@ function SectionKhoutbah({ recherche }: { recherche: string }) {
                     titre={k.titre}
                     sousTitre={k.sheikh}
                     badge={k.serie ? `${k.serie}${k.numero_serie ? ` · ${k.numero_serie}` : ''}` : undefined}
-                    duree={k.duree}
+                    episode={{
+                      id: k.id, titre: k.titre, sheikh: k.sheikh,
+                      coursId: 'khoutbahs', coursTitre: 'Khoutbahs',
+                      url: k.url_audio, type: 'khoutbah',
+                      numero: k.numero_serie ?? undefined,
+                    }}
                     actif={piste?.id === k.id}
                     enLecture={enLecture}
                     onPress={() => onPiste(k)}
@@ -662,11 +678,11 @@ function SectionFatwas({ recherche }: { recherche: string }) {
                             <Text style={{ flex: 1, fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: actif ? colors.bleu : '#8a94a2' }}>
                               {f.sheikh}
                             </Text>
-                            {f.duree ? (
-                              <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#aab4c0', fontVariant: ['tabular-nums'] }}>
-                                {f.duree}
-                              </Text>
-                            ) : null}
+                            <BoutonTelecharger episode={{
+                              id: f.id, titre: f.question, sheikh: f.sheikh,
+                              coursId: 'fatwas', coursTitre: 'Fatwas',
+                              url: f.url_audio, type: 'fatwa',
+                            }} />
                           </View>
                         </PressableScale>
                       )

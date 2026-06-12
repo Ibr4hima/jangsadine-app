@@ -193,7 +193,7 @@ export default function DetailCours() {
                                                         } : {}),
                                                     }}>
                                                         {actif && enLecture
-                                                            ? <IconPause size={15} color="white" />
+                                                            ? <MiniEgaliseur color="white" hauteur={15} />
                                                             : actif
                                                                 ? <IconPlay size={15} color="white" />
                                                                 : <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>{ep.numero}</Text>}

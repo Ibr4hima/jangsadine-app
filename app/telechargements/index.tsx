@@ -97,6 +97,7 @@ function GroupeContenu({
   const { jouer, piste, enLecture, pause, reprendre } = useAudio()
 
   const groupeActif = episodes.some(e => e.id === piste?.id)
+  const sheikhsMixtes = new Set(episodes.map(e => e.sheikh).filter(Boolean)).size > 1
 
   const episodesOrdres = [...episodes].sort((a, b) => (a.numero ?? 0) - (b.numero ?? 0))
 
@@ -161,7 +162,11 @@ function GroupeContenu({
             {titre}
           </Text>
           <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>
-            {episodes[0].sheikh ? `${episodes[0].sheikh} · ` : ''}{episodes.length} épisode{episodes.length > 1 ? 's' : ''}
+            {(() => {
+              const sheikhs = [...new Set(episodes.map(e => e.sheikh).filter(Boolean))]
+              const prefixe = sheikhs.length === 1 ? `${sheikhs[0]} · ` : ''
+              return `${prefixe}${episodes.length} épisode${episodes.length > 1 ? 's' : ''}`
+            })()}
           </Text>
         </View>
 
@@ -223,7 +228,7 @@ function GroupeContenu({
                   } : {}),
                 }}>
                   {epActif && enLecture
-                    ? <IconPause size={13} color="white" />
+                    ? <MiniEgaliseur color="white" hauteur={14} />
                     : epActif
                       ? <IconPlay size={13} color="white" />
                       : <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 11, color: colors.bleu, includeFontPadding: false }}>
@@ -239,8 +244,8 @@ function GroupeContenu({
                   }}>
                     {ep.titre}
                   </Text>
-                  <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#aab4c0', marginTop: 2, fontVariant: ['tabular-nums'] }}>
-                    {formaterTaille(ep.taille)}
+                  <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#aab4c0', marginTop: 2, fontVariant: ['tabular-nums'] }}>
+                    {sheikhsMixtes && ep.sheikh ? `${ep.sheikh} · ` : ''}{formaterTaille(ep.taille)}
                   </Text>
                 </View>
 
@@ -349,12 +354,18 @@ export default function Telechargements() {
           <Animated.View entering={FadeIn.duration(220)}>
             {sectionsAvecContenu.map((section, sIdx) => {
               const groupes = parSection.get(section.type)!
+              const nbEpisodesSection = Array.from(groupes.values()).reduce((a, eps) => a + eps.length, 0)
+              const titreSection = section.type === 'cours'
+                ? `${groupes.size} cours`
+                : `${nbEpisodesSection} ${section.type === 'conference' ? `conférence${nbEpisodesSection > 1 ? 's' : ''}`
+                  : section.type === 'khoutbah' ? `khoutbah${nbEpisodesSection > 1 ? 's' : ''}`
+                  : `fatwa${nbEpisodesSection > 1 ? 's' : ''}`}`
               let groupIndex = 0
               return (
                 <View key={section.type} style={{ marginBottom: sIdx < sectionsAvecContenu.length - 1 ? spacing['2xl'] : 0 }}>
                   <EnTeteSection
                     eyebrow={section.label}
-                    titre={`${groupes.size} ${groupes.size > 1 ? 'cours' : 'cours'}`}
+                    titre={titreSection}
                   />
                   <View style={{ gap: spacing.sm }}>
                     {Array.from(groupes.entries()).map(([groupId, episodes]) => (
