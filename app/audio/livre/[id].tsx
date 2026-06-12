@@ -5,6 +5,7 @@ import {
     EtatVideDetail,
     HerosDetail,
     IconCasque,
+    IconChevronRight,
     IconLivre,
     IconMusicNote,
     MiniEgaliseur,
@@ -196,6 +197,7 @@ export default function PageLivre() {
                                             >
                                                 {chap.titre}
                                             </TextTicker>
+                                            <IconChevronRight size={18} />
                                         </PressableScale>
                                     </Animated.View>
                                 ))}

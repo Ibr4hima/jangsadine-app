@@ -82,6 +82,13 @@ export function IconPause({ size = 16, color = 'white' }: { size?: number, color
         </Svg>
     )
 }
+export function IconChevronRight({ size = 18, color = '#b6c0cc' }: { size?: number, color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" fill={color} />
+        </Svg>
+    )
+}
 
 // ─── pressable avec scale ressort ─────────────────────────────
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)

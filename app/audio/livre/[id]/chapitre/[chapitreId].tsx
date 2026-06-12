@@ -11,8 +11,10 @@ import {
     Squelettes,
     W70,
 } from '@/components/AudioUI'
+import BoutonTelecharger from '@/components/BoutonTelecharger'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
+import { useTelechargement } from '@/contexts/TelechargementContext'
 import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import { useLocalSearchParams } from 'expo-router'
@@ -27,7 +29,7 @@ type Chapitre = {
     titre: string
     numero: number
     url_pdf: string | null
-    livre: { id: string; titre: string; categories: { nom: string } }
+    livre: { id: string; titre: string; sheikh: string | null; categories: { nom: string } }
 }
 
 type Episode = {
@@ -40,21 +42,32 @@ type Episode = {
 }
 
 export default function PageChapitre() {
-    const { chapitreId } = useLocalSearchParams<{ id: string, chapitreId: string }>()
+    const { id: livreId, chapitreId } = useLocalSearchParams<{ id: string; chapitreId: string }>()
     const insets = useSafeAreaInsets()
     const { jouer, piste, enLecture, pause, reprendre } = useAudio()
+    const { getCheminLocal } = useTelechargement()
     const [chapitre, setChapitre] = useState<Chapitre | null>(null)
     const [episodes, setEpisodes] = useState<Episode[]>([])
     const [loading, setLoading] = useState(true)
     const [descOuverte, setDescOuverte] = useState<string | null>(null)
 
+    const sheikh = chapitre?.livre?.sheikh ?? ''
+    const href = `/audio/livre/${livreId}/chapitre/${chapitreId}`
     const episodeActif = episodes.some(e => e.id === piste?.id)
 
     useEffect(() => {
         async function charger() {
             const [{ data: chapData }, { data: epsData }] = await Promise.all([
-                supabase.from('chapitres_livre').select('*, livre:livre_id(id, titre, categories(nom))').eq('id', chapitreId).single(),
-                supabase.from('episodes_chapitre').select('id, titre, numero, duree, url_audio, description').eq('chapitre_id', chapitreId).order('numero'),
+                supabase
+                    .from('chapitres_livre')
+                    .select('*, livre:livre_id(id, titre, sheikh, categories(nom))')
+                    .eq('id', chapitreId)
+                    .single(),
+                supabase
+                    .from('episodes_chapitre')
+                    .select('id, titre, numero, duree, url_audio, description')
+                    .eq('chapitre_id', chapitreId)
+                    .order('numero'),
             ])
             if (chapData) setChapitre(chapData as any)
             if (epsData) setEpisodes(epsData)
@@ -64,21 +77,25 @@ export default function PageChapitre() {
     }, [chapitreId])
 
     function jouerEpisode(ep: Episode, index: number) {
-        const suivantes = episodes.slice(index + 1).map(e => ({
-            id: e.id, titre: e.titre, sheikh: '',
-            url: e.url_audio, duree: e.duree,
-        }))
-        jouer({ id: ep.id, titre: ep.titre, sheikh: '', url: ep.url_audio, duree: ep.duree }, suivantes)
+        const urlLocale = getCheminLocal(ep.id)
+        const suivantes = episodes.slice(index + 1).map(e => {
+            const locale = getCheminLocal(e.id)
+            return { id: e.id, titre: e.titre, sheikh, url: locale ?? e.url_audio, duree: e.duree, href }
+        })
+        jouer(
+            { id: ep.id, titre: ep.titre, sheikh, url: urlLocale ?? ep.url_audio, duree: ep.duree, href },
+            suivantes,
+        )
     }
 
     function toutEcouter() {
         if (episodes.length === 0) return
-        if (episodeActif) {
-            enLecture ? pause() : reprendre()
-            return
-        }
+        if (episodeActif) { enLecture ? pause() : reprendre(); return }
         jouerEpisode(episodes[0], 0)
     }
+
+    const meta = [sheikh, episodes.length ? `${episodes.length} épisode${episodes.length > 1 ? 's' : ''}` : null]
+        .filter(Boolean).join(' · ')
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
@@ -97,9 +114,9 @@ export default function PageChapitre() {
                         {chapitre?.titre}
                     </Text>
 
-                    {chapitre?.livre?.titre ? (
+                    {meta ? (
                         <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70, marginTop: 6, textAlign: 'center' }}>
-                            {chapitre.livre.titre}
+                            {meta}
                         </Text>
                     ) : null}
 
@@ -129,7 +146,10 @@ export default function PageChapitre() {
                     <Squelettes n={6} h={66} />
                 ) : (
                     <Animated.View entering={FadeIn.duration(220)}>
-                        <EnTeteSection eyebrow={`${episodes.length} épisode${episodes.length > 1 ? 's' : ''}`} />
+                        <EnTeteSection
+                            eyebrow="Épisodes"
+                            titre={`${episodes.length} épisode${episodes.length > 1 ? 's' : ''}`}
+                        />
                         {episodes.length === 0 ? (
                             <EtatVideDetail message="Les épisodes arrivent bientôt" />
                         ) : (
@@ -172,7 +192,7 @@ export default function PageChapitre() {
                                                             ? <IconPause size={15} color="white" />
                                                             : actif
                                                                 ? <IconPlay size={15} color="white" />
-                                                                : <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>{index + 1}</Text>}
+                                                                : <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>{ep.numero}</Text>}
                                                     </View>
 
                                                     <View style={{ flex: 1, minWidth: 0 }}>
@@ -189,6 +209,17 @@ export default function PageChapitre() {
                                                             </Text>
                                                         ) : null}
                                                     </View>
+
+                                                    <BoutonTelecharger
+                                                        episode={{
+                                                            id: ep.id,
+                                                            titre: ep.titre,
+                                                            sheikh,
+                                                            coursId: chapitreId as string,
+                                                            coursTitre: chapitre?.titre ?? '',
+                                                            url: ep.url_audio,
+                                                        }}
+                                                    />
 
                                                     {ep.description ? (
                                                         <Pressable
