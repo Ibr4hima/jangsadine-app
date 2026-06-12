@@ -271,18 +271,27 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
         prog.value = withTiming(p, { duration: 480, easing: Easing.linear })
     }, [tempsActuel, dureeTotal])
 
-    const debutSeek = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     const finDeSeek = (v: number) => {
         onSeek(v * 100)
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     }
 
-    const gesture = Gesture.Pan()
-        .minDistance(0)
+    // ── tap : seek immédiat au point touché ──────────────────────
+    // Quand l'utilisateur appuie sans glisser, le Pan ne passe jamais
+    // à l'état ACTIVE et n'appelle pas onEnd → le Tap prend le relais.
+    const tapGesture = Gesture.Tap()
+        .onEnd(e => {
+            const p = clamp01(e.x / barW.value)
+            prog.value = withTiming(p, { duration: 120, easing: Easing.out(Easing.cubic) })
+            runOnJS(finDeSeek)(p)
+        })
+
+    // ── pan : scrub fluide + bulle + thumb ───────────────────────
+    const panGesture = Gesture.Pan()
+        .minDistance(4)
         .onBegin(e => {
-            scrubbing.value = withTiming(1, { duration: 130 })
+            scrubbing.value = withTiming(1, { duration: 100 })
             scrub.value = clamp01(e.x / barW.value)
-            runOnJS(debutSeek)()
         })
         .onUpdate(e => {
             scrub.value = clamp01(e.x / barW.value)
@@ -295,8 +304,10 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
             scrubbing.value = withTiming(0, { duration: 180 })
         })
 
+    const gesture = Gesture.Race(tapGesture, panGesture)
+
     const trackStyle = useAnimatedStyle(() => {
-        const h = 6 + scrubbing.value * 8
+        const h = 5 + scrubbing.value * 9
         return { height: h, borderRadius: h / 2 }
     })
 
@@ -313,8 +324,8 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
         return {
             opacity: scrubbing.value,
             transform: [
-                { translateX: p * barW.value - 9 },
-                { scale: 0.4 + scrubbing.value * 0.6 },
+                { translateX: p * barW.value - 11 },
+                { scale: 0.3 + scrubbing.value * 0.7 },
             ],
         }
     })
@@ -325,8 +336,8 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
             opacity: scrubbing.value,
             transform: [
                 { translateX: Math.max(0, Math.min(x - 34, barW.value - 68)) },
-                { translateY: -6 + scrubbing.value * 6 },
-                { scale: 0.8 + scrubbing.value * 0.2 },
+                { translateY: -4 + scrubbing.value * 4 },
+                { scale: 0.7 + scrubbing.value * 0.3 },
             ],
         }
     })
@@ -384,16 +395,19 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
                     </Animated.View>
                     <Animated.View style={[{
                         position: 'absolute',
-                        width: 18, height: 18, borderRadius: 9,
+                        width: 22, height: 22, borderRadius: 11,
                         backgroundColor: colors.or,
                         borderWidth: 2.5, borderColor: '#fff',
-                        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.35, shadowRadius: 5,
+                        shadowColor: colors.or,
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: 0.9,
+                        shadowRadius: 8,
+                        elevation: 8,
                     }, thumbStyle]} />
                 </View>
             </GestureDetector>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: -2 }}>
                 <AnimatedTextInput
                     editable={false}
                     defaultValue="0:00"
@@ -456,7 +470,7 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
         })
 
     const trackStyle = useAnimatedStyle(() => {
-        const h = 4 + scrubbing.value * 6
+        const h = 4 + scrubbing.value * 8
         return { height: h, borderRadius: h / 2 }
     })
 
@@ -468,8 +482,8 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
     const thumbStyle = useAnimatedStyle(() => ({
         opacity: scrubbing.value,
         transform: [
-            { translateX: vol.value * barW.value - 9 },
-            { scale: 0.4 + scrubbing.value * 0.6 },
+            { translateX: vol.value * barW.value - 11 },
+            { scale: 0.3 + scrubbing.value * 0.7 },
         ],
     }))
 
@@ -495,11 +509,14 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
                     </Animated.View>
                     <Animated.View style={[{
                         position: 'absolute',
-                        width: 18, height: 18, borderRadius: 9,
+                        width: 22, height: 22, borderRadius: 11,
                         backgroundColor: colors.or,
                         borderWidth: 2.5, borderColor: '#fff',
-                        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.35, shadowRadius: 5,
+                        shadowColor: colors.or,
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: 0.9,
+                        shadowRadius: 8,
+                        elevation: 8,
                     }, thumbStyle]} />
                 </View>
             </GestureDetector>
@@ -795,9 +812,12 @@ export default function LecteurPleinEcran() {
                                     >
                                         {piste.titre}
                                     </TextTicker>
-                                    <Text numberOfLines={1} style={{ fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular, fontSize: typography.size.md, color: W60, marginTop: 4 }}>
+                                    <TextTicker
+                                        style={{ fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular, fontSize: typography.size.md, color: W60, marginTop: 4 }}
+                                        loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                                    >
                                         {piste.sheikh}
-                                    </Text>
+                                    </TextTicker>
                                 </View>
 
                                 {/* Progress */}
@@ -944,34 +964,47 @@ export default function LecteurPleinEcran() {
                             </ScrollView>
                         )}
 
-                        {/* ── Bottom tabs ── */}
+                        {/* ── Bottom tabs — pilule verre ── */}
                         <View style={{
-                            flexDirection: 'row', alignItems: 'center',
                             paddingHorizontal: spacing.xl,
-                            paddingTop: spacing.md, paddingBottom: spacing.sm,
-                            borderTopWidth: 1, borderTopColor: W08,
+                            paddingTop: spacing.sm,
+                            paddingBottom: spacing.xs,
                         }}>
-                            <TabBtn
-                                label="Notes"
-                                active={noteVisible}
-                                onPress={ouvrirNote}
-                            >
-                                <IcoAddNotes size={22} color={noteVisible ? colors.or : W35} />
-                            </TabBtn>
-                            <TabBtn
-                                label="Chapitres"
-                                active={panel === 'chapters'}
-                                onPress={() => { Haptics.selectionAsync(); setPanel(p => p === 'chapters' ? 'none' : 'chapters') }}
-                            >
-                                <IcoChapters size={22} color={panel === 'chapters' ? colors.or : W35} />
-                            </TabBtn>
-                            <TabBtn
-                                label="File"
-                                active={isQueue}
-                                onPress={() => { Haptics.selectionAsync(); setPanel(p => p === 'queue' ? 'none' : 'queue') }}
-                            >
-                                <IcoQueue size={22} color={isQueue ? colors.or : W35} />
-                            </TabBtn>
+                            <View style={{
+                                flexDirection: 'row',
+                                backgroundColor: W08,
+                                borderRadius: radius.full,
+                                borderWidth: 1,
+                                borderColor: W15,
+                                padding: 4,
+                            }}>
+                                {[
+                                    { label: 'Notes',    active: noteVisible,         icon: <IcoAddNotes  size={20} color={noteVisible          ? colors.or : W60} />, onPress: ouvrirNote },
+                                    { label: 'Chapitres',active: panel === 'chapters', icon: <IcoChapters size={20} color={panel === 'chapters'  ? colors.or : W60} />, onPress: () => { Haptics.selectionAsync(); setPanel(p => p === 'chapters' ? 'none' : 'chapters') } },
+                                    { label: 'File',     active: isQueue,             icon: <IcoQueue     size={20} color={isQueue               ? colors.or : W60} />, onPress: () => { Haptics.selectionAsync(); setPanel(p => p === 'queue' ? 'none' : 'queue') } },
+                                ].map(tab => (
+                                    <Pressable
+                                        key={tab.label}
+                                        onPress={tab.onPress}
+                                        style={{
+                                            flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                                            gap: 6,
+                                            paddingVertical: 9,
+                                            borderRadius: radius.full,
+                                            backgroundColor: tab.active ? OR_DIM : 'transparent',
+                                        }}
+                                    >
+                                        {tab.icon}
+                                        <Text style={{
+                                            fontFamily: tab.active ? typography.fontFamily.semibold : typography.fontFamily.medium,
+                                            fontSize: typography.size.xs,
+                                            color: tab.active ? colors.or : W60,
+                                        }}>
+                                            {tab.label}
+                                        </Text>
+                                    </Pressable>
+                                ))}
+                            </View>
                         </View>
                     </SafeAreaView>
                 </View>
