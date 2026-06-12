@@ -401,6 +401,10 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
                 paddingHorizontal: spacing.md,
                 alignItems: 'center',
                 gap: spacing.sm,
+                borderLeftWidth: 4,
+                borderLeftColor: colors.bleu,
+                borderRightWidth: 4,
+                borderRightColor: colors.bleu,
                 shadowColor: '#3a4a5c',
                 shadowOffset: { width: 0, height: 8 },
                 shadowOpacity: 0.07,
@@ -425,11 +429,7 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
 
       {/* raccourcis secondaires */}
       <Animated.View entering={FadeInDown.duration(500).delay(420)}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.lg }}
-        >
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.lg }}>
           {RACCOURCIS.map(r => {
             const Icon = r.icon
             return (
@@ -447,7 +447,7 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
               </PressableScale>
             )
           })}
-        </ScrollView>
+        </View>
       </Animated.View>
     </View>
   )
