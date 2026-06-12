@@ -1,60 +1,42 @@
+import {
+    BoutonHeros,
+    couleurBg, couleurTxt,
+    EnTeteSection,
+    EtatVideDetail,
+    HerosDetail,
+    IconCasque,
+    IconLivre,
+    IconPlay,
+    MiniEgaliseur,
+    PressableScale,
+    Squelettes,
+    W70,
+} from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import { supabase } from '@/lib/supabase'
+import * as Haptics from 'expo-haptics'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
-import { Play } from 'lucide-react-native'
-import { useEffect, useRef, useState } from 'react'
-import { Animated, Pressable, ScrollView, StatusBar, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { useEffect, useState } from 'react'
+import { ScrollView, StatusBar, Text, View } from 'react-native'
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import TextTicker from 'react-native-text-ticker'
-
-const couleurBg: Record<string, string> = {
-    Aqeedah: '#e8f0f8', Fiqh: '#faf3dc', Hadith: '#eaf4ee',
-    'Tafsir & Sciences du Coran': '#fde8f0', Seerah: '#fdf0eb',
-    Invocations: '#DEE8CE', 'Éthique & Bons comportements': '#f2eefa',
-    'Séries de cours': '#EDE8D0',
-}
-const couleurTxt: Record<string, string> = {
-    Aqeedah: '#28558b', Fiqh: '#b8911f', Hadith: '#2d7a4f',
-    'Tafsir & Sciences du Coran': '#a02060', Seerah: '#c05c2e',
-    Invocations: '#06402B', 'Éthique & Bons comportements': '#6b3db5',
-    'Séries de cours': '#654321',
-}
-
-function BarresAnimees() {
-    const anims = [useRef(new Animated.Value(0.4)).current, useRef(new Animated.Value(0.4)).current, useRef(new Animated.Value(0.4)).current, useRef(new Animated.Value(0.4)).current]
-    useEffect(() => {
-        anims.forEach((anim, i) => {
-            Animated.loop(
-                Animated.sequence([
-                    Animated.timing(anim, { toValue: 1, duration: 400, delay: i * 100, useNativeDriver: true }),
-                    Animated.timing(anim, { toValue: 0.4, duration: 400, useNativeDriver: true }),
-                ])
-            ).start()
-        })
-    }, [])
-    return (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 14, gap: 2 }}>
-            {anims.map((anim, i) => (
-                <Animated.View key={i} style={{ width: 2, borderRadius: 2, backgroundColor: colors.or, height: i % 2 === 0 ? 14 : 8, opacity: anim }} />
-            ))}
-        </View>
-    )
-}
 
 export default function PageLivre() {
     const { id } = useLocalSearchParams<{ id: string }>()
     const router = useRouter()
-    const { jouer, piste, enLecture, pause, reprendre, progression } = useAudio()
+    const insets = useSafeAreaInsets()
+    const { jouer, piste, enLecture, pause, reprendre } = useAudio()
     const [livre, setLivre] = useState<any>(null)
     const [versions, setVersions] = useState<any[]>([])
     const [chapitres, setChapitres] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
     const livreAudioId = `livre_${id}`
-    const enLectureLivre = piste?.id === livreAudioId && enLecture
     const livreActif = piste?.id === livreAudioId
+    const enLectureLivre = livreActif && enLecture
 
     useEffect(() => {
         async function charger() {
@@ -87,8 +69,8 @@ export default function PageLivre() {
     }, [id])
 
     const categorie = livre?.categories?.nom ?? ''
-    const bg = couleurBg[categorie] ?? '#f0f0f0'
-    const txt = couleurTxt[categorie] ?? '#666'
+    const bg = couleurBg[categorie] ?? '#edf2f8'
+    const txt = couleurTxt[categorie] ?? colors.bleu
 
     const jouerLivre = () => {
         if (!livre?.url_audio) return
@@ -100,95 +82,113 @@ export default function PageLivre() {
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={[]}>
+        <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
             <StatusBar barStyle="light-content" />
 
-            {/* Header bleu */}
-            <View style={{ backgroundColor: colors.bleu, padding: spacing.xl, paddingTop: 60, alignItems: 'center' }}>
-                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 2, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.sm, textAlign: 'center' }}>
-                    {categorie}
-                </Text>
-                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: 'white', lineHeight: 32, marginBottom: spacing.sm, textAlign: 'center' }}>
-                    {livre?.titre}
-                </Text>
-                <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: livre?.description ? spacing.sm : 0 }}>
-                    {livre?.type === 'chapitres'
-                        ? `${livre?.sheikh ? livre.sheikh + ' · ' : ''}${chapitres.length} chapitre${chapitres.length > 1 ? 's' : ''}`
-                        : livre?.sheikh || ''
-                    }
-                </Text>
-                {livre?.description ? (
-                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: 'rgba(255,255,255,0.75)', lineHeight: 22, fontStyle: 'italic', marginBottom: spacing.md, textAlign: 'center', maxWidth: 300 }}>
-                        {livre.description}
+            {/* ── Héros ── */}
+            <HerosDetail paddingTop={insets.top + spacing.sm}>
+                <View style={{ alignItems: 'center' }}>
+                    {categorie ? (
+                        <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: spacing.sm }}>
+                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.8, color: colors.or, textTransform: 'uppercase' }}>
+                                {categorie}
+                            </Text>
+                        </View>
+                    ) : null}
+
+                    <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: 'white', lineHeight: 32, textAlign: 'center' }}>
+                        {livre?.titre}
                     </Text>
-                ) : null}
 
-                {/* Boutons PDF + Audio */}
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs, justifyContent: 'center' }}>
-                    {livre?.url_pdf ? (
-                        <Pressable
-                            onPress={() => WebBrowser.openBrowserAsync(livre.url_pdf)}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}
-                        >
-                            <Text>📖</Text>
-                            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: 'white' }}>Consulter le livre</Text>
-                        </Pressable>
+                    {livre?.titre_arabe ? (
+                        <Text style={{ fontFamily: typography.fontFamily.arabic, fontSize: typography.size.md, color: W70, marginTop: 6, textAlign: 'center' }}>
+                            {livre.titre_arabe}
+                        </Text>
                     ) : null}
-                    {livre?.url_audio ? (
-                        <Pressable
-                            onPress={jouerLivre}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: livreActif ? 'rgba(217,172,42,0.3)' : 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: livreActif ? 'rgba(217,172,42,0.6)' : 'rgba(255,255,255,0.25)', borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}
-                        >
-                            {enLectureLivre ? (
-                                <>
-                                    <BarresAnimees />
-                                    <View style={{ width: 60, height: 3, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' }}>
-                                        <View style={{ width: `${progression}%`, height: '100%', backgroundColor: colors.or, borderRadius: 2 }} />
-                                    </View>
-                                </>
-                            ) : (
-                                <>
-                                    <Text>🎧</Text>
-                                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: 'white' }}>Écouter le livre</Text>
-                                </>
-                            )}
-                        </Pressable>
+
+                    {livre?.type === 'chapitres' || livre?.sheikh ? (
+                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70, marginTop: 6, textAlign: 'center' }}>
+                            {livre?.type === 'chapitres'
+                                ? `${livre?.sheikh ? livre.sheikh + ' · ' : ''}${chapitres.length} chapitre${chapitres.length > 1 ? 's' : ''}`
+                                : livre?.sheikh}
+                        </Text>
+                    ) : null}
+
+                    {livre?.description ? (
+                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70, lineHeight: 21, marginTop: spacing.sm, textAlign: 'center', maxWidth: 300 }}>
+                            {livre.description}
+                        </Text>
+                    ) : null}
+
+                    {(livre?.url_pdf || livre?.url_audio) ? (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg, justifyContent: 'center' }}>
+                            {livre?.url_pdf ? (
+                                <BoutonHeros
+                                    icone={<IconLivre size={16} color="white" />}
+                                    label="Consulter le livre"
+                                    onPress={() => WebBrowser.openBrowserAsync(livre.url_pdf)}
+                                />
+                            ) : null}
+                            {livre?.url_audio ? (
+                                <BoutonHeros
+                                    icone={enLectureLivre
+                                        ? <MiniEgaliseur color={colors.or} hauteur={12} />
+                                        : <IconCasque size={16} color="white" />}
+                                    label={livreActif ? (enLecture ? 'En lecture' : 'Reprendre') : 'Écouter le livre'}
+                                    onPress={jouerLivre}
+                                    actif={livreActif}
+                                />
+                            ) : null}
+                        </View>
                     ) : null}
                 </View>
-            </View>
+            </HerosDetail>
 
-            {/* Barre or */}
-            <View style={{ height: 3, backgroundColor: colors.or, opacity: 0.6 }} />
-
-            {loading ? (
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: typography.fontFamily.regular, color: colors.texteMuted }}>Chargement...</Text>
-                </View>
-            ) : (
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: 120 }}>
-
-                    {/* MODE CHAPITRES */}
-                    {livre?.type === 'chapitres' && (
-                        <>
-                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 2, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.sm }}>
-                                Table des matières
-                            </Text>
-                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: colors.texte, marginBottom: spacing.xl }}>
-                                {chapitres.length} chapitre{chapitres.length > 1 ? 's' : ''}
-                            </Text>
+            {/* ── Contenu ── */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: 170 }}>
+                {loading ? (
+                    <Squelettes n={4} h={80} />
+                ) : livre?.type === 'chapitres' ? (
+                    /* ── MODE CHAPITRES ── */
+                    <Animated.View entering={FadeIn.duration(220)}>
+                        <EnTeteSection
+                            eyebrow="Table des matières"
+                            titre={`${chapitres.length} chapitre${chapitres.length > 1 ? 's' : ''}`}
+                        />
+                        {chapitres.length === 0 ? (
+                            <EtatVideDetail message="Les chapitres arrivent bientôt" />
+                        ) : (
                             <View style={{ gap: spacing.sm }}>
-                                {chapitres.map(chap => (
-                                    <Pressable
-                                        key={chap.id}
-                                        onPress={() => router.push(`/audio/livre/${id}/chapitre/${chap.id}` as any)}
-                                        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm })}
-                                    >
-                                        <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: '#bbb', width: 24, textAlign: 'right', flexShrink: 0 }}>
-                                            {chap.numero}
-                                        </Text>
-                                        <View style={{ flex: 1, backgroundColor: colors.blanc, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.bordure, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                                            <View style={{ width: 38, height: 38, borderRadius: radius.full, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                <Play size={14} color={txt} fill={txt} strokeWidth={0} style={{ marginLeft: 2 }} />
+                                {chapitres.map((chap, i) => (
+                                    <Animated.View key={chap.id} entering={FadeInDown.duration(350).delay(Math.min(i, 8) * 45)}>
+                                        <PressableScale
+                                            onPress={() => {
+                                                Haptics.selectionAsync()
+                                                router.push(`/audio/livre/${id}/chapitre/${chap.id}` as any)
+                                            }}
+                                            style={{
+                                                backgroundColor: colors.blanc,
+                                                borderRadius: 18,
+                                                paddingVertical: spacing.md,
+                                                paddingHorizontal: spacing.md,
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                gap: spacing.md,
+                                                shadowColor: '#3a4a5c',
+                                                shadowOffset: { width: 0, height: 4 },
+                                                shadowOpacity: 0.06,
+                                                shadowRadius: 10,
+                                                elevation: 2,
+                                            }}
+                                        >
+                                            <View style={{
+                                                width: 38, height: 38, borderRadius: 19,
+                                                backgroundColor: bg,
+                                                alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                            }}>
+                                                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.sm, color: txt }}>
+                                                    {chap.numero}
+                                                </Text>
                                             </View>
                                             <TextTicker
                                                 style={{ flex: 1, fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}
@@ -196,57 +196,89 @@ export default function PageLivre() {
                                             >
                                                 {chap.titre}
                                             </TextTicker>
-                                        </View>
-                                    </Pressable>
+                                        </PressableScale>
+                                    </Animated.View>
                                 ))}
                             </View>
-                        </>
-                    )}
-
-                    {/* MODE STANDARD */}
-                    {livre?.type !== 'chapitres' && (
-                        <>
-                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 2, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.sm }}>
-                                Versions disponibles
-                            </Text>
-                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: colors.texte, marginBottom: spacing.xl }}>
-                                {versions.length} version{versions.length > 1 ? 's' : ''} de ce cours
-                            </Text>
-                            <View style={{ gap: spacing.md }}>
-                                {versions.map(v => (
-                                    <Pressable
-                                        key={v.id}
-                                        onPress={() => router.push(`/audio/${v.id}` as any)}
-                                        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-                                    >
-                                        <View style={{ backgroundColor: colors.blanc, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.bordure, padding: spacing.lg, flexDirection: 'row', alignItems: 'center' }}>
-                                            <View style={{ width: 44, height: 44, borderRadius: radius.full, backgroundColor: colors.bleu, alignItems: 'center', justifyContent: 'center', marginRight: spacing.md, flexShrink: 0 }}>
-                                                <Play size={16} color="white" fill="white" strokeWidth={0} style={{ marginLeft: 2 }} />
-                                            </View>
-                                            <View style={{ flex: 1, minWidth: 0 }}>
-                                                <TextTicker
-                                                    style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte, marginBottom: spacing.sm }}
-                                                    loop bounce={false} repeatSpacer={50} marqueeDelay={2000} scrollSpeed={10}
-                                                >
-                                                    {v.titre || livre?.titre}
-                                                </TextTicker>
-                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-                                                    <View style={{ backgroundColor: bg, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3 }}>
-                                                        <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: txt }}>{v.sheikh}</Text>
-                                                    </View>
-                                                    <View style={{ backgroundColor: '#f0f0f0', borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3 }}>
-                                                        <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#999' }}>{v.nb_episodes} épisodes</Text>
-                                                    </View>
+                        )}
+                    </Animated.View>
+                ) : (
+                    /* ── MODE VERSIONS ── */
+                    <Animated.View entering={FadeIn.duration(220)}>
+                        <EnTeteSection
+                            eyebrow="Versions disponibles"
+                            titre={versions.length > 1
+                                ? `${versions.length} sheikhs enseignent ce livre`
+                                : undefined}
+                        />
+                        {versions.length === 0 ? (
+                            <EtatVideDetail message="Les audios de ce cours arrivent bientôt" />
+                        ) : (
+                            <View style={{ gap: spacing.sm }}>
+                                {versions.map((v, i) => {
+                                    const versionActive = piste?.href === `/audio/${v.id}`
+                                    return (
+                                        <Animated.View key={v.id} entering={FadeInDown.duration(350).delay(Math.min(i, 8) * 45)}>
+                                            <PressableScale
+                                                onPress={() => {
+                                                    Haptics.selectionAsync()
+                                                    router.push(`/audio/${v.id}` as any)
+                                                }}
+                                                style={{
+                                                    backgroundColor: colors.blanc,
+                                                    borderRadius: 18,
+                                                    padding: spacing.md,
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    gap: spacing.md,
+                                                    borderWidth: versionActive ? 1.5 : 0,
+                                                    borderColor: colors.bleu,
+                                                    shadowColor: '#3a4a5c',
+                                                    shadowOffset: { width: 0, height: 4 },
+                                                    shadowOpacity: 0.06,
+                                                    shadowRadius: 10,
+                                                    elevation: 2,
+                                                }}
+                                            >
+                                                <View style={{
+                                                    width: 44, height: 44, borderRadius: 22,
+                                                    backgroundColor: versionActive ? colors.bleu : '#edf2f8',
+                                                    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                    ...(versionActive ? {
+                                                        shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
+                                                        shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+                                                    } : {}),
+                                                }}>
+                                                    {versionActive && enLecture
+                                                        ? <MiniEgaliseur color="white" />
+                                                        : <IconPlay size={16} color={versionActive ? 'white' : colors.bleu} />}
                                                 </View>
-                                            </View>
-                                        </View>
-                                    </Pressable>
-                                ))}
+                                                <View style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text numberOfLines={1} style={{
+                                                        fontFamily: typography.fontFamily.semibold,
+                                                        fontSize: typography.size.base,
+                                                        color: versionActive ? colors.bleu : colors.texte,
+                                                    }}>
+                                                        {v.sheikh}
+                                                    </Text>
+                                                    <Text style={{
+                                                        fontFamily: typography.fontFamily.regular,
+                                                        fontSize: typography.size.sm,
+                                                        color: colors.texteMuted,
+                                                        marginTop: 3,
+                                                    }}>
+                                                        {v.nb_episodes} épisode{v.nb_episodes > 1 ? 's' : ''}
+                                                    </Text>
+                                                </View>
+                                            </PressableScale>
+                                        </Animated.View>
+                                    )
+                                })}
                             </View>
-                        </>
-                    )}
-                </ScrollView>
-            )}
-        </SafeAreaView>
+                        )}
+                    </Animated.View>
+                )}
+            </ScrollView>
+        </View>
     )
 }

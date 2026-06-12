@@ -1,27 +1,27 @@
+import {
+    BoutonHeros,
+    EnTeteSection,
+    EtatVideDetail,
+    HerosDetail,
+    IconLivre,
+    IconPlay,
+    MiniEgaliseur,
+    PressableScale,
+    Squelettes,
+    W70,
+} from '@/components/AudioUI'
 import BoutonTelecharger from '@/components/BoutonTelecharger'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import { useTelechargement } from '@/contexts/TelechargementContext'
 import { supabase } from '@/lib/supabase'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import * as Haptics from 'expo-haptics'
+import { useLocalSearchParams } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
-import { Pause, Play } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-
-const couleurBg: Record<string, string> = {
-    Aqeedah: '#e8f0f8', Fiqh: '#faf3dc', Hadith: '#eaf4ee',
-    'Tafsir & Sciences du Coran': '#fde8f0', Seerah: '#fdf0eb',
-    Invocations: '#DEE8CE', 'Éthique & Bons comportements': '#f2eefa',
-    'Séries de cours': '#EDE8D0',
-}
-const couleurTxt: Record<string, string> = {
-    Aqeedah: '#28558b', Fiqh: '#b8911f', Hadith: '#2d7a4f',
-    'Tafsir & Sciences du Coran': '#a02060', Seerah: '#c05c2e',
-    Invocations: '#06402B', 'Éthique & Bons comportements': '#6b3db5',
-    'Séries de cours': '#654321',
-}
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 type Episode = {
     id: string
@@ -44,7 +44,7 @@ type Cours = {
 
 export default function DetailCours() {
     const { id } = useLocalSearchParams<{ id: string }>()
-    const router = useRouter()
+    const insets = useSafeAreaInsets()
     const { jouer, piste, enLecture, pause, reprendre } = useAudio()
     const { getCheminLocal } = useTelechargement()
 
@@ -52,10 +52,9 @@ export default function DetailCours() {
     const [episodes, setEpisodes] = useState<Episode[]>([])
     const [loading, setLoading] = useState(true)
     const [descOuverte, setDescOuverte] = useState<string | null>(null)
-    const [serieUnique, setSerieUnique] = useState(false)
-    const [livreId, setLivreId] = useState<string | null>(null)
 
     const nomCat = cours?.categories?.nom ?? ''
+    const episodeActif = episodes.some(e => e.id === piste?.id)
 
     useEffect(() => {
         async function charger() {
@@ -63,11 +62,7 @@ export default function DetailCours() {
                 supabase.from('cours').select('id, titre, sheikh, nb_episodes, description, serie_unique, livre_id, categories(nom), livres(url_pdf)').eq('id', id).single(),
                 supabase.from('episodes').select('id, titre, numero, duree, url_audio, description').eq('cours_id', id).order('numero'),
             ])
-            if (c) {
-                setCours(c as any)
-                setSerieUnique((c as any).serie_unique ?? false)
-                setLivreId((c as any).livre_id ?? null)
-            }
+            if (c) setCours(c as any)
             if (e) setEpisodes(e)
             setLoading(false)
         }
@@ -85,188 +80,189 @@ export default function DetailCours() {
         })
         jouer({
             id: ep.id, titre: ep.titre, sheikh: cours?.sheikh ?? '',
-            url: urlLocale ?? ep.url_audio, duree: ep.duree, href: `/audio/${id}`
+            url: urlLocale ?? ep.url_audio, duree: ep.duree, href: `/audio/${id}`,
         }, suivantes)
     }
 
+    function toutEcouter() {
+        if (episodes.length === 0) return
+        if (episodeActif) {
+            enLecture ? pause() : reprendre()
+            return
+        }
+        jouerEpisode(episodes[0], 0)
+    }
+
     const urlPdf = (cours as any)?.livres?.url_pdf
+    const nbEpisodes = cours?.nb_episodes ?? episodes.length
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={[]}>
+        <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
             <StatusBar barStyle="light-content" />
 
-            {/* Header bleu */}
-            <View style={{ backgroundColor: colors.bleu, padding: spacing.xl, paddingTop: 60, alignItems: 'center' }}>
-                <Text style={{
-                    fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs,
-                    letterSpacing: 2, color: colors.or, textTransform: 'uppercase',
-                    marginBottom: spacing.sm, textAlign: 'center',
-                }}>
-                    {nomCat}
-                </Text>
-                <Text style={{
-                    fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'],
-                    color: 'white', lineHeight: 32, marginBottom: spacing.sm,
-                    textAlign: 'center',
-                }}>
-                    {cours?.titre}
-                </Text>
-                <Text style={{
-                    fontFamily: typography.fontFamily.regular, fontSize: typography.size.base,
-                    color: 'rgba(255,255,255,0.7)', textAlign: 'center',
-                }}>
-                    {cours?.sheikh} · {cours?.nb_episodes} épisode{(cours?.nb_episodes ?? 0) > 1 ? 's' : ''}
-                </Text>
+            {/* ── Héros ── */}
+            <HerosDetail paddingTop={insets.top + spacing.sm}>
+                <View style={{ alignItems: 'center' }}>
+                    {nomCat ? (
+                        <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: spacing.sm }}>
+                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.8, color: colors.or, textTransform: 'uppercase' }}>
+                                {nomCat}
+                            </Text>
+                        </View>
+                    ) : null}
 
-                {cours?.description ? (
-                    <Text style={{
-                        fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm,
-                        color: 'rgba(255,255,255,0.7)', textAlign: 'center',
-                        marginTop: spacing.sm, fontStyle: 'italic', maxWidth: 300,
-                    }}>
-                        {cours.description}
+                    <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: 'white', lineHeight: 32, textAlign: 'center' }}>
+                        {cours?.titre}
                     </Text>
-                ) : null}
 
-                {urlPdf ? (
-                    <Pressable
-                        onPress={() => WebBrowser.openBrowserAsync(urlPdf)}
-                        style={{
-                            marginTop: spacing.md,
-                            flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-                            backgroundColor: 'rgba(255,255,255,0.15)',
-                            borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
-                            borderRadius: radius.md,
-                            paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
-                        }}
-                    >
-                        <Text style={{ fontSize: 16 }}>📖</Text>
-                        <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: 'white' }}>
-                            Consulter le livre
+                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70, marginTop: 6, textAlign: 'center' }}>
+                        {cours?.sheikh}{nbEpisodes ? ` · ${nbEpisodes} épisode${nbEpisodes > 1 ? 's' : ''}` : ''}
+                    </Text>
+
+                    {cours?.description ? (
+                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70, lineHeight: 21, marginTop: spacing.sm, textAlign: 'center', maxWidth: 300 }}>
+                            {cours.description}
                         </Text>
-                    </Pressable>
-                ) : null}
-            </View>
+                    ) : null}
 
-            {/* Barre or */}
-            <View style={{ height: 3, backgroundColor: colors.or, opacity: 0.6 }} />
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 160 }}>
-                <View style={{ padding: spacing.lg }}>
-                    <Text style={{
-                        fontFamily: typography.fontFamily.bold,
-                        fontSize: typography.size.xs, letterSpacing: 2,
-                        color: colors.or, textTransform: 'uppercase',
-                        marginBottom: spacing.md,
-                    }}>
-                        Épisodes
-                    </Text>
-
-                    {loading
-                        ? [1, 2, 3, 4, 5].map(i => (
-                            <View key={i} style={{ height: 64, borderRadius: radius.lg, backgroundColor: colors.bordure, opacity: 0.4, marginBottom: spacing.sm }} />
-                        ))
-                        : episodes.map((ep, index) => {
-                            const actif = piste?.id === ep.id
-                            const descVisible = descOuverte === ep.id
-
-                            return (
-                                <View key={ep.id} style={{ marginBottom: spacing.sm }}>
-                                    <Pressable onPress={() => {
-                                        if (actif) {
-                                            enLecture ? pause() : reprendre()
-                                        } else {
-                                            jouerEpisode(ep, index)
-                                        }
-                                    }}>
-                                        <View style={{
-                                            backgroundColor: actif ? '#e8f0f8' : colors.blanc,
-                                            borderTopLeftRadius: radius.lg,
-                                            borderTopRightRadius: radius.lg,
-                                            borderBottomLeftRadius: descVisible ? 0 : radius.lg,
-                                            borderBottomRightRadius: descVisible ? 0 : radius.lg,
-                                            borderWidth: 1,
-                                            borderColor: actif ? colors.bleu : colors.bordure,
-                                            borderBottomWidth: descVisible ? 0 : 1,
-                                            padding: spacing.md,
-                                            flexDirection: 'row', alignItems: 'center',
-                                        }}>
-                                            <View style={{
-                                                width: 36, height: 36, borderRadius: radius.full,
-                                                backgroundColor: actif ? colors.bleu : '#f5f5f5',
-                                                alignItems: 'center', justifyContent: 'center',
-                                                marginRight: spacing.md, flexShrink: 0,
-                                            }}>
-                                                {actif && enLecture
-                                                    ? <Pause size={13} color="white" fill="white" strokeWidth={0} />
-                                                    : actif
-                                                        ? <Play size={13} color="white" fill="white" strokeWidth={0} style={{ marginLeft: 2 }} />
-                                                        : <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#999' }}>{ep.numero}</Text>
-                                                }
-                                            </View>
-
-                                            <View style={{ flex: 1, minWidth: 0, marginRight: spacing.sm }}>
-                                                <Text numberOfLines={1} style={{
-                                                    fontFamily: typography.fontFamily.semibold,
-                                                    fontSize: typography.size.base,
-                                                    color: actif ? colors.bleu : colors.texte,
-                                                }}>
-                                                    {ep.titre}
-                                                </Text>
-                                                {ep.duree ? (
-                                                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#bbb', marginTop: 2 }}>
-                                                        {ep.duree}
-                                                    </Text>
-                                                ) : null}
-                                            </View>
-
-                                            <BoutonTelecharger
-                                                episode={{
-                                                    id: ep.id,
-                                                    titre: ep.titre,
-                                                    sheikh: cours?.sheikh ?? '',
-                                                    coursId: id as string,
-                                                    coursTitre: cours?.titre ?? '',
-                                                    url: ep.url_audio,
-                                                }}
-                                            />
-
-                                            {ep.description ? (
-                                                <Pressable
-                                                    onPress={() => setDescOuverte(descVisible ? null : ep.id)}
-                                                    style={{
-                                                        width: 28, height: 28, borderRadius: radius.full,
-                                                        backgroundColor: descVisible ? colors.bleu : '#f0f0f0',
-                                                        alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                                        marginLeft: spacing.xs,
-                                                    }}
-                                                >
-                                                    <Text style={{ fontSize: 12, color: descVisible ? 'white' : '#888' }}>i</Text>
-                                                </Pressable>
-                                            ) : null}
-                                        </View>
-                                    </Pressable>
-
-                                    {descVisible && ep.description ? (
-                                        <View style={{
-                                            backgroundColor: '#f8f6f1',
-                                            borderWidth: 1, borderTopWidth: 0,
-                                            borderColor: colors.bleu,
-                                            borderBottomLeftRadius: radius.lg,
-                                            borderBottomRightRadius: radius.lg,
-                                            padding: spacing.md,
-                                        }}>
-                                            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: '#555', lineHeight: 22 }}>
-                                                {ep.description}
-                                            </Text>
-                                        </View>
-                                    ) : null}
-                                </View>
-                            )
-                        })
-                    }
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg, justifyContent: 'center' }}>
+                        <BoutonHeros
+                            icone={episodeActif && enLecture
+                                ? <MiniEgaliseur color={colors.or} hauteur={12} />
+                                : <IconPlay size={16} color="white" />}
+                            label={episodeActif ? (enLecture ? 'En lecture' : 'Reprendre') : 'Tout écouter'}
+                            onPress={toutEcouter}
+                            actif={episodeActif}
+                        />
+                        {urlPdf ? (
+                            <BoutonHeros
+                                icone={<IconLivre size={16} color="white" />}
+                                label="Consulter le livre"
+                                onPress={() => WebBrowser.openBrowserAsync(urlPdf)}
+                            />
+                        ) : null}
+                    </View>
                 </View>
+            </HerosDetail>
+
+            {/* ── Épisodes ── */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: 170 }}>
+                {loading ? (
+                    <Squelettes n={6} h={66} />
+                ) : (
+                    <Animated.View entering={FadeIn.duration(220)}>
+                        <EnTeteSection eyebrow="Épisodes" />
+                        {episodes.length === 0 ? (
+                            <EtatVideDetail message="Les épisodes arrivent bientôt" />
+                        ) : (
+                            <View style={{ gap: spacing.sm }}>
+                                {episodes.map((ep, index) => {
+                                    const actif = piste?.id === ep.id
+                                    const descVisible = descOuverte === ep.id
+
+                                    return (
+                                        <Animated.View key={ep.id} entering={FadeInDown.duration(350).delay(Math.min(index, 8) * 45)}>
+                                            <PressableScale
+                                                onPress={() => {
+                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                                                    if (actif) { enLecture ? pause() : reprendre() }
+                                                    else jouerEpisode(ep, index)
+                                                }}
+                                                style={{
+                                                    backgroundColor: colors.blanc,
+                                                    borderRadius: 18,
+                                                    padding: spacing.md,
+                                                    borderWidth: actif ? 1.5 : 0,
+                                                    borderColor: colors.bleu,
+                                                    shadowColor: '#3a4a5c',
+                                                    shadowOffset: { width: 0, height: 4 },
+                                                    shadowOpacity: 0.06,
+                                                    shadowRadius: 10,
+                                                    elevation: 2,
+                                                }}
+                                            >
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                                                    <View style={{
+                                                        width: 38, height: 38, borderRadius: 19,
+                                                        backgroundColor: actif ? colors.bleu : '#edf2f8',
+                                                        alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                        ...(actif ? {
+                                                            shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
+                                                            shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+                                                        } : {}),
+                                                    }}>
+                                                        {actif && enLecture
+                                                            ? <MiniEgaliseur color="white" />
+                                                            : actif
+                                                                ? <IconPlay size={15} color="white" />
+                                                                : <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>{ep.numero}</Text>}
+                                                    </View>
+
+                                                    <View style={{ flex: 1, minWidth: 0 }}>
+                                                        <Text numberOfLines={1} style={{
+                                                            fontFamily: typography.fontFamily.semibold,
+                                                            fontSize: typography.size.base,
+                                                            color: actif ? colors.bleu : colors.texte,
+                                                        }}>
+                                                            {ep.titre}
+                                                        </Text>
+                                                        {ep.duree ? (
+                                                            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#aab4c0', marginTop: 2, fontVariant: ['tabular-nums'] }}>
+                                                                {ep.duree}
+                                                            </Text>
+                                                        ) : null}
+                                                    </View>
+
+                                                    <BoutonTelecharger
+                                                        episode={{
+                                                            id: ep.id,
+                                                            titre: ep.titre,
+                                                            sheikh: cours?.sheikh ?? '',
+                                                            coursId: id as string,
+                                                            coursTitre: cours?.titre ?? '',
+                                                            url: ep.url_audio,
+                                                        }}
+                                                    />
+
+                                                    {ep.description ? (
+                                                        <Pressable
+                                                            onPress={() => {
+                                                                Haptics.selectionAsync()
+                                                                setDescOuverte(descVisible ? null : ep.id)
+                                                            }}
+                                                            hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                                                            style={{
+                                                                width: 30, height: 30, borderRadius: 15,
+                                                                backgroundColor: descVisible ? colors.bleu : '#edf2f8',
+                                                                alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                            }}
+                                                        >
+                                                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 13, color: descVisible ? 'white' : colors.bleu, fontStyle: 'italic' }}>i</Text>
+                                                        </Pressable>
+                                                    ) : null}
+                                                </View>
+
+                                                {descVisible && ep.description ? (
+                                                    <Animated.View entering={FadeIn.duration(200)} style={{
+                                                        marginTop: spacing.md,
+                                                        paddingTop: spacing.md,
+                                                        borderTopWidth: 1,
+                                                        borderTopColor: '#eef1f6',
+                                                    }}>
+                                                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: '#5b6675', lineHeight: 21 }}>
+                                                            {ep.description}
+                                                        </Text>
+                                                    </Animated.View>
+                                                ) : null}
+                                            </PressableScale>
+                                        </Animated.View>
+                                    )
+                                })}
+                            </View>
+                        )}
+                    </Animated.View>
+                )}
             </ScrollView>
-        </SafeAreaView>
+        </View>
     )
 }
