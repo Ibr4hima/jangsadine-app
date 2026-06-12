@@ -7,46 +7,150 @@ import { ScrollProvider } from '@/contexts/ScrollContext'
 import { TabBarProvider, useTabBar } from '@/contexts/TabBarContext'
 import { TelechargementProvider } from '@/contexts/TelechargementContext'
 import { useFonts } from 'expo-font'
+import * as Haptics from 'expo-haptics'
 import { Stack, usePathname, useRouter } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
-import { useEffect } from 'react'
+import { ComponentType, useEffect, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
 SplashScreen.preventAutoHideAsync()
 
-function IconHome({ size = 24, color = '#1f1f1f' }: { size?: number, color?: string }) {
+type IconProps = { size?: number; color?: string }
+
+function IconHome({ size = 24, color = '#1f1f1f' }: IconProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M240-200h120v-240h240v240h120v-360L480-740 240-560v360Zm-80 80v-480l320-240 320 240v480H520v-240h-80v240H160Zm320-350Z" fill={color} /></Svg>
 }
-function IconHeadphones({ size = 24, color = '#1f1f1f' }: { size?: number, color?: string }) {
+function IconHomeFill({ size = 24, color = '#1f1f1f' }: IconProps) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M160-120v-480l320-240 320 240v480H560v-280H400v280H160Z" fill={color} /></Svg>
+}
+function IconHeadphones({ size = 24, color = '#1f1f1f' }: IconProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M360-120H200q-33 0-56.5-23.5T120-200v-280q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-840q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-480v280q0 33-23.5 56.5T760-120H600v-320h160v-40q0-117-81.5-198.5T480-760q-117 0-198.5 81.5T200-480v40h160v320Zm-80-240h-80v160h80v-160Zm400 0v160h80v-160h-80Zm-400 0h-80 80Zm400 0h80-80Z" fill={color} /></Svg>
 }
-function IconPrayer({ size = 24, color = '#1f1f1f' }: { size?: number, color?: string }) {
+function IconHeadphonesFill({ size = 24, color = '#1f1f1f' }: IconProps) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M360-120H200q-33 0-56.5-23.5T120-200v-280q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-840q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-480v280q0 33-23.5 56.5T760-120H600v-320h160v-40q0-117-81.5-198.5T480-760q-117 0-198.5 81.5T200-480v40h160v320Z" fill={color} /></Svg>
+}
+function IconPrayer({ size = 24, color = '#1f1f1f' }: IconProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="m521-500 59-43 58 43-23-68 59-43h-72l-22-69-22 69h-73l59 43-23 68Zm-41 220q83 0 141.5-58T680-480q0-8-.5-16t-2.5-16q-11 47-49 77.5T539-404q-60 0-101-41t-41-101q0-46 26-82.5t68-51.5h-11q-84 0-142 58.5T280-480q0 84 58 142t142 58Zm0 252L346-160H160v-186L28-480l132-134v-186h186l134-132 134 132h186v186l132 134-132 134v186H614L480-28Zm0-112 100-100h140v-140l100-100-100-100v-140H580L480-820 380-720H240v140L140-480l100 100v140h140l100 100Zm0-340Z" fill={color} /></Svg>
 }
-function IconMore({ size = 24, color = '#1f1f1f' }: { size?: number, color?: string }) {
+function IconPrayerFill({ size = 24, color = '#1f1f1f' }: IconProps) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M480-28 346-160H160v-186L28-480l132-134v-186h186l134-132 134 132h186v186l132 134-132 134v186H614L480-28Zm0-252q83 0 141.5-58T680-480q0-8-.5-16t-2.5-16q-11 47-49 77.5T539-404q-60 0-101-41t-41-101q0-46 26-82.5t68-51.5h-11q-84 0-142 58.5T280-480q0 84 58 142t142 58Zm41-220 59-43 58 43-23-68 59-43h-72l-22-69-22 69h-73l59 43-23 68Z" fill={color} /></Svg>
+}
+function IconMore({ size = 24, color = '#1f1f1f' }: IconProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M240-400q-33 0-56.5-23.5T160-480q0-33 23.5-56.5T240-560q33 0 56.5 23.5T320-480q0 33-23.5 56.5T240-400Zm240 0q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm240 0q-33 0-56.5-23.5T640-480q0-33 23.5-56.5T720-560q33 0 56.5 23.5T800-480q0 33-23.5 56.5T720-400Z" fill={color} /></Svg>
 }
 
-const TABS = [
-  { key: 'index', label: 'Accueil', icon: IconHome, href: '/' },
-  { key: 'audio', label: 'Audio', icon: IconHeadphones, href: '/audio' },
-  { key: 'prieres', label: 'Prières', icon: IconPrayer, href: '/(tabs)/prieres' },
+const TABS: {
+  key: string
+  label: string
+  icon: ComponentType<IconProps>
+  iconFill: ComponentType<IconProps>
+  href: string
+}[] = [
+  { key: 'index', label: 'Accueil', icon: IconHome, iconFill: IconHomeFill, href: '/' },
+  { key: 'audio', label: 'Audio', icon: IconHeadphones, iconFill: IconHeadphonesFill, href: '/audio' },
+  { key: 'prieres', label: 'Prières', icon: IconPrayer, iconFill: IconPrayerFill, href: '/(tabs)/prieres' },
 ]
+
+const INACTIF = '#8e98a4'
+
+// ─── onglet avec pop d'icône à l'activation ───────────────────
+function TabItem({ tab, actif, onPress }: {
+  tab: typeof TABS[number]
+  actif: boolean
+  onPress: () => void
+}) {
+  const scale = useSharedValue(1)
+
+  useEffect(() => {
+    if (actif) {
+      scale.value = withSequence(
+        withSpring(1.18, { damping: 13, stiffness: 320 }),
+        withSpring(1, { damping: 15, stiffness: 240 }),
+      )
+    }
+  }, [actif])
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }))
+
+  const Icon = actif ? tab.iconFill : tab.icon
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, gap: 3, zIndex: 1 }}
+    >
+      <Animated.View style={iconStyle}>
+        <Icon size={22} color={actif ? colors.bleu : INACTIF} />
+      </Animated.View>
+      <Text style={{
+        fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.medium,
+        fontSize: 10,
+        color: actif ? colors.bleu : INACTIF,
+      }}>
+        {tab.label}
+      </Text>
+    </Pressable>
+  )
+}
 
 function AppShell() {
   const pathname = usePathname()
   const router = useRouter()
-  const { tabBarVisible, hideTabBar } = useTabBar()
-  const { lecteurOuvert, piste } = useAudio()
+  const { tabBarVisible } = useTabBar()
+  const { piste } = useAudio()
+
+  const [barW, setBarW] = useState(0)
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/' || pathname === '/index'
     if (href === '/(tabs)/prieres') return pathname.includes('prieres')
     return pathname.startsWith(href.replace('/(tabs)', ''))
   }
+
+  const activeIndex = TABS.findIndex(t => isActive(t.href))
+  const tabW = barW > 0 ? (barW - 12) / TABS.length : 0
+
+  // pastille glissante derrière l'onglet actif
+  const pillX = useSharedValue(0)
+  const pillOp = useSharedValue(0)
+
+  useEffect(() => {
+    if (activeIndex >= 0 && tabW > 0) {
+      if (pillOp.value === 0) {
+        // première apparition : positionner sans glisser
+        pillX.value = activeIndex * tabW
+      } else {
+        pillX.value = withSpring(activeIndex * tabW, { damping: 19, stiffness: 200, mass: 0.7 })
+      }
+      pillOp.value = withTiming(1, { duration: 160 })
+    } else {
+      pillOp.value = withTiming(0, { duration: 160 })
+    }
+  }, [activeIndex, tabW])
+
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pillX.value }],
+    opacity: pillOp.value,
+  }))
+
+  const naviguerTab = (href: string) => {
+    if (isActive(href)) return
+    Haptics.selectionAsync()
+    router.push(href as any)
+  }
+
+  const plusActif = isActive('/plus')
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
@@ -58,38 +162,51 @@ function AppShell() {
           <View style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md, gap: spacing.sm }}>
             <LecteurPersistant />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <View style={{
-                flex: 1, flexDirection: 'row',
-                backgroundColor: colors.blanc,
-                borderRadius: 24, padding: 6,
-                shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-              }}>
-                {TABS.map(tab => {
-                  const actif = isActive(tab.href)
-                  const Icon = tab.icon
-                  return (
-                    <Pressable
-                      key={tab.key}
-                      onPress={() => {
-                        if (tab.href === '/') hideTabBar()
-                        router.push(tab.href as any)
-                      }}
-                      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 18, backgroundColor: actif ? colors.fondCreme : 'transparent', gap: 3 }}
-                    >
-                      <Icon size={22} color={actif ? colors.bleu : '#888'} />
-                      <Text style={{ fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.regular, fontSize: 10, color: actif ? colors.bleu : '#888' }}>
-                        {tab.label}
-                      </Text>
-                    </Pressable>
-                  )
-                })}
+              <View
+                onLayout={e => setBarW(e.nativeEvent.layout.width)}
+                style={{
+                  flex: 1, flexDirection: 'row',
+                  backgroundColor: colors.blanc,
+                  borderRadius: 26, padding: 6,
+                  shadowColor: '#1c2a3a', shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.10, shadowRadius: 16, elevation: 6,
+                }}
+              >
+                {tabW > 0 && (
+                  <Animated.View style={[{
+                    position: 'absolute',
+                    left: 6, top: 6, bottom: 6,
+                    width: tabW,
+                    borderRadius: 20,
+                    backgroundColor: '#e3edf8',
+                  }, pillStyle]} />
+                )}
+                {TABS.map(tab => (
+                  <TabItem
+                    key={tab.key}
+                    tab={tab}
+                    actif={isActive(tab.href)}
+                    onPress={() => naviguerTab(tab.href)}
+                  />
+                ))}
               </View>
               <Pressable
-                onPress={() => router.push('/plus' as any)}
-                style={{ width: 60, borderRadius: 24, backgroundColor: isActive('/plus') ? colors.bleu : colors.blanc, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 }}
+                onPress={() => {
+                  if (!plusActif) {
+                    Haptics.selectionAsync()
+                    router.push('/plus' as any)
+                  }
+                }}
+                style={({ pressed }) => ({
+                  width: 58, borderRadius: 26,
+                  backgroundColor: plusActif ? colors.bleu : colors.blanc,
+                  alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch',
+                  shadowColor: '#1c2a3a', shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.10, shadowRadius: 16, elevation: 6,
+                  transform: [{ scale: pressed ? 0.94 : 1 }],
+                })}
               >
-                <IconMore size={22} color={isActive('/plus') ? 'white' : '#888'} />
+                <IconMore size={22} color={plusActif ? 'white' : INACTIF} />
               </Pressable>
             </View>
           </View>
