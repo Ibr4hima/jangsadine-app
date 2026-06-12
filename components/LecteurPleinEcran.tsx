@@ -13,19 +13,24 @@ import {
     ScrollView,
     StatusBar,
     Text,
+    TextInput,
     View,
+    ViewStyle,
 } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
     cancelAnimation,
+    Easing,
     interpolateColor,
     runOnJS,
+    useAnimatedProps,
     useAnimatedStyle,
     useSharedValue,
     withRepeat,
     withSequence,
     withSpring,
     withTiming,
+    ZoomIn,
 } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
@@ -138,15 +143,74 @@ function clamp01(v: number) {
     return Math.max(0, Math.min(1, v))
 }
 
+// formateur de temps exécutable sur le thread UI
+function fmtW(s: number) {
+    'worklet'
+    if (!s || isNaN(s) || s < 0) return '0:00'
+    const h  = Math.floor(s / 3600)
+    const m  = Math.floor((s % 3600) / 60)
+    const sc = Math.floor(s % 60)
+    const pad = (n: number) => (n < 10 ? '0' + n : '' + n)
+    if (h > 0) return h + ':' + pad(m) + ':' + pad(sc)
+    return m + ':' + pad(sc)
+}
+
+// TextInput piloté par Reanimated : le temps défile sur le thread UI,
+// sans aucun re-render React pendant le scrub
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput)
+
+// ─── pressable à ressort (boutons de contrôle) ────────────────
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+
+function SpringTap({ onPress, children, style, hitSlop = 14, pressedScale = 0.86 }: {
+    onPress: () => void
+    children: ReactNode
+    style?: ViewStyle
+    hitSlop?: number
+    pressedScale?: number
+}) {
+    const s = useSharedValue(1)
+    const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }))
+    return (
+        <AnimatedPressable
+            onPressIn={() => { s.value = withSpring(pressedScale, { damping: 16, stiffness: 480 }) }}
+            onPressOut={() => { s.value = withSpring(1, { damping: 13, stiffness: 300 }) }}
+            onPress={onPress}
+            hitSlop={{ top: hitSlop, bottom: hitSlop, left: hitSlop, right: hitSlop }}
+            style={[style, a]}
+        >
+            {children}
+        </AnimatedPressable>
+    )
+}
+
 // ─── Artwork (always mounted) ─────────────────────────────────
 function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean }) {
     const scale = useSharedValue(enLecture ? 1 : 0.78)
+    const aura  = useSharedValue(0)
 
     useEffect(() => {
         scale.value = withSpring(enLecture ? 1 : 0.78, { damping: 14, stiffness: 140 })
+        if (enLecture) {
+            aura.value = withRepeat(
+                withSequence(
+                    withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.ease) }),
+                    withTiming(0, { duration: 2400, easing: Easing.inOut(Easing.ease) }),
+                ), -1, true
+            )
+        } else {
+            cancelAnimation(aura)
+            aura.value = withTiming(0, { duration: 600 })
+        }
     }, [enLecture])
 
     const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+
+    // halo doré qui respire derrière la pochette pendant la lecture
+    const auraStyle = useAnimatedStyle(() => ({
+        opacity: 0.05 + aura.value * 0.09,
+        transform: [{ scale: (scale.value + 0.04) + aura.value * 0.05 }],
+    }))
 
     return (
         <View
@@ -158,6 +222,12 @@ function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean })
                 alignItems: 'center', justifyContent: 'center',
             }}
         >
+            <Animated.View style={[{
+                position: 'absolute',
+                width: ART_SIZE, height: ART_SIZE,
+                borderRadius: 32,
+                backgroundColor: colors.or,
+            }, auraStyle]} />
             <Animated.View style={[{
                 width: ART_SIZE, height: ART_SIZE,
                 borderRadius: 24,
@@ -179,10 +249,10 @@ function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean })
     )
 }
 
-// ─── Progress bar — 100% UI thread while scrubbing ────────────
-// Shared values drive the fill, height, thumb and floating time
-// bubble directly on the UI thread; React state is only used for
-// the small time labels.
+// ─── Progress bar — 100 % UI thread ───────────────────────────
+// Tout vit sur le thread UI : remplissage, hauteur, thumb, bulle
+// flottante ET les libellés de temps (TextInput animés). Aucun
+// re-render React pendant le scrub → fluidité parfaite.
 function Progress({ tempsActuel, dureeTotal, onSeek }: {
     tempsActuel: number; dureeTotal: number; onSeek: (pct: number) => void
 }) {
@@ -190,16 +260,18 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
     const prog      = useSharedValue(dureeTotal > 0 ? tempsActuel / dureeTotal : 0)
     const scrub     = useSharedValue(0)
     const scrubbing = useSharedValue(0)
-    const [scrubLabel, setScrubLabel] = useState<number | null>(null)
-    const isScrubbing = scrubLabel !== null
+    const duree     = useSharedValue(dureeTotal)
+
+    useEffect(() => { duree.value = dureeTotal }, [dureeTotal])
 
     useEffect(() => {
-        if (isScrubbing) return
+        if (scrubbing.value > 0) return
         const p = dureeTotal > 0 ? tempsActuel / dureeTotal : 0
-        // Glide between the 500ms status ticks → continuous motion
-        prog.value = withTiming(p, { duration: 480 })
-    }, [tempsActuel, dureeTotal, isScrubbing])
+        // Glisse entre les ticks de statut (500 ms) → mouvement continu
+        prog.value = withTiming(p, { duration: 480, easing: Easing.linear })
+    }, [tempsActuel, dureeTotal])
 
+    const debutSeek = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     const finDeSeek = (v: number) => {
         onSeek(v * 100)
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -210,11 +282,10 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
         .onBegin(e => {
             scrubbing.value = withTiming(1, { duration: 130 })
             scrub.value = clamp01(e.x / barW.value)
-            runOnJS(setScrubLabel)(scrub.value)
+            runOnJS(debutSeek)()
         })
         .onUpdate(e => {
             scrub.value = clamp01(e.x / barW.value)
-            runOnJS(setScrubLabel)(scrub.value)
         })
         .onEnd(() => {
             prog.value = scrub.value
@@ -222,7 +293,6 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
         })
         .onFinalize(() => {
             scrubbing.value = withTiming(0, { duration: 180 })
-            runOnJS(setScrubLabel)(null)
         })
 
     const trackStyle = useAnimatedStyle(() => {
@@ -256,16 +326,30 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
             transform: [
                 { translateX: Math.max(0, Math.min(x - 34, barW.value - 68)) },
                 { translateY: -6 + scrubbing.value * 6 },
+                { scale: 0.8 + scrubbing.value * 0.2 },
             ],
         }
     })
 
-    const tDisplay = isScrubbing && dureeTotal > 0 ? scrubLabel! * dureeTotal : tempsActuel
-    const restant  = Math.max(0, dureeTotal - tDisplay)
+    // temps affiché = scrub pendant le drag, lecture sinon — calculé sur le thread UI
+    const bubbleProps = useAnimatedProps(() => {
+        return { text: fmtW(scrub.value * duree.value) } as any
+    })
+    const gaucheProps = useAnimatedProps(() => {
+        const p = scrubbing.value * scrub.value + (1 - scrubbing.value) * prog.value
+        return { text: fmtW(p * duree.value) } as any
+    })
+    const droiteProps = useAnimatedProps(() => {
+        const p = scrubbing.value * scrub.value + (1 - scrubbing.value) * prog.value
+        return { text: '-' + fmtW(Math.max(0, duree.value - p * duree.value)) } as any
+    })
+    const gaucheStyle = useAnimatedStyle(() => ({
+        color: interpolateColor(scrubbing.value, [0, 1], ['rgba(255,255,255,0.60)', colors.or]),
+    }))
 
     return (
         <View>
-            {/* floating time bubble */}
+            {/* bulle de temps flottante */}
             <View style={{ height: 34 }}>
                 <Animated.View style={[{
                     position: 'absolute', bottom: 2,
@@ -276,13 +360,17 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
                     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
                 }, bubbleStyle]}>
-                    <Text style={{
-                        fontFamily: typography.fontFamily.bold,
-                        fontSize: 13, color: BG_BOT,
-                        fontVariant: ['tabular-nums'],
-                    }}>
-                        {fmt(tDisplay)}
-                    </Text>
+                    <AnimatedTextInput
+                        editable={false}
+                        defaultValue="0:00"
+                        animatedProps={bubbleProps}
+                        style={{
+                            fontFamily: typography.fontFamily.bold,
+                            fontSize: 13, color: BG_BOT,
+                            fontVariant: ['tabular-nums'],
+                            padding: 0, textAlign: 'center',
+                        }}
+                    />
                 </Animated.View>
             </View>
 
@@ -306,12 +394,18 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
             </GestureDetector>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: -4 }}>
-                <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: isScrubbing ? colors.or : W60, fontVariant: ['tabular-nums'] }}>
-                    {fmt(tDisplay)}
-                </Text>
-                <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: W60, fontVariant: ['tabular-nums'] }}>
-                    -{fmt(restant)}
-                </Text>
+                <AnimatedTextInput
+                    editable={false}
+                    defaultValue="0:00"
+                    animatedProps={gaucheProps}
+                    style={[{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, fontVariant: ['tabular-nums'], padding: 0 }, gaucheStyle]}
+                />
+                <AnimatedTextInput
+                    editable={false}
+                    defaultValue="-0:00"
+                    animatedProps={droiteProps}
+                    style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: W60, fontVariant: ['tabular-nums'], padding: 0, textAlign: 'right' }}
+                />
             </View>
         </View>
     )
@@ -379,9 +473,18 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
         ],
     }))
 
+    // raccourcis : tap sur les icônes = muet / volume max, avec glisse animée
+    const allerA = (v: number) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        vol.value = withTiming(v, { duration: 240, easing: Easing.out(Easing.cubic) })
+        onChange(v)
+    }
+
     return (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <IcoVolumeMute size={20} color={W60} />
+            <SpringTap onPress={() => allerA(0)} hitSlop={10} pressedScale={0.8}>
+                <IcoVolumeMute size={20} color={W60} />
+            </SpringTap>
             <GestureDetector gesture={gesture}>
                 <View
                     onLayout={e => { barW.value = e.nativeEvent.layout.width }}
@@ -400,7 +503,9 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
                     }, thumbStyle]} />
                 </View>
             </GestureDetector>
-            <IcoVolumeUp size={20} color={W60} />
+            <SpringTap onPress={() => allerA(1)} hitSlop={10} pressedScale={0.8}>
+                <IcoVolumeUp size={20} color={W60} />
+            </SpringTap>
         </View>
     )
 }
@@ -429,11 +534,7 @@ function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () =>
     }))
 
     return (
-        <Pressable
-            onPress={onPress}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.90 : 1 }] })}
-        >
+        <SpringTap onPress={onPress} hitSlop={10} pressedScale={0.9}>
             <View style={{ alignItems: 'center', justifyContent: 'center', width: 90, height: 90 }}>
                 <Animated.View style={[{
                     position: 'absolute',
@@ -450,13 +551,16 @@ function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () =>
                     shadowRadius: 16,
                     elevation: 12,
                 }}>
-                    {enLecture
-                        ? <IcoPause size={36} color={BG_MID} />
-                        : <IcoPlay  size={36} color={BG_MID} />
-                    }
+                    {/* zoom subtil au changement play ↔ pause */}
+                    <Animated.View key={enLecture ? 'pause' : 'play'} entering={ZoomIn.duration(180)}>
+                        {enLecture
+                            ? <IcoPause size={36} color={BG_MID} />
+                            : <IcoPlay  size={36} color={BG_MID} />
+                        }
+                    </Animated.View>
                 </View>
             </View>
-        </Pressable>
+        </SpringTap>
     )
 }
 
@@ -657,7 +761,7 @@ export default function LecteurPleinEcran() {
                                                         return (
                                                             <Pressable
                                                                 key={m.id}
-                                                                onPress={() => seeker((m.temps_secondes / dureeTotal) * 100)}
+                                                                onPress={() => { Haptics.selectionAsync(); seeker((m.temps_secondes / dureeTotal) * 100) }}
                                                                 style={{
                                                                     flexDirection: 'row', alignItems: 'center',
                                                                     gap: spacing.md,
@@ -705,9 +809,10 @@ export default function LecteurPleinEcran() {
                                     marginTop: spacing.md, marginBottom: spacing.md,
                                 }}>
                                     {/* speed pill */}
-                                    <Pressable
+                                    <SpringTap
                                         onPress={cyclerVitesse}
-                                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                        hitSlop={12}
+                                        pressedScale={0.88}
                                         style={{ width: 56, alignItems: 'center' }}
                                     >
                                         <View style={{
@@ -721,36 +826,23 @@ export default function LecteurPleinEcran() {
                                                 ×{fmtVitesse(vitesse)}
                                             </Text>
                                         </View>
-                                    </Pressable>
+                                    </SpringTap>
 
-                                    <Pressable
-                                        onPress={() => skip(reculer)}
-                                        hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
-                                        style={({ pressed }) => ({
-                                            opacity: pressed ? 0.5 : 1,
-                                            transform: [{ scale: pressed ? 0.86 : 1 }],
-                                        })}
-                                    >
+                                    <SpringTap onPress={() => skip(reculer)} hitSlop={16} pressedScale={0.82}>
                                         <IcoBack size={38} color="#fff" />
-                                    </Pressable>
+                                    </SpringTap>
 
                                     <BoutonPlay enLecture={enLecture} onPress={togglePlay} />
 
-                                    <Pressable
-                                        onPress={() => skip(avancer)}
-                                        hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
-                                        style={({ pressed }) => ({
-                                            opacity: pressed ? 0.5 : 1,
-                                            transform: [{ scale: pressed ? 0.86 : 1 }],
-                                        })}
-                                    >
+                                    <SpringTap onPress={() => skip(avancer)} hitSlop={16} pressedScale={0.82}>
                                         <IcoFwd size={38} color="#fff" />
-                                    </Pressable>
+                                    </SpringTap>
 
                                     {/* sleep */}
-                                    <Pressable
+                                    <SpringTap
                                         onPress={() => { Haptics.selectionAsync(); setShowSleep(p => !p) }}
-                                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                        hitSlop={12}
+                                        pressedScale={0.88}
                                         style={{ width: 56, alignItems: 'center' }}
                                     >
                                         {sleepMin > 0 ? (
@@ -763,7 +855,7 @@ export default function LecteurPleinEcran() {
                                         ) : (
                                             <Moon size={24} color={W60} strokeWidth={2} />
                                         )}
-                                    </Pressable>
+                                    </SpringTap>
                                 </View>
 
                                 {/* Volume */}
