@@ -5,7 +5,7 @@ import * as Location from 'expo-location'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { ArrowLeft } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Dimensions, Pressable, StatusBar, Text, View } from 'react-native'
+import { ActivityIndicator, Dimensions, Pressable, StatusBar, Text, View } from 'react-native'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -33,9 +33,10 @@ const DIAL_R = DIAL / 2
 const KAABA_LAT = 21.4225
 const KAABA_LNG = 39.8262
 
-const BG_TOP = '#0d1b2e'
-const BG_MID = '#1a3050'
-const BG_BOT = '#2d578c'
+// palette bleu logo — la même que le lecteur plein écran
+const BG_TOP = '#3d6ba3'
+const BG_MID = '#2d578c'
+const BG_BOT = '#1c3d66'
 const W90 = 'rgba(255,255,255,0.90)'
 const W60 = 'rgba(255,255,255,0.60)'
 const W40 = 'rgba(255,255,255,0.40)'
@@ -167,7 +168,6 @@ export default function QiblaPage() {
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null)
   const [distance, setDistance] = useState<number | null>(null)
   const [boussole, setBoussole] = useState(0)
-  const [precision, setPrecision] = useState(3)
   const [aligne, setAligne] = useState(false)
 
   const lastHaptic = useRef(0)
@@ -224,7 +224,6 @@ export default function QiblaPage() {
         // déjà compensé en inclinaison et référencé au haut de l'appareil
         const cap = h.trueHeading >= 0 ? h.trueHeading : h.magHeading
         setBoussole(norm(cap))
-        setPrecision(h.accuracy)
       })
 
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
@@ -281,14 +280,22 @@ export default function QiblaPage() {
   // ── Permission refusée ───────────────────────────────────────
   if (perm === 'denied') {
     return (
-      <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
+      <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} locations={[0, 0.5, 1]} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
         <StatusBar barStyle="light-content" />
-        <Text style={{ fontSize: 52, marginBottom: spacing.lg }}>📍</Text>
+        <View style={{
+          width: 72, height: 72, borderRadius: 36,
+          backgroundColor: W07, borderWidth: 1, borderColor: W30,
+          alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg,
+        }}>
+          <Svg width={32} height={32} viewBox="0 -960 960 960">
+            <Path d="M480-480q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Zm0 294q122-112 181-203.5T720-552q0-109-69.5-178.5T480-800q-101 0-170.5 69.5T240-552q0 71 59 162.5T480-186Zm0 106Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Z" fill={W90} />
+          </Svg>
+        </View>
         <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: W90, marginBottom: spacing.sm, textAlign: 'center' }}>
-          Accès refusé
+          Localisation requise
         </Text>
-        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W60, textAlign: 'center', lineHeight: 22 }}>
-          Autorisez la localisation dans les réglages pour utiliser la Qibla.
+        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W60, textAlign: 'center', lineHeight: 22, maxWidth: 280 }}>
+          Autorise la localisation dans les Réglages pour trouver la direction de la Qibla.
         </Text>
       </LinearGradient>
     )
@@ -297,14 +304,14 @@ export default function QiblaPage() {
   // ── Chargement ───────────────────────────────────────────────
   if (!pos || qiblaAngle === null) {
     return (
-      <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
+      <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} locations={[0, 0.5, 1]} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
         <StatusBar barStyle="light-content" />
-        <Text style={{ fontSize: 52, marginBottom: spacing.lg }}>🧭</Text>
-        <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: W90, marginBottom: spacing.sm }}>
+        <ActivityIndicator size="large" color={colors.or} style={{ marginBottom: spacing.lg }} />
+        <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: W90, marginBottom: spacing.xs }}>
           Calcul en cours…
         </Text>
         <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W60 }}>
-          Détection de votre position GPS
+          Détection de ta position
         </Text>
       </LinearGradient>
     )
@@ -313,6 +320,11 @@ export default function QiblaPage() {
   return (
     <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} locations={[0, 0.5, 1]} style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" />
+
+      {/* brume décorative — même langage que le lecteur */}
+      <View style={{ position: 'absolute', width: 600, height: 600, borderRadius: 300, backgroundColor: 'rgba(120,165,220,0.13)', top: -260, left: -200 }} />
+      <View style={{ position: 'absolute', width: 480, height: 480, borderRadius: 240, backgroundColor: 'rgba(90,140,200,0.11)', top: 260, right: -220 }} />
+      <View style={{ position: 'absolute', width: 460, height: 460, borderRadius: 230, backgroundColor: 'rgba(28,61,102,0.45)', bottom: -180, left: -140 }} />
 
       {/* ── Header ── */}
       <View style={{
@@ -337,11 +349,13 @@ export default function QiblaPage() {
           <ArrowLeft size={20} color="#fff" strokeWidth={2.2} />
         </Pressable>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: '#fff' }}>
+          <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 4 }}>
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.8, color: colors.or, textTransform: 'uppercase' }}>
+              Direction de La Mecque
+            </Text>
+          </View>
+          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: '#fff' }}>
             Qibla
-          </Text>
-          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: W60 }}>
-            Direction de La Mecque
           </Text>
         </View>
         <View style={{ width: 40 }} />
@@ -367,11 +381,6 @@ export default function QiblaPage() {
             {cardinalActuel}
           </Text>
         </View>
-        {precision <= 1 && (
-          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: 'rgba(240,180,80,0.85)', marginTop: 4 }}>
-            Précision faible — dessinez un 8 avec votre téléphone
-          </Text>
-        )}
       </View>
 
       {/* ── Boussole ── */}
