@@ -64,9 +64,9 @@ const SECTIONS: { type: TypeSection, label: string }[] = [
 
 // ─── groupe d'un même contenu (cours, conférence…) ───────────
 function GroupeContenu({
-  groupId, titre, episodes, index: groupIndex,
+  groupId, titre, episodes, index: groupIndex, avecSheikh,
 }: {
-  groupId: string, titre: string, episodes: Telechargement[], index: number,
+  groupId: string, titre: string, episodes: Telechargement[], index: number, avecSheikh: boolean,
 }) {
   const [ouvert, setOuvert] = useState(true)
   const { supprimer } = useTelechargement()
@@ -139,7 +139,7 @@ function GroupeContenu({
           <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>
             {(() => {
               const sheikhs = [...new Set(episodes.map(e => e.sheikh).filter(Boolean))]
-              const prefixe = sheikhs.length === 1 ? `${sheikhs[0]} · ` : ''
+              const prefixe = avecSheikh && sheikhs.length === 1 ? `${sheikhs[0]} · ` : ''
               return `${prefixe}${episodes.length} épisode${episodes.length > 1 ? 's' : ''}`
             })()}
           </Text>
@@ -329,11 +329,10 @@ export default function Telechargements() {
           <Animated.View entering={FadeIn.duration(220)}>
             {sectionsAvecContenu.map((section, sIdx) => {
               const groupes = parSection.get(section.type)!
-              const totalEpisodes = Array.from(groupes.values()).reduce((sum, eps) => sum + eps.length, 0)
               let groupIndex = 0
               return (
                 <View key={section.type} style={{ marginBottom: sIdx < sectionsAvecContenu.length - 1 ? spacing['2xl'] : 0 }}>
-                  <EnTeteSection eyebrow={section.label} titre={`${totalEpisodes} épisode${totalEpisodes > 1 ? 's' : ''}`} />
+                  <EnTeteSection eyebrow={section.label} />
                   <View style={{ gap: spacing.sm }}>
                     {Array.from(groupes.entries()).map(([groupId, episodes]) => (
                       <GroupeContenu
@@ -342,6 +341,7 @@ export default function Telechargements() {
                         titre={episodes[0].coursTitre}
                         episodes={episodes}
                         index={groupIndex++}
+                        avecSheikh={section.type === 'cours'}
                       />
                     ))}
                   </View>
