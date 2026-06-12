@@ -287,11 +287,18 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
         })
 
     // ── pan : scrub fluide + bulle + thumb ───────────────────────
+    // L'état "scrubbing" ne s'active que dans onStart (vraie activation
+    // après 4 px de glissé) — un simple tap ne le déclenche jamais,
+    // donc la barre revient toujours à son style de base après un tap.
     const panGesture = Gesture.Pan()
         .minDistance(4)
         .onBegin(e => {
+            scrub.value = clamp01(e.x / barW.value)
+        })
+        .onStart(e => {
             scrubbing.value = withTiming(1, { duration: 100 })
             scrub.value = clamp01(e.x / barW.value)
+            runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light)
         })
         .onUpdate(e => {
             scrub.value = clamp01(e.x / barW.value)
@@ -444,10 +451,20 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
         if (now - lastChange.current > 50) { lastChange.current = now; onChange(v) }
     }
 
-    const gesture = Gesture.Pan()
-        .minDistance(0)
-        .onBegin(e => {
-            scrubbing.value = withTiming(1, { duration: 130 })
+    // tap : ajustement direct au point touché, sans état scrub persistant
+    const tapGesture = Gesture.Tap()
+        .onEnd(e => {
+            const v = clamp01(e.x / barW.value)
+            vol.value = withTiming(v, { duration: 160, easing: Easing.out(Easing.cubic) })
+            runOnJS(onChange)(v)
+            runOnJS(hapticLight)()
+        })
+
+    // pan : drag fluide — le style scrub ne s'active qu'après activation réelle
+    const panGesture = Gesture.Pan()
+        .minDistance(4)
+        .onStart(e => {
+            scrubbing.value = withTiming(1, { duration: 100 })
             const v = clamp01(e.x / barW.value)
             vol.value = v
             runOnJS(setDragging)(true)
@@ -468,6 +485,8 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
             scrubbing.value = withTiming(0, { duration: 180 })
             runOnJS(setDragging)(false)
         })
+
+    const gesture = Gesture.Race(tapGesture, panGesture)
 
     const trackStyle = useAnimatedStyle(() => {
         const h = 4 + scrubbing.value * 8
@@ -578,28 +597,6 @@ function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () =>
                 </View>
             </View>
         </SpringTap>
-    )
-}
-
-// ─── Tab bar button ───────────────────────────────────────────
-function TabBtn({ label, active, children, onPress }: {
-    label: string; active: boolean; children: ReactNode; onPress: () => void
-}) {
-    return (
-        <Pressable
-            onPress={onPress}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ alignItems: 'center', gap: 4, flex: 1 }}
-        >
-            {children}
-            <Text style={{
-                fontFamily: typography.fontFamily.medium,
-                fontSize: typography.size.xs,
-                color: active ? colors.or : W35,
-            }}>
-                {label}
-            </Text>
-        </Pressable>
     )
 }
 
@@ -972,26 +969,26 @@ export default function LecteurPleinEcran() {
                         }}>
                             <View style={{
                                 flexDirection: 'row',
-                                backgroundColor: W08,
+                                backgroundColor: 'rgba(255,255,255,0.04)',
                                 borderRadius: radius.full,
                                 borderWidth: 1,
-                                borderColor: W15,
+                                borderColor: 'rgba(255,255,255,0.07)',
                                 padding: 4,
                             }}>
                                 {[
-                                    { label: 'Notes',    active: noteVisible,         icon: <IcoAddNotes  size={20} color={noteVisible          ? colors.or : W60} />, onPress: ouvrirNote },
-                                    { label: 'Chapitres',active: panel === 'chapters', icon: <IcoChapters size={20} color={panel === 'chapters'  ? colors.or : W60} />, onPress: () => { Haptics.selectionAsync(); setPanel(p => p === 'chapters' ? 'none' : 'chapters') } },
-                                    { label: 'File',     active: isQueue,             icon: <IcoQueue     size={20} color={isQueue               ? colors.or : W60} />, onPress: () => { Haptics.selectionAsync(); setPanel(p => p === 'queue' ? 'none' : 'queue') } },
+                                    { label: 'Notes',    active: noteVisible,         icon: <IcoAddNotes  size={21} color={noteVisible          ? colors.or : W60} />, onPress: ouvrirNote },
+                                    { label: 'Chapitres',active: panel === 'chapters', icon: <IcoChapters size={21} color={panel === 'chapters'  ? colors.or : W60} />, onPress: () => { Haptics.selectionAsync(); setPanel(p => p === 'chapters' ? 'none' : 'chapters') } },
+                                    { label: 'File',     active: isQueue,             icon: <IcoQueue     size={21} color={isQueue               ? colors.or : W60} />, onPress: () => { Haptics.selectionAsync(); setPanel(p => p === 'queue' ? 'none' : 'queue') } },
                                 ].map(tab => (
                                     <Pressable
                                         key={tab.label}
                                         onPress={tab.onPress}
                                         style={{
-                                            flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                                            gap: 6,
-                                            paddingVertical: 9,
+                                            flex: 1, alignItems: 'center', justifyContent: 'center',
+                                            gap: 4,
+                                            paddingVertical: 8,
                                             borderRadius: radius.full,
-                                            backgroundColor: tab.active ? OR_DIM : 'transparent',
+                                            backgroundColor: tab.active ? 'rgba(214,173,58,0.12)' : 'transparent',
                                         }}
                                     >
                                         {tab.icon}
