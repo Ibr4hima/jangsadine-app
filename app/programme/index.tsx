@@ -1,89 +1,79 @@
-import { colors, radius, spacing, typography } from '@/constants/theme'
-import { useAudio } from '@/contexts/AudioContext'
-import { supabase } from '@/lib/supabase'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useRouter } from 'expo-router'
-import { ArrowLeft, BookOpen, ChevronRight, Play, Plus, Trash2, X } from 'lucide-react-native'
-import { useEffect, useState } from 'react'
 import {
-  Alert,
-  FlatList, Modal, Pressable,
-  ScrollView, StatusBar, Text, TextInput, View
+  BoutonHeros,
+  EnTeteSection,
+  HerosDetail,
+  PressableScale,
+  W70,
+} from '@/components/AudioUI'
+import { colors, radius, spacing, typography } from '@/constants/theme'
+import { chargerProgrammes, genId, Programme, sauvegarderProgrammes } from '@/lib/programmes'
+import * as Haptics from 'expo-haptics'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { useCallback, useState } from 'react'
+import {
+  Alert, KeyboardAvoidingView, Modal, Platform, Pressable,
+  ScrollView, StatusBar, Text, TextInput, View,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import Svg, { Path } from 'react-native-svg'
 
-type Cours = {
-  id: string
-  titre: string
-  sheikh: string
-  nb_episodes: number
-  categories: { nom: string }
+function IconAjouter({ size = 16, color = 'white' }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" fill={color} />
+    </Svg>
+  )
+}
+function IconCorbeille({ size = 18, color = '#b6c0cc' }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" fill={color} />
+    </Svg>
+  )
+}
+function IconFermer({ size = 20, color = colors.texte }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" fill={color} />
+    </Svg>
+  )
+}
+function IconListe({ size = 20, color = colors.bleu }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="m222-200-96-96 56-56 40 40 80-80 56 56-136 136Zm0-320-96-96 56-56 40 40 80-80 56 56-136 136Zm298 240v-80h360v80H520Zm0-320v-80h360v80H520Z" fill={color} />
+    </Svg>
+  )
 }
 
-type Programme = {
-  id: string
-  nom: string
-  intention: string
-  cours: Cours[]
-  dateCreation: string
-  episodesEcoutes: string[]
+function BarreProgression({ pct, hauteur = 5, fond = '#e8eef6', remplissage = colors.bleu }: {
+  pct: number, hauteur?: number, fond?: string, remplissage?: string
+}) {
+  return (
+    <View style={{ height: hauteur, borderRadius: hauteur / 2, backgroundColor: fond, overflow: 'hidden' }}>
+      <View style={{ width: `${Math.min(100, Math.max(0, pct))}%`, height: '100%', borderRadius: hauteur / 2, backgroundColor: remplissage }} />
+    </View>
+  )
 }
 
-const STORAGE_KEY = 'jsd_programmes'
-
-const couleurBg: Record<string, string> = {
-  Aqeedah: '#e8f0f8', Fiqh: '#faf3dc', Hadith: '#eaf4ee',
-  'Tafsir & Sciences du Coran': '#fde8f0', Seerah: '#fdf0eb',
-  Invocations: '#DEE8CE', 'Éthique & Bons comportements': '#f2eefa',
-  'Séries de cours': '#EDE8D0',
-}
-const couleurTxt: Record<string, string> = {
-  Aqeedah: '#28558b', Fiqh: '#b8911f', Hadith: '#2d7a4f',
-  'Tafsir & Sciences du Coran': '#a02060', Seerah: '#c05c2e',
-  Invocations: '#06402B', 'Éthique & Bons comportements': '#6b3db5',
-  'Séries de cours': '#654321',
-}
-
-function genId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
-
-export default function Programme() {
+export default function MesProgrammes() {
   const router = useRouter()
-  const { jouer } = useAudio()
+  const insets = useSafeAreaInsets()
   const [programmes, setProgrammes] = useState<Programme[]>([])
+  const [charge, setCharge] = useState(false)
   const [modalCreer, setModalCreer] = useState(false)
-  const [modalAjouter, setModalAjouter] = useState<Programme | null>(null)
   const [nomNouv, setNomNouv] = useState('')
   const [intentionNouv, setIntentionNouv] = useState('')
-  const [coursDispo, setCoursDispo] = useState<Cours[]>([])
-  const [rechercheCours, setRechercheCours] = useState('')
-  const [vue, setVue] = useState<Programme | null>(null)
 
-  // Charger programmes
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(raw => {
-      if (raw) setProgrammes(JSON.parse(raw))
-    })
-  }, [])
-
-  const sauvegarder = async (p: Programme[]) => {
-    setProgrammes(p)
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(p))
-  }
-
-  // Charger cours dispo
-  useEffect(() => {
-    if (!modalAjouter) return
-    supabase
-      .from('cours')
-      .select('id, titre, sheikh, nb_episodes, categories(nom)')
-      .order('titre')
-      .then(({ data }) => { if (data) setCoursDispo(data as any) })
-  }, [modalAjouter])
+  // Recharge à chaque retour sur la page (le détail peut modifier les données)
+  useFocusEffect(useCallback(() => {
+    chargerProgrammes().then(p => { setProgrammes(p); setCharge(true) })
+  }, []))
 
   const creerProgramme = async () => {
     if (!nomNouv.trim()) return
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     const nouveau: Programme = {
       id: genId(),
       nom: nomNouv.trim(),
@@ -91,469 +81,239 @@ export default function Programme() {
       cours: [],
       dateCreation: new Date().toISOString(),
       episodesEcoutes: [],
+      coursTermines: [],
     }
-    await sauvegarder([...programmes, nouveau])
+    const mis = [...programmes, nouveau]
+    setProgrammes(mis)
+    await sauvegarderProgrammes(mis)
     setNomNouv('')
     setIntentionNouv('')
     setModalCreer(false)
+    router.push(`/programme/${nouveau.id}` as any)
   }
 
   const supprimerProgramme = (id: string) => {
-    Alert.alert('Supprimer', 'Supprimer ce programme ?', [
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    const prog = programmes.find(p => p.id === id)
+    Alert.alert('Supprimer ce programme ?', `« ${prog?.nom} » sera définitivement supprimé.`, [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer', style: 'destructive', onPress: async () => {
-          await sauvegarder(programmes.filter(p => p.id !== id))
-          if (vue?.id === id) setVue(null)
-        }
+          const mis = programmes.filter(p => p.id !== id)
+          setProgrammes(mis)
+          await sauvegarderProgrammes(mis)
+        },
       },
     ])
   }
 
-  const ajouterCours = async (prog: Programme, cours: Cours) => {
-    if (prog.cours.find(c => c.id === cours.id)) return
-    const mis = programmes.map(p =>
-      p.id === prog.id ? { ...p, cours: [...p.cours, cours] } : p
-    )
-    await sauvegarder(mis)
-    setModalAjouter(mis.find(p => p.id === prog.id) ?? null)
-    if (vue?.id === prog.id) setVue(mis.find(p => p.id === prog.id) ?? null)
-  }
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
+      <StatusBar barStyle="light-content" />
 
-  const retirerCours = async (prog: Programme, coursId: string) => {
-    const mis = programmes.map(p =>
-      p.id === prog.id ? { ...p, cours: p.cours.filter(c => c.id !== coursId) } : p
-    )
-    await sauvegarder(mis)
-    if (vue?.id === prog.id) setVue(mis.find(p => p.id === prog.id) ?? null)
-  }
-
-  const jouerProgramme = async (prog: Programme) => {
-    if (prog.cours.length === 0) return
-    // Charger tous les épisodes du premier cours
-    const { data: eps } = await supabase
-      .from('episodes')
-      .select('id, titre, numero, url_audio, duree')
-      .eq('cours_id', prog.cours[0].id)
-      .order('numero')
-    if (!eps || eps.length === 0) return
-    const piste = {
-      id: eps[0].id,
-      titre: eps[0].titre,
-      sheikh: prog.cours[0].sheikh,
-      url: eps[0].url_audio,
-      duree: eps[0].duree,
-      programmeId: prog.id,
-    }
-    const suivantes = eps.slice(1).map((e: any) => ({
-      id: e.id, titre: e.titre,
-      sheikh: prog.cours[0].sheikh,
-      url: e.url_audio, duree: e.duree,
-      programmeId: prog.id,
-    }))
-    jouer(piste, suivantes)
-  }
-
-  const coursFiltres = coursDispo.filter(c =>
-    c.titre.toLowerCase().includes(rechercheCours.toLowerCase()) ||
-    c.sheikh.toLowerCase().includes(rechercheCours.toLowerCase())
-  )
-
-  const nbEpisodesTotal = (prog: Programme) =>
-    prog.cours.reduce((acc, c) => acc + (c.nb_episodes ?? 0), 0)
-
-  // ── Vue détail programme ──
-  if (vue) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={['top']}>
-        <StatusBar barStyle="dark-content" />
-        <View style={{
-          flexDirection: 'row', alignItems: 'center',
-          paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-          borderBottomWidth: 1, borderBottomColor: colors.bordure,
-          backgroundColor: colors.blanc,
-        }}>
-          <Pressable onPress={() => setVue(null)} style={{ marginRight: spacing.md, padding: 4 }}>
-            <ArrowLeft size={22} color={colors.texte} />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte }}>
-              {vue.nom}
+      {/* ── Héros ── */}
+      <HerosDetail paddingTop={insets.top + spacing.sm}>
+        <View style={{ alignItems: 'center' }}>
+          <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: spacing.sm }}>
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.8, color: colors.or, textTransform: 'uppercase' }}>
+              Apprentissage
             </Text>
-            {vue.intention ? (
-              <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted }}>
-                {vue.intention}
-              </Text>
-            ) : null}
           </View>
-          <Pressable
-            onPress={() => setModalAjouter(vue)}
-            style={{
-              flexDirection: 'row', alignItems: 'center',
-              backgroundColor: colors.bleu, borderRadius: radius.full,
-              paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-            }}
-          >
-            <Plus size={14} color="white" />
-            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: 'white', marginLeft: 4 }}>
-              Ajouter
-            </Text>
-          </Pressable>
-        </View>
-
-        <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: 120 }}>
-          {/* Stats */}
-          <View style={{
-            backgroundColor: colors.blanc, borderRadius: radius.lg,
-            borderWidth: 1, borderColor: colors.bordure,
-            padding: spacing.md, flexDirection: 'row',
-            marginBottom: spacing.xl,
-          }}>
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: colors.bleu }}>
-                {vue.cours.length}
-              </Text>
-              <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.texteMuted }}>
-                cours
-              </Text>
-            </View>
-            <View style={{ width: 1, backgroundColor: colors.bordure }} />
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: colors.bleu }}>
-                {nbEpisodesTotal(vue)}
-              </Text>
-              <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.texteMuted }}>
-                épisodes
-              </Text>
-            </View>
-          </View>
-
-          {/* Bouton lire */}
-          {vue.cours.length > 0 && (
-            <Pressable
-              onPress={() => jouerProgramme(vue)}
-              style={{
-                backgroundColor: colors.bleu, borderRadius: radius.md,
-                paddingVertical: 13, flexDirection: 'row',
-                alignItems: 'center', justifyContent: 'center',
-                marginBottom: spacing.xl,
-              }}
-            >
-              <Play size={16} color="white" fill="white" strokeWidth={0} style={{ marginRight: spacing.sm }} />
-              <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: 'white' }}>
-                Lire le programme
-              </Text>
-            </Pressable>
-          )}
-
-          {/* Liste cours */}
-          <Text style={{
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.size.xs, letterSpacing: 2,
-            color: colors.or, textTransform: 'uppercase',
-            marginBottom: spacing.md,
-          }}>
-            Cours ({vue.cours.length})
+          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: 'white' }}>
+            Mon Programme
           </Text>
+          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70, marginTop: 6, textAlign: 'center', maxWidth: 300 }}>
+            Compose tes parcours de cours audio et suis ta progression
+          </Text>
+          <View style={{ marginTop: spacing.lg }}>
+            <BoutonHeros
+              icone={<IconAjouter size={16} color="white" />}
+              label="Nouveau programme"
+              onPress={() => setModalCreer(true)}
+            />
+          </View>
+        </View>
+      </HerosDetail>
 
-          {vue.cours.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingVertical: spacing['2xl'] }}>
-              <Text style={{ fontSize: 40, marginBottom: spacing.md }}>📚</Text>
-              <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texteMuted, textAlign: 'center' }}>
-                Ajoute des cours à ce programme
-              </Text>
+      {/* ── Liste ── */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: 140, flexGrow: 1 }}>
+        {!charge ? null : programmes.length === 0 ? (
+          <Animated.View entering={FadeIn.duration(300)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: spacing['3xl'] }}>
+            <View style={{
+              width: 72, height: 72, borderRadius: 36,
+              backgroundColor: '#e8f0f8',
+              alignItems: 'center', justifyContent: 'center',
+              marginBottom: spacing.lg,
+            }}>
+              <IconListe size={32} color={colors.bleu} />
             </View>
-          ) : (
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: colors.texte, marginBottom: spacing.sm }}>
+              Aucun programme
+            </Text>
+            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texteMuted, textAlign: 'center', lineHeight: 22, maxWidth: 280 }}>
+              Crée ton premier programme et ajoute les cours audio que tu veux suivre, dans l'ordre que tu veux.
+            </Text>
+          </Animated.View>
+        ) : (
+          <Animated.View entering={FadeIn.duration(220)}>
+            <EnTeteSection
+              eyebrow="Mes programmes"
+              titre={`${programmes.length} programme${programmes.length > 1 ? 's' : ''}`}
+            />
             <View style={{ gap: spacing.sm }}>
-              {vue.cours.map((c, i) => {
-                const nomCat = c.categories?.nom
-                const bg = couleurBg[nomCat] ?? '#f0f0f0'
-                const txt = couleurTxt[nomCat] ?? '#666'
+              {programmes.map((prog, i) => {
+                const nbCours = prog.cours.length
+                const nbTermines = prog.coursTermines.filter(id => prog.cours.some(c => c.id === id)).length
+                const pct = nbCours > 0 ? (nbTermines / nbCours) * 100 : 0
+                const complet = nbCours > 0 && nbTermines === nbCours
                 return (
-                  <View key={c.id} style={{
-                    backgroundColor: colors.blanc, borderRadius: radius.lg,
-                    borderWidth: 1, borderColor: colors.bordure,
-                    padding: spacing.md, flexDirection: 'row', alignItems: 'center',
-                  }}>
-                    <View style={{
-                      width: 32, height: 32, borderRadius: radius.md,
-                      backgroundColor: bg, alignItems: 'center', justifyContent: 'center',
-                      marginRight: spacing.md, flexShrink: 0,
-                    }}>
-                      <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, color: txt }}>
-                        {i + 1}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}>
-                        {c.titre}
-                      </Text>
-                      <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>
-                        {c.sheikh} · {c.nb_episodes ?? 0} épisodes
-                      </Text>
-                    </View>
-                    <Pressable onPress={() => retirerCours(vue, c.id)} style={{ padding: 4 }}>
-                      <X size={16} color="#ccc" />
-                    </Pressable>
-                  </View>
+                  <Animated.View key={prog.id} entering={FadeInDown.duration(350).delay(Math.min(i, 8) * 45)}>
+                    <PressableScale
+                      onPress={() => {
+                        Haptics.selectionAsync()
+                        router.push(`/programme/${prog.id}` as any)
+                      }}
+                      style={{
+                        backgroundColor: colors.blanc,
+                        borderRadius: 18,
+                        padding: spacing.md,
+                        shadowColor: '#3a4a5c',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.06,
+                        shadowRadius: 10,
+                        elevation: 2,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                        <View style={{
+                          width: 44, height: 44, borderRadius: 22,
+                          backgroundColor: complet ? colors.bleu : '#e8f0f8',
+                          alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                          <IconListe size={21} color={complet ? 'white' : colors.bleu} />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}>
+                            {prog.nom}
+                          </Text>
+                          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>
+                            {nbCours === 0
+                              ? 'Aucun cours pour le moment'
+                              : `${nbCours} cours · ${nbTermines} terminé${nbTermines > 1 ? 's' : ''}`}
+                          </Text>
+                        </View>
+                        <Pressable
+                          onPress={() => supprimerProgramme(prog.id)}
+                          hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}
+                          style={{ padding: 4 }}
+                        >
+                          <IconCorbeille size={18} />
+                        </Pressable>
+                      </View>
+                      {nbCours > 0 ? (
+                        <View style={{ marginTop: spacing.md }}>
+                          <BarreProgression pct={pct} remplissage={complet ? colors.or : colors.bleu} />
+                        </View>
+                      ) : null}
+                    </PressableScale>
+                  </Animated.View>
                 )
               })}
             </View>
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    )
-  }
+          </Animated.View>
+        )}
+      </ScrollView>
 
-  // ── Vue liste programmes ──
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={['top']}>
-      <StatusBar barStyle="dark-content" />
-
-      {/* Header */}
-      <View style={{
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-        borderBottomWidth: 1, borderBottomColor: colors.bordure,
-        backgroundColor: colors.blanc,
-      }}>
-        <Pressable onPress={() => router.back()} style={{ marginRight: spacing.md, padding: 4 }}>
-          <ArrowLeft size={22} color={colors.texte} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 2, color: colors.or, textTransform: 'uppercase' }}>
-            Apprentissage
-          </Text>
-          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte }}>
-            Mon Programme
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => setModalCreer(true)}
-          style={{
-            width: 36, height: 36, borderRadius: radius.full,
-            backgroundColor: colors.bleu,
-            alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <Plus size={18} color="white" />
-        </Pressable>
-      </View>
-
-      {programmes.length === 0 ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
-          <Text style={{ fontSize: 48, marginBottom: spacing.lg }}>📋</Text>
-          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: colors.texte, marginBottom: spacing.sm, textAlign: 'center' }}>
-            Aucun programme
-          </Text>
-          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texteMuted, textAlign: 'center', lineHeight: 22, marginBottom: spacing.xl }}>
-            Crée un programme personnalisé en ajoutant des cours audio dans l'ordre que tu veux.
-          </Text>
-          <Pressable
-            onPress={() => setModalCreer(true)}
-            style={{
-              backgroundColor: colors.bleu, borderRadius: radius.md,
-              paddingHorizontal: spacing.xl, paddingVertical: 13,
+      {/* ── Modal nouveau programme ── */}
+      <Modal visible={modalCreer} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModalCreer(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={['top', 'bottom']}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+            <View style={{
               flexDirection: 'row', alignItems: 'center',
-            }}
-          >
-            <Plus size={16} color="white" style={{ marginRight: spacing.sm }} />
-            <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: 'white' }}>
-              Créer un programme
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: 120 }}>
-          <View style={{ gap: spacing.sm }}>
-            {programmes.map(prog => (
-              <Pressable key={prog.id} onPress={() => setVue(prog)}>
-                <View style={{
-                  backgroundColor: colors.blanc, borderRadius: radius.lg,
-                  borderWidth: 1, borderColor: colors.bordure,
-                  padding: spacing.md, flexDirection: 'row', alignItems: 'center',
-                }}>
-                  <View style={{
-                    width: 46, height: 46, borderRadius: radius.md,
-                    backgroundColor: '#EDE8D0',
-                    alignItems: 'center', justifyContent: 'center',
-                    marginRight: spacing.md, flexShrink: 0,
-                  }}>
-                    <BookOpen size={20} color="#654321" strokeWidth={1.5} />
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}>
-                      {prog.nom}
-                    </Text>
-                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>
-                      {prog.cours.length} cours · {nbEpisodesTotal(prog)} épisodes
-                    </Text>
-                  </View>
-                  <Pressable onPress={() => supprimerProgramme(prog.id)} style={{ padding: 4, marginRight: spacing.sm }}>
-                    <Trash2 size={16} color="#ccc" />
-                  </Pressable>
-                  <ChevronRight size={18} color="#ccc" />
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
-      )}
-
-      {/* Modal créer programme */}
-      <Modal visible={modalCreer} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={['top']}>
-          <View style={{
-            flexDirection: 'row', alignItems: 'center',
-            paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-            borderBottomWidth: 1, borderBottomColor: colors.bordure,
-            backgroundColor: colors.blanc,
-          }}>
-            <Pressable onPress={() => setModalCreer(false)} style={{ marginRight: spacing.md, padding: 4 }}>
-              <X size={22} color={colors.texte} />
-            </Pressable>
-            <Text style={{ flex: 1, fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte }}>
-              Nouveau programme
-            </Text>
-            <Pressable
-              onPress={creerProgramme}
-              style={{
-                backgroundColor: nomNouv.trim() ? colors.bleu : '#ccc',
-                borderRadius: radius.md,
-                paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-              }}
-            >
-              <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: 'white' }}>
-                Créer
+              paddingHorizontal: spacing.xl, paddingVertical: spacing.lg,
+            }}>
+              <Text style={{ flex: 1, fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: colors.texte }}>
+                Nouveau programme
               </Text>
-            </Pressable>
-          </View>
+              <Pressable
+                onPress={() => setModalCreer(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{
+                  width: 34, height: 34, borderRadius: 17,
+                  backgroundColor: '#e9ecf1',
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <IconFermer size={17} color="#5b6675" />
+              </Pressable>
+            </View>
 
-          <View style={{ padding: spacing.xl }}>
-            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.texte, marginBottom: spacing.sm }}>
-              Nom du programme *
-            </Text>
-            <TextInput
-              value={nomNouv}
-              onChangeText={setNomNouv}
-              placeholder="Ex: Aqeedah - Débutant"
-              placeholderTextColor="#bbb"
-              style={{
-                backgroundColor: colors.blanc, borderRadius: radius.lg,
-                borderWidth: 1, borderColor: colors.bordure,
-                padding: spacing.md, fontFamily: typography.fontFamily.regular,
-                fontSize: typography.size.base, color: colors.texte,
-                marginBottom: spacing.lg,
-              }}
-            />
-            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.texte, marginBottom: spacing.sm }}>
-              Intention (optionnel)
-            </Text>
-            <TextInput
-              value={intentionNouv}
-              onChangeText={setIntentionNouv}
-              placeholder="Ex: Apprendre les fondements de l'Islam"
-              placeholderTextColor="#bbb"
-              multiline
-              style={{
-                backgroundColor: colors.blanc, borderRadius: radius.lg,
-                borderWidth: 1, borderColor: colors.bordure,
-                padding: spacing.md, fontFamily: typography.fontFamily.regular,
-                fontSize: typography.size.base, color: colors.texte,
-                minHeight: 80, textAlignVertical: 'top',
-              }}
-            />
-          </View>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xl }}>
+              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.6, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.sm }}>
+                Nom du programme
+              </Text>
+              <TextInput
+                value={nomNouv}
+                onChangeText={setNomNouv}
+                placeholder="Ex : Aqeedah — Débutant"
+                placeholderTextColor="#aab4c0"
+                returnKeyType="next"
+                style={{
+                  backgroundColor: colors.blanc, borderRadius: 16,
+                  paddingHorizontal: spacing.md, paddingVertical: 14,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.size.md, color: colors.texte,
+                  marginBottom: spacing.xl,
+                  shadowColor: '#3a4a5c', shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.05, shadowRadius: 8, elevation: 1,
+                }}
+              />
+
+              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.6, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.sm }}>
+                Intention (optionnel)
+              </Text>
+              <TextInput
+                value={intentionNouv}
+                onChangeText={setIntentionNouv}
+                placeholder="Ex : Apprendre les fondements de l'Islam"
+                placeholderTextColor="#aab4c0"
+                multiline
+                style={{
+                  backgroundColor: colors.blanc, borderRadius: 16,
+                  paddingHorizontal: spacing.md, paddingVertical: 14,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.size.md, color: colors.texte,
+                  minHeight: 90, textAlignVertical: 'top',
+                  shadowColor: '#3a4a5c', shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.05, shadowRadius: 8, elevation: 1,
+                }}
+              />
+
+              <Pressable
+                onPress={creerProgramme}
+                disabled={!nomNouv.trim()}
+                style={({ pressed }) => ({
+                  marginTop: spacing.xl,
+                  backgroundColor: nomNouv.trim() ? colors.bleu : '#c6cfd9',
+                  borderRadius: radius.full,
+                  paddingVertical: 15,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  opacity: pressed ? 0.85 : 1,
+                  ...(nomNouv.trim() ? {
+                    shadowColor: colors.bleu, shadowOffset: { width: 0, height: 5 },
+                    shadowOpacity: 0.3, shadowRadius: 10, elevation: 4,
+                  } : {}),
+                })}
+              >
+                <IconAjouter size={16} color="white" />
+                <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: 'white' }}>
+                  Créer le programme
+                </Text>
+              </Pressable>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
-
-      {/* Modal ajouter cours */}
-      <Modal visible={!!modalAjouter} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={['top']}>
-          <View style={{
-            flexDirection: 'row', alignItems: 'center',
-            paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-            borderBottomWidth: 1, borderBottomColor: colors.bordure,
-            backgroundColor: colors.blanc,
-          }}>
-            <Pressable onPress={() => { setModalAjouter(null); setRechercheCours('') }} style={{ marginRight: spacing.md, padding: 4 }}>
-              <X size={22} color={colors.texte} />
-            </Pressable>
-            <Text style={{ flex: 1, fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte }}>
-              Ajouter des cours
-            </Text>
-          </View>
-
-          {/* Recherche */}
-          <View style={{
-            margin: spacing.lg,
-            flexDirection: 'row', alignItems: 'center',
-            backgroundColor: colors.blanc, borderRadius: radius.lg,
-            borderWidth: 1, borderColor: colors.bordure,
-            paddingHorizontal: spacing.md,
-          }}>
-            <TextInput
-              value={rechercheCours}
-              onChangeText={setRechercheCours}
-              placeholder="Rechercher un cours..."
-              placeholderTextColor="#bbb"
-              style={{
-                flex: 1, fontFamily: typography.fontFamily.regular,
-                fontSize: typography.size.base, color: colors.texte,
-                paddingVertical: spacing.md,
-              }}
-            />
-          </View>
-
-          <FlatList
-            data={coursFiltres}
-            keyExtractor={item => item.id}
-            contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 80, gap: spacing.sm }}
-            renderItem={({ item }) => {
-              const dejaAjoute = modalAjouter?.cours.find(c => c.id === item.id)
-              const nomCat = item.categories?.nom
-              const bg = couleurBg[nomCat] ?? '#f0f0f0'
-              const txt = couleurTxt[nomCat] ?? '#666'
-              return (
-                <Pressable
-                  onPress={() => modalAjouter && !dejaAjoute && ajouterCours(modalAjouter, item)}
-                  style={{
-                    backgroundColor: dejaAjoute ? '#f0f7f0' : colors.blanc,
-                    borderRadius: radius.lg,
-                    borderWidth: 1,
-                    borderColor: dejaAjoute ? '#2d7a4f' : colors.bordure,
-                    padding: spacing.md,
-                    flexDirection: 'row', alignItems: 'center',
-                    opacity: dejaAjoute ? 0.7 : 1,
-                  }}
-                >
-                  <View style={{
-                    width: 40, height: 40, borderRadius: radius.md,
-                    backgroundColor: bg, alignItems: 'center', justifyContent: 'center',
-                    marginRight: spacing.md, flexShrink: 0,
-                  }}>
-                    <BookOpen size={18} color={txt} strokeWidth={1.5} />
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}>
-                      {item.titre}
-                    </Text>
-                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>
-                      {item.sheikh} · {item.nb_episodes ?? 0} épisodes
-                    </Text>
-                  </View>
-                  {dejaAjoute ? (
-                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#2d7a4f' }}>✓ Ajouté</Text>
-                  ) : (
-                    <Plus size={18} color={colors.bleu} />
-                  )}
-                </Pressable>
-              )
-            }}
-          />
-        </SafeAreaView>
-      </Modal>
-
-    </SafeAreaView>
+    </View>
   )
 }
