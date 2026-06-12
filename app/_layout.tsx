@@ -6,6 +6,7 @@ import { NotesProvider } from '@/contexts/NotesContext'
 import { ScrollProvider } from '@/contexts/ScrollContext'
 import { TabBarProvider, useTabBar } from '@/contexts/TabBarContext'
 import { TelechargementProvider } from '@/contexts/TelechargementContext'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useFonts } from 'expo-font'
 import * as Haptics from 'expo-haptics'
 import { Stack, usePathname, useRouter } from 'expo-router'
@@ -22,6 +23,9 @@ import Animated, {
 } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
+
+const BG_L = '#3d6ba3'
+const BG_R = '#1c3d66'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -88,18 +92,25 @@ function TabItem({ tab, actif, onPress }: {
   return (
     <Pressable
       onPress={onPress}
-      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, gap: 3, zIndex: 1 }}
+      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, gap: 2, zIndex: 1 }}
     >
       <Animated.View style={iconStyle}>
-        <Icon size={22} color={actif ? colors.bleu : INACTIF} />
+        <Icon size={23} color={actif ? colors.bleu : INACTIF} />
       </Animated.View>
       <Text style={{
-        fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.medium,
+        fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.medium,
         fontSize: 10,
         color: actif ? colors.bleu : INACTIF,
+        letterSpacing: actif ? 0.1 : 0,
       }}>
         {tab.label}
       </Text>
+      {/* Point doré sous le label quand actif */}
+      <View style={{ height: 4, alignItems: 'center', justifyContent: 'center' }}>
+        {actif && (
+          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.or }} />
+        )}
+      </View>
     </Pressable>
   )
 }
@@ -159,26 +170,35 @@ function AppShell() {
 
       {tabBarVisible && (
         <SafeAreaView edges={['bottom']} style={{ backgroundColor: 'transparent' }}>
-          <View style={{ marginHorizontal: spacing.lg, marginBottom: 4, gap: spacing.sm }}>
+          <View style={{ marginHorizontal: spacing.lg, marginBottom: 6, gap: spacing.sm }}>
             <LecteurPersistant />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              {/* Barre principale */}
               <View
                 onLayout={e => setBarW(e.nativeEvent.layout.width)}
                 style={{
                   flex: 1, flexDirection: 'row',
                   backgroundColor: colors.blanc,
-                  borderRadius: 26, padding: 6,
-                  shadowColor: '#1c2a3a', shadowOffset: { width: 0, height: 6 },
-                  shadowOpacity: 0.10, shadowRadius: 16, elevation: 6,
+                  borderRadius: 28, padding: 6,
+                  shadowColor: '#0d1c30',
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.14,
+                  shadowRadius: 20,
+                  elevation: 8,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.9)',
                 }}
               >
+                {/* Pastille glissante derrière l'onglet actif */}
                 {tabW > 0 && (
                   <Animated.View style={[{
                     position: 'absolute',
                     left: 6, top: 6, bottom: 6,
                     width: tabW,
-                    borderRadius: 20,
-                    backgroundColor: '#e3edf8',
+                    borderRadius: 22,
+                    backgroundColor: 'rgba(45,87,140,0.10)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(45,87,140,0.14)',
                   }, pillStyle]} />
                 )}
                 {TABS.map(tab => (
@@ -190,6 +210,8 @@ function AppShell() {
                   />
                 ))}
               </View>
+
+              {/* Bouton Plus */}
               <Pressable
                 onPress={() => {
                   if (!plusActif) {
@@ -198,15 +220,38 @@ function AppShell() {
                   }
                 }}
                 style={({ pressed }) => ({
-                  width: 58, borderRadius: 26,
-                  backgroundColor: plusActif ? colors.bleu : colors.blanc,
-                  alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch',
-                  shadowColor: '#1c2a3a', shadowOffset: { width: 0, height: 6 },
-                  shadowOpacity: 0.10, shadowRadius: 16, elevation: 6,
+                  width: 60,
+                  alignSelf: 'stretch',
+                  borderRadius: 28,
+                  overflow: 'hidden',
+                  shadowColor: plusActif ? colors.bleu : '#0d1c30',
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: plusActif ? 0.30 : 0.12,
+                  shadowRadius: 18,
+                  elevation: 8,
                   transform: [{ scale: pressed ? 0.94 : 1 }],
                 })}
               >
-                <IconMore size={22} color={plusActif ? 'white' : INACTIF} />
+                {plusActif ? (
+                  <LinearGradient
+                    colors={[BG_L, BG_R]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                    style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <IconMore size={22} color="white" />
+                  </LinearGradient>
+                ) : (
+                  <View style={{
+                    flex: 1, alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: colors.blanc,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.9)',
+                    borderRadius: 28,
+                  }}>
+                    <IconMore size={22} color={INACTIF} />
+                  </View>
+                )}
               </Pressable>
             </View>
           </View>

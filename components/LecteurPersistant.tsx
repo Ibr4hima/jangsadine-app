@@ -1,6 +1,8 @@
+import { MiniEgaliseur } from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import * as Haptics from 'expo-haptics'
+import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode, useEffect } from 'react'
 import { Image, Pressable, Text, View, ViewStyle } from 'react-native'
 import Animated, {
@@ -17,6 +19,13 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg'
 import TextTicker from 'react-native-text-ticker'
 
+// ─── palette (identique aux héros de l'app) ───────────────────
+const BG_L = '#3d6ba3'
+const BG_R = '#1c3d66'
+const W70 = 'rgba(255,255,255,0.70)'
+const W18 = 'rgba(255,255,255,0.18)'
+const W12 = 'rgba(255,255,255,0.12)'
+
 // ─── icônes ───────────────────────────────────────────────────
 function IconPlay({ size = 20, color = 'white' }: { size?: number; color?: string }) {
     return (
@@ -25,14 +34,7 @@ function IconPlay({ size = 20, color = 'white' }: { size?: number; color?: strin
         </Svg>
     )
 }
-function IconPause({ size = 20, color = 'white' }: { size?: number; color?: string }) {
-    return (
-        <Svg width={size} height={size} viewBox="0 -960 960 960">
-            <Path d="M560-200v-560h160v560H560Zm-320 0v-560h160v560H240Z" fill={color} />
-        </Svg>
-    )
-}
-function IconSuivant({ size = 22, color = '#8e98a4' }: { size?: number; color?: string }) {
+function IconSuivant({ size = 20, color = 'white' }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
             <Path d="M660-240v-480h80v480h-80Zm-440 0v-480l360 240-360 240Zm80-240Zm0 90 136-90-136-90v180Z" fill={color} />
@@ -49,10 +51,10 @@ function formaterTemps(s: number) {
     return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-// ─── bouton avec scale ressort ────────────────────────────────
+// ─── bouton scale ressort ─────────────────────────────────────
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
-function Tap({ onPress, style, children, hitSlop = 10 }: {
+function Tap({ onPress, style, children, hitSlop = 12 }: {
     onPress: () => void
     style?: ViewStyle
     children: ReactNode
@@ -64,7 +66,7 @@ function Tap({ onPress, style, children, hitSlop = 10 }: {
         <AnimatedPressable
             onPressIn={() => { s.value = withSpring(0.82, { damping: 16, stiffness: 500 }) }}
             onPressOut={() => { s.value = withSpring(1, { damping: 14, stiffness: 340 }) }}
-            onPress={e => { e.stopPropagation?.(); onPress() }}
+            onPress={onPress}
             hitSlop={{ top: hitSlop, bottom: hitSlop, left: hitSlop, right: hitSlop }}
             style={[style, a]}
         >
@@ -73,17 +75,18 @@ function Tap({ onPress, style, children, hitSlop = 10 }: {
     )
 }
 
+// ─── mini lecteur persistant ──────────────────────────────────
 export default function LecteurPersistant() {
     const { piste, enLecture, progression, tempsActuel, dureeTotal, pause, reprendre, pisterSuivante, setLecteurOuvert } = useAudio()
 
-    // Pulsation du bouton play pendant la lecture
+    // Pulsation subtile du bouton play
     const playScale = useSharedValue(1)
     useEffect(() => {
         if (enLecture) {
             playScale.value = withRepeat(
                 withSequence(
-                    withTiming(1.05, { duration: 950, easing: Easing.inOut(Easing.ease) }),
-                    withTiming(1, { duration: 950, easing: Easing.inOut(Easing.ease) }),
+                    withTiming(1.06, { duration: 900, easing: Easing.inOut(Easing.ease) }),
+                    withTiming(1,    { duration: 900, easing: Easing.inOut(Easing.ease) }),
                 ),
                 -1, true
             )
@@ -94,22 +97,24 @@ export default function LecteurPersistant() {
     }, [enLecture])
     const playPulse = useAnimatedStyle(() => ({ transform: [{ scale: playScale.value }] }))
 
-    // Scale de la vignette logo quand on change de piste
+    // Rebond de la vignette au changement de piste
     const artScale = useSharedValue(1)
     useEffect(() => {
         artScale.value = withSequence(
-            withSpring(0.88, { damping: 14, stiffness: 320 }),
-            withSpring(1, { damping: 12, stiffness: 260 }),
+            withSpring(0.86, { damping: 14, stiffness: 320 }),
+            withSpring(1,    { damping: 12, stiffness: 260 }),
         )
     }, [piste?.id])
     const artStyle = useAnimatedStyle(() => ({ transform: [{ scale: artScale.value }] }))
 
     if (!piste) return null
 
-    // Le champ sheikh peut contenir le titre arabe du livre : on le rend
-    // alors avec la police arabe de l'app
     const sousTitreArabe = /[؀-ۿ]/.test(piste.sheikh)
 
+    const ouvrir = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        setLecteurOuvert(true)
+    }
     const onPressPlay = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
         enLecture ? pause() : reprendre()
@@ -120,108 +125,121 @@ export default function LecteurPersistant() {
     }
 
     return (
-        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(160)}>
-            <Pressable
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLecteurOuvert(true) }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.96 : 1 })}
+        <Animated.View
+            entering={FadeInDown.springify().damping(18).stiffness(160)}
+            style={{
+                borderRadius: 26,
+                overflow: 'hidden',
+                shadowColor: '#08162a',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.26,
+                shadowRadius: 24,
+                elevation: 14,
+            }}
+        >
+            <LinearGradient
+                colors={[BG_L, BG_R]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
             >
-                <View style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: 28,
-                    shadowColor: '#0f1f35',
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.12,
-                    shadowRadius: 20,
-                    elevation: 10,
-                    overflow: 'hidden',
-                }}>
-                    {/* Barre de progression dorée */}
-                    <View style={{ height: 3.5, backgroundColor: '#eef0f5' }}>
-                        <View style={{
-                            width: `${progression}%` as any,
-                            height: '100%',
-                            backgroundColor: colors.or,
-                            borderTopRightRadius: 2,
-                            borderBottomRightRadius: 2,
-                        }} />
-                    </View>
-
-                    {/* Corps */}
+                {/* Barre de progression dorée */}
+                <View style={{ height: 3, backgroundColor: W12 }}>
                     <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingLeft: 10,
-                        paddingRight: 10,
-                        paddingVertical: 10,
-                        gap: 10,
-                    }}>
-                        {/* Logo de l'app */}
+                        width: `${progression}%` as any,
+                        height: '100%',
+                        backgroundColor: colors.or,
+                        borderTopRightRadius: 2,
+                        borderBottomRightRadius: 2,
+                    }} />
+                </View>
+
+                {/* Corps : [Pressable ouvrir] | [Boutons] */}
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingLeft: 10,
+                    paddingRight: 12,
+                    paddingVertical: 10,
+                    gap: 10,
+                }}>
+                    {/* Zone pressable ouvrir le lecteur (logo + info) */}
+                    <Pressable
+                        onPress={ouvrir}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0 }}
+                    >
+                        {/* Vignette logo */}
                         <Animated.View style={[{
-                            width: 50, height: 50,
-                            borderRadius: 16,
+                            width: 46, height: 46,
+                            borderRadius: 14,
                             overflow: 'hidden',
-                            backgroundColor: '#dce8f5',
+                            backgroundColor: W12,
+                            borderWidth: 1,
+                            borderColor: W18,
                         }, artStyle]}>
                             <Image
                                 source={require('../assets/images/logo.png')}
-                                style={{ width: 50, height: 50 }}
+                                style={{ width: 46, height: 46 }}
                                 resizeMode="cover"
                             />
                         </Animated.View>
 
                         {/* Titre + sheikh + temps */}
-                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                             <TextTicker
                                 style={{
                                     fontFamily: typography.fontFamily.semibold,
                                     fontSize: typography.size.base,
-                                    color: colors.texte,
+                                    color: '#fff',
                                 }}
-                                loop bounce={false} repeatSpacer={60} marqueeDelay={2800} scrollSpeed={10}
+                                loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
                             >
                                 {piste.titre}
                             </TextTicker>
-                            <TextTicker
+                            <Text
+                                numberOfLines={1}
                                 style={{
-                                    fontFamily: typography.fontFamily.regular,
+                                    fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
                                     fontSize: typography.size.xs,
-                                    color: colors.texteMuted,
+                                    color: W70,
                                     fontVariant: ['tabular-nums'],
-                                } as any}
-                                loop bounce={false} repeatSpacer={40} marqueeDelay={4000} scrollSpeed={12}
+                                }}
                             >
-                                <Text style={sousTitreArabe ? { fontFamily: typography.fontFamily.arabic } : undefined}>{piste.sheikh}</Text>
-                                {dureeTotal > 0 ? ` · ${formaterTemps(tempsActuel)} / ${formaterTemps(dureeTotal)}` : ''}
-                            </TextTicker>
+                                {piste.sheikh}{dureeTotal > 0 ? ` · ${formaterTemps(tempsActuel)} / ${formaterTemps(dureeTotal)}` : ''}
+                            </Text>
                         </View>
+                    </Pressable>
 
+                    {/* Boutons de contrôle (indépendants du Pressable ouvrir) */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         {/* Skip suivant */}
                         <Tap onPress={onPressSuivant} style={{
-                            width: 38, height: 38, borderRadius: 19,
+                            width: 36, height: 36, borderRadius: 18,
+                            backgroundColor: W12,
                             alignItems: 'center', justifyContent: 'center',
-                            backgroundColor: '#f4f6f9',
                         }}>
-                            <IconSuivant size={21} color={colors.bleu} />
+                            <IconSuivant size={19} color="rgba(255,255,255,0.80)" />
                         </Tap>
 
-                        {/* Play / Pause */}
+                        {/* Play / Pause : fond doré, icône bleue */}
                         <Animated.View style={playPulse}>
                             <Tap onPress={onPressPlay} style={{
-                                width: 48, height: 48, borderRadius: 24,
-                                backgroundColor: colors.bleu,
+                                width: 46, height: 46, borderRadius: 23,
+                                backgroundColor: colors.or,
                                 alignItems: 'center', justifyContent: 'center',
-                                shadowColor: colors.bleu,
-                                shadowOffset: { width: 0, height: 5 },
-                                shadowOpacity: 0.38,
+                                shadowColor: colors.or,
+                                shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: 0.50,
                                 shadowRadius: 10,
                                 elevation: 7,
                             }}>
-                                {enLecture ? <IconPause size={20} color="white" /> : <IconPlay size={20} color="white" />}
+                                {enLecture
+                                    ? <MiniEgaliseur color={colors.bleu} hauteur={15} />
+                                    : <IconPlay size={19} color={colors.bleu} />}
                             </Tap>
                         </Animated.View>
                     </View>
                 </View>
-            </Pressable>
+            </LinearGradient>
         </Animated.View>
     )
 }
