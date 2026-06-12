@@ -1,10 +1,11 @@
 import EditeurNote from '@/components/EditeurNote'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
+import type { Piste } from '@/contexts/AudioContext'
+import { useTelechargement } from '@/contexts/TelechargementContext'
 import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Moon } from 'lucide-react-native'
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import {
     Dimensions,
@@ -26,6 +27,7 @@ import Animated, {
     useAnimatedProps,
     useAnimatedStyle,
     useSharedValue,
+    withDelay,
     withRepeat,
     withSequence,
     withSpring,
@@ -33,7 +35,7 @@ import Animated, {
     ZoomIn,
 } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import Svg, { Path } from 'react-native-svg'
+import Svg, { Path, Circle as SvgCircle } from 'react-native-svg'
 import TextTicker from 'react-native-text-ticker'
 
 // ─── palette : bleu du logo (#2d578c) ─────────────────────────
@@ -98,6 +100,28 @@ function IcoQueue({ size = 22, color = '#fff' }: { size?: number; color?: string
     )
 }
 
+function IcoDownload({ size = 24, color = '#fff' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z" fill={color} />
+        </Svg>
+    )
+}
+function IcoArrowDown({ size = 18, color = '#fff' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M480-240 240-480l56-56 144 144v-368h80v368l144-144 56 56-240 240Z" fill={color} />
+        </Svg>
+    )
+}
+function IcoCloudDone({ size = 24, color = '#fff' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M256-240q-97 0-166.5-63T20-458q0-88 56-153.5T224-688q20-97 92.5-154.5T490-900q109 0 189.5 70.5T771-650q79 16 129 75.5T950-442q0 86-61.5 144T740-240H490v-80h250q53 0 91.5-34.5T870-442q0-54-37.5-89T744-566l-5-1-21-2v-6q-17-99-84.5-165T490-806q-105 0-177 73.5T240-556v7l-7 2q-69 4-112 48T77-402q0 65 46.5 113.5T256-240h194v80H256Zm184-134L320-494l56-56 64 64 184-184 56 56-240 240Z" fill={color} />
+        </Svg>
+    )
+}
+
 function IcoVolumeMute({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
@@ -118,15 +142,6 @@ const { width: W, height: SCREEN_H } = Dimensions.get('window')
 const ART_SIZE = W - spacing.xl * 2
 
 const VITESSES = [1, 1.25, 1.5, 2, 0.75]
-const SLEEP_OPTS = [
-    { label: 'Désactivé', minutes: 0 },
-    { label: '5 min',     minutes: 5  },
-    { label: '10 min',    minutes: 10 },
-    { label: '15 min',    minutes: 15 },
-    { label: '30 min',    minutes: 30 },
-    { label: '45 min',    minutes: 45 },
-    { label: '1 h',       minutes: 60 },
-]
 
 function fmt(s: number) {
     if (!s || isNaN(s) || s < 0) return '0:00'
@@ -259,16 +274,20 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
     const barW      = useSharedValue(W - spacing.xl * 2)
     const prog      = useSharedValue(dureeTotal > 0 ? tempsActuel / dureeTotal : 0)
     const scrub     = useSharedValue(0)
-    const scrubbing = useSharedValue(0)
+    const scrubbing = useSharedValue(0)   // 0→1 pendant le drag
+    const tapping   = useSharedValue(0)   // 0→1→0 flash pendant le tap
+    const tapPos    = useSharedValue(0)   // position du tap (0-1)
     const duree     = useSharedValue(dureeTotal)
 
     useEffect(() => { duree.value = dureeTotal }, [dureeTotal])
 
     useEffect(() => {
-        if (scrubbing.value > 0) return
-        const p = dureeTotal > 0 ? tempsActuel / dureeTotal : 0
-        // Glisse entre les ticks de statut (500 ms) → mouvement continu
-        prog.value = withTiming(p, { duration: 480, easing: Easing.linear })
+        // Bloque les mises à jour de progression pendant drag ou tap
+        if (scrubbing.value > 0 || tapping.value > 0) return
+        prog.value = withTiming(
+            dureeTotal > 0 ? tempsActuel / dureeTotal : 0,
+            { duration: 480, easing: Easing.linear }
+        )
     }, [tempsActuel, dureeTotal])
 
     const finDeSeek = (v: number) => {
@@ -276,20 +295,30 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     }
 
-    // ── tap : seek immédiat au point touché ──────────────────────
-    // Quand l'utilisateur appuie sans glisser, le Pan ne passe jamais
-    // à l'état ACTIVE et n'appelle pas onEnd → le Tap prend le relais.
+    // ── tap : réponse VISUELLE dès le posé du doigt ──────────────
+    // onBegin → flash or immédiat à la position touchée
+    // onEnd   → confirme le seek audio + extinction du flash
     const tapGesture = Gesture.Tap()
+        .onBegin(e => {
+            tapPos.value = clamp01(e.x / barW.value)
+            tapping.value = withTiming(1, { duration: 50, easing: Easing.out(Easing.quad) })
+        })
         .onEnd(e => {
             const p = clamp01(e.x / barW.value)
-            prog.value = withTiming(p, { duration: 120, easing: Easing.out(Easing.cubic) })
+            tapPos.value = p
+            prog.value = p
+            tapping.value = withSequence(
+                withTiming(1, { duration: 30 }),
+                withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) })
+            )
             runOnJS(finDeSeek)(p)
+            runOnJS(Haptics.selectionAsync)()
+        })
+        .onFinalize(() => {
+            tapping.value = withTiming(0, { duration: 250 })
         })
 
-    // ── pan : scrub fluide + bulle + thumb ───────────────────────
-    // L'état "scrubbing" ne s'active que dans onStart (vraie activation
-    // après 4 px de glissé) — un simple tap ne le déclenche jamais,
-    // donc la barre revient toujours à son style de base après un tap.
+    // ── pan : scrub fluide — n'active l'état visuel qu'après 4 px ─
     const panGesture = Gesture.Pan()
         .minDistance(4)
         .onBegin(e => {
@@ -313,57 +342,70 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
 
     const gesture = Gesture.Race(tapGesture, panGesture)
 
+    // Position effective : scrub > tap > prog selon l'état
+    const pEff = (sv: number, sc: number, tv: number, tp: number, pv: number) => {
+        'worklet'
+        if (sv > 0) return sv * sc + (1 - sv) * pv
+        if (tv > 0) return tv * tp + (1 - tv) * pv
+        return pv
+    }
+
     const trackStyle = useAnimatedStyle(() => {
         const h = 5 + scrubbing.value * 9
         return { height: h, borderRadius: h / 2 }
     })
 
     const fillStyle = useAnimatedStyle(() => {
-        const p = scrubbing.value * scrub.value + (1 - scrubbing.value) * prog.value
+        const p = pEff(scrubbing.value, scrub.value, tapping.value, tapPos.value, prog.value)
+        const active = Math.max(scrubbing.value, tapping.value)
         return {
             width: p * barW.value,
-            backgroundColor: interpolateColor(scrubbing.value, [0, 1], [W85, colors.or]),
+            backgroundColor: interpolateColor(active, [0, 1], [W85, colors.or]),
         }
     })
 
     const thumbStyle = useAnimatedStyle(() => {
-        const p = scrubbing.value * scrub.value + (1 - scrubbing.value) * prog.value
+        const p = pEff(scrubbing.value, scrub.value, tapping.value, tapPos.value, prog.value)
+        const active = Math.max(scrubbing.value, tapping.value)
         return {
-            opacity: scrubbing.value,
+            opacity: active,
             transform: [
                 { translateX: p * barW.value - 11 },
-                { scale: 0.3 + scrubbing.value * 0.7 },
+                { scale: 0.3 + active * 0.7 },
             ],
         }
     })
 
     const bubbleStyle = useAnimatedStyle(() => {
-        const x = scrub.value * barW.value
+        const x = (scrubbing.value > 0 ? scrub.value : tapPos.value) * barW.value
+        const active = Math.max(scrubbing.value, tapping.value * 0.8)
         return {
-            opacity: scrubbing.value,
+            opacity: active,
             transform: [
                 { translateX: Math.max(0, Math.min(x - 34, barW.value - 68)) },
-                { translateY: -4 + scrubbing.value * 4 },
-                { scale: 0.7 + scrubbing.value * 0.3 },
+                { translateY: -4 + active * 4 },
+                { scale: 0.7 + active * 0.3 },
             ],
         }
     })
 
-    // temps affiché = scrub pendant le drag, lecture sinon — calculé sur le thread UI
+    // Temps 100 % UI thread — aucun re-render pendant scrub/tap
     const bubbleProps = useAnimatedProps(() => {
-        return { text: fmtW(scrub.value * duree.value) } as any
+        const p = scrubbing.value > 0 ? scrub.value : tapPos.value
+        return { text: fmtW(p * duree.value) } as any
     })
     const gaucheProps = useAnimatedProps(() => {
-        const p = scrubbing.value * scrub.value + (1 - scrubbing.value) * prog.value
+        const p = pEff(scrubbing.value, scrub.value, tapping.value, tapPos.value, prog.value)
         return { text: fmtW(p * duree.value) } as any
     })
     const droiteProps = useAnimatedProps(() => {
-        const p = scrubbing.value * scrub.value + (1 - scrubbing.value) * prog.value
+        const p = pEff(scrubbing.value, scrub.value, tapping.value, tapPos.value, prog.value)
         return { text: '-' + fmtW(Math.max(0, duree.value - p * duree.value)) } as any
     })
-    const gaucheStyle = useAnimatedStyle(() => ({
-        color: interpolateColor(scrubbing.value, [0, 1], ['rgba(255,255,255,0.60)', colors.or]),
-    }))
+    const gaucheStyle = useAnimatedStyle(() => {
+        const active = Math.max(scrubbing.value, tapping.value)
+        return { color: interpolateColor(active, [0, 1], ['rgba(255,255,255,0.60)', colors.or]) }
+    })
 
     return (
         <View>
@@ -437,6 +479,7 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
     const barW      = useSharedValue(W - spacing.xl * 2 - 72)
     const vol       = useSharedValue(volume)
     const scrubbing = useSharedValue(0)
+    const tapping   = useSharedValue(0)
     const isDragging = useRef(false)
     const lastChange = useRef(0)
 
@@ -451,16 +494,27 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
         if (now - lastChange.current > 50) { lastChange.current = now; onChange(v) }
     }
 
-    // tap : ajustement direct au point touché, sans état scrub persistant
+    // tap : réponse visuelle dès le posé du doigt
     const tapGesture = Gesture.Tap()
+        .onBegin(e => {
+            vol.value = withTiming(clamp01(e.x / barW.value), { duration: 60, easing: Easing.out(Easing.quad) })
+            tapping.value = withTiming(1, { duration: 50 })
+        })
         .onEnd(e => {
             const v = clamp01(e.x / barW.value)
-            vol.value = withTiming(v, { duration: 160, easing: Easing.out(Easing.cubic) })
+            vol.value = v
+            tapping.value = withSequence(
+                withTiming(1, { duration: 20 }),
+                withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) })
+            )
             runOnJS(onChange)(v)
             runOnJS(hapticLight)()
         })
+        .onFinalize(() => {
+            tapping.value = withTiming(0, { duration: 250 })
+        })
 
-    // pan : drag fluide — le style scrub ne s'active qu'après activation réelle
+    // pan : drag fluide — état visuel actif qu'après 4 px
     const panGesture = Gesture.Pan()
         .minDistance(4)
         .onStart(e => {
@@ -600,6 +654,141 @@ function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () =>
     )
 }
 
+// ─── Bouton téléchargement (3 états) ─────────────────────────
+// État 1 : non téléchargé — icône download W60
+// État 2 : en cours — anneau de progression SVG + flèche qui rebondit
+// État 3 : téléchargé — cloud_done doré avec entrée ZoomIn
+
+const RING = 44
+const RING_RADIUS = 17
+const RING_CIRC = 2 * Math.PI * RING_RADIUS
+
+function BoutonTelechargement({ piste }: { piste: Piste }) {
+    const { estTelecharge, estEnCours, progressions, telecharger } = useTelechargement()
+
+    const telecharge = estTelecharge(piste.id)
+    const enCours    = estEnCours(piste.id)
+    const progression = progressions[piste.id]?.progression ?? 0
+
+    // Flèche : rebond vertical infini pendant le téléchargement
+    const arrowY = useSharedValue(0)
+    useEffect(() => {
+        if (enCours) {
+            arrowY.value = withRepeat(
+                withSequence(
+                    withTiming(-4, { duration: 400, easing: Easing.out(Easing.quad) }),
+                    withTiming( 4, { duration: 500, easing: Easing.in(Easing.quad) }),
+                ),
+                -1, false
+            )
+        } else {
+            cancelAnimation(arrowY)
+            arrowY.value = withTiming(0, { duration: 200 })
+        }
+    }, [enCours])
+
+    const arrowStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: arrowY.value }],
+    }))
+
+    // Halo doré qui pulse au téléchargement terminé
+    const glow = useSharedValue(0)
+    useEffect(() => {
+        if (telecharge) {
+            glow.value = withDelay(100, withRepeat(
+                withSequence(
+                    withTiming(1,   { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+                    withTiming(0.2, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+                ), -1, true
+            ))
+        } else {
+            cancelAnimation(glow)
+            glow.value = withTiming(0, { duration: 300 })
+        }
+    }, [telecharge])
+
+    const glowStyle = useAnimatedStyle(() => ({
+        opacity: glow.value * 0.3,
+        transform: [{ scale: 1 + glow.value * 0.18 }],
+    }))
+
+    const onPress = () => {
+        if (telecharge || enCours) return
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        telecharger({
+            id:          piste.id,
+            titre:       piste.titre,
+            sheikh:      piste.sheikh,
+            coursId:     piste.programmeId ?? '',
+            coursTitre:  piste.sheikh,
+            url:         piste.url,
+        })
+    }
+
+    const strokeOffset = RING_CIRC * (1 - progression / 100)
+
+    return (
+        <SpringTap
+            onPress={onPress}
+            hitSlop={12}
+            pressedScale={0.86}
+            style={{ width: 56, alignItems: 'center', justifyContent: 'center' }}
+        >
+            <View style={{ width: RING, height: RING, alignItems: 'center', justifyContent: 'center' }}>
+
+                {/* Anneau de progression SVG — visible seulement en cours */}
+                {enCours && (
+                    <Svg
+                        width={RING} height={RING}
+                        style={{ position: 'absolute', top: 0, left: 0 }}
+                    >
+                        {/* Fond de la piste */}
+                        <SvgCircle
+                            cx={RING / 2} cy={RING / 2} r={RING_RADIUS}
+                            fill="none"
+                            stroke="rgba(255,255,255,0.14)"
+                            strokeWidth={2.5}
+                        />
+                        {/* Arc de progression doré */}
+                        <SvgCircle
+                            cx={RING / 2} cy={RING / 2} r={RING_RADIUS}
+                            fill="none"
+                            stroke={colors.or}
+                            strokeWidth={2.5}
+                            strokeDasharray={`${RING_CIRC} ${RING_CIRC}`}
+                            strokeDashoffset={strokeOffset}
+                            strokeLinecap="round"
+                            transform={`rotate(-90 ${RING / 2} ${RING / 2})`}
+                        />
+                    </Svg>
+                )}
+
+                {/* Halo doré derrière l'icône cloud_done */}
+                {telecharge && (
+                    <Animated.View style={[{
+                        position: 'absolute',
+                        width: RING, height: RING, borderRadius: RING / 2,
+                        backgroundColor: colors.or,
+                    }, glowStyle]} />
+                )}
+
+                {/* Icône selon l'état */}
+                {telecharge ? (
+                    <Animated.View key="done" entering={ZoomIn.springify().damping(16)}>
+                        <IcoCloudDone size={24} color={colors.or} />
+                    </Animated.View>
+                ) : enCours ? (
+                    <Animated.View style={arrowStyle}>
+                        <IcoArrowDown size={18} color="rgba(255,255,255,0.85)" />
+                    </Animated.View>
+                ) : (
+                    <IcoDownload size={24} color={W60} />
+                )}
+            </View>
+        </SpringTap>
+    )
+}
+
 // ─── Main ─────────────────────────────────────────────────────
 export default function LecteurPleinEcran() {
     const {
@@ -608,12 +797,8 @@ export default function LecteurPleinEcran() {
         changerVitesse, changerVolume, file, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
 
-    const [panel, setPanel]         = useState<'none' | 'chapters' | 'queue'>('none')
-    const [showSleep, setShowSleep] = useState(false)
-    const [sleepMin, setSleepMin]   = useState(0)
-    const [sleepLeft, setSleepLeft] = useState(0)
-    const sleepRef = useRef<ReturnType<typeof setInterval> | null>(null)
-    const [markers, setMarkers]     = useState<{ id: string; titre: string; temps_secondes: number }[]>([])
+    const [panel, setPanel]     = useState<'none' | 'chapters' | 'queue'>('none')
+    const [markers, setMarkers] = useState<{ id: string; titre: string; temps_secondes: number }[]>([])
     const [noteVisible, setNoteVisible] = useState(false)
     const [tsNote, setTsNote]       = useState(0)
 
@@ -656,23 +841,6 @@ export default function LecteurPleinEcran() {
     const animStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: translateY.value }],
     }))
-
-    // Sleep timer
-    useEffect(() => {
-        if (sleepRef.current) clearInterval(sleepRef.current)
-        if (sleepMin > 0) {
-            let r = sleepMin * 60
-            setSleepLeft(r)
-            sleepRef.current = setInterval(() => {
-                r -= 1
-                setSleepLeft(r)
-                if (r <= 0) { pause(); setSleepMin(0); clearInterval(sleepRef.current!) }
-            }, 1000)
-        } else {
-            setSleepLeft(0)
-        }
-        return () => { if (sleepRef.current) clearInterval(sleepRef.current) }
-    }, [sleepMin])
 
     // Metadata
     useEffect(() => {
@@ -855,57 +1023,12 @@ export default function LecteurPleinEcran() {
                                         <IcoFwd size={38} color="#fff" />
                                     </SpringTap>
 
-                                    {/* sleep */}
-                                    <SpringTap
-                                        onPress={() => { Haptics.selectionAsync(); setShowSleep(p => !p) }}
-                                        hitSlop={12}
-                                        pressedScale={0.88}
-                                        style={{ width: 56, alignItems: 'center' }}
-                                    >
-                                        {sleepMin > 0 ? (
-                                            <View style={{ alignItems: 'center', gap: 3 }}>
-                                                <Moon size={22} color={colors.or} strokeWidth={2} fill={colors.or} />
-                                                <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: 10, color: colors.or, fontVariant: ['tabular-nums'] }}>
-                                                    {fmt(sleepLeft)}
-                                                </Text>
-                                            </View>
-                                        ) : (
-                                            <Moon size={24} color={W60} strokeWidth={2} />
-                                        )}
-                                    </SpringTap>
+                                    {/* download */}
+                                    <BoutonTelechargement piste={piste} />
                                 </View>
 
                                 {/* Volume */}
                                 <VolumeBar volume={volume} onChange={changerVolume} />
-
-                                {/* Sleep panel */}
-                                {showSleep && (
-                                    <View style={{
-                                        backgroundColor: W08, borderRadius: radius.xl,
-                                        padding: spacing.md, marginTop: spacing.md,
-                                        borderWidth: 1, borderColor: W15,
-                                    }}>
-                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' }}>
-                                            {SLEEP_OPTS.map(opt => (
-                                                <Pressable
-                                                    key={opt.minutes}
-                                                    onPress={() => { Haptics.selectionAsync(); setSleepMin(opt.minutes); setShowSleep(false) }}
-                                                    style={{
-                                                        paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-                                                        borderRadius: radius.full,
-                                                        backgroundColor: sleepMin === opt.minutes ? OR_DIM : 'transparent',
-                                                        borderWidth: 1,
-                                                        borderColor: sleepMin === opt.minutes ? colors.or : W35,
-                                                    }}
-                                                >
-                                                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: sleepMin === opt.minutes ? colors.or : W85 }}>
-                                                        {opt.label}
-                                                    </Text>
-                                                </Pressable>
-                                            ))}
-                                        </View>
-                                    </View>
-                                )}
 
                             </View>
                         ) : (
