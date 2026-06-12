@@ -106,37 +106,50 @@ export function PressableScale({ onPress, style, children }: {
 }
 
 // ─── mini égaliseur (piste en cours de lecture) ───────────────
-export function MiniEgaliseur({ color = 'white', hauteur = 14 }: { color?: string, hauteur?: number }) {
-    const b1 = useSharedValue(0.4)
-    const b2 = useSharedValue(0.8)
-    const b3 = useSharedValue(0.55)
+export function MiniEgaliseur({ color = 'white', hauteur = 18 }: { color?: string, hauteur?: number }) {
+    const v1 = useSharedValue(0.3)
+    const v2 = useSharedValue(0.7)
+    const v3 = useSharedValue(0.45)
+    const v4 = useSharedValue(0.9)
+    const v5 = useSharedValue(0.35)
+    const v6 = useSharedValue(0.6)
 
     useEffect(() => {
-        b1.value = withRepeat(withSequence(
-            withTiming(1, { duration: 340, easing: Easing.inOut(Easing.ease) }),
-            withTiming(0.25, { duration: 400, easing: Easing.inOut(Easing.ease) }),
-        ), -1, true)
-        b2.value = withRepeat(withSequence(
-            withTiming(0.3, { duration: 300, easing: Easing.inOut(Easing.ease) }),
-            withTiming(1, { duration: 380, easing: Easing.inOut(Easing.ease) }),
-        ), -1, true)
-        b3.value = withRepeat(withSequence(
-            withTiming(0.9, { duration: 360, easing: Easing.inOut(Easing.ease) }),
-            withTiming(0.35, { duration: 320, easing: Easing.inOut(Easing.ease) }),
-        ), -1, true)
-        return () => { cancelAnimation(b1); cancelAnimation(b2); cancelAnimation(b3) }
+        const anim = (v: typeof v1, lo: number, hi: number, dur: number) => {
+            v.value = withRepeat(withSequence(
+                withTiming(hi, { duration: dur, easing: Easing.inOut(Easing.ease) }),
+                withTiming(lo, { duration: Math.round(dur * 1.15), easing: Easing.inOut(Easing.ease) }),
+            ), -1, true)
+        }
+        anim(v1, 0.12, 1.00, 420)
+        anim(v2, 0.28, 0.72, 310)
+        anim(v3, 0.18, 1.00, 500)
+        anim(v4, 0.08, 0.65, 360)
+        anim(v5, 0.22, 0.88, 275)
+        anim(v6, 0.35, 1.00, 445)
+        return () => {
+            cancelAnimation(v1); cancelAnimation(v2); cancelAnimation(v3)
+            cancelAnimation(v4); cancelAnimation(v5); cancelAnimation(v6)
+        }
     }, [])
 
-    const s1 = useAnimatedStyle(() => ({ height: b1.value * hauteur + 3 }))
-    const s2 = useAnimatedStyle(() => ({ height: b2.value * hauteur + 3 }))
-    const s3 = useAnimatedStyle(() => ({ height: b3.value * hauteur + 3 }))
-    const bar = { width: 2.5, borderRadius: 2, backgroundColor: color } as const
+    const H = hauteur
+    const s1 = useAnimatedStyle(() => ({ height: Math.max(3, v1.value * H) }))
+    const s2 = useAnimatedStyle(() => ({ height: Math.max(3, v2.value * H) }))
+    const s3 = useAnimatedStyle(() => ({ height: Math.max(3, v3.value * H) }))
+    const s4 = useAnimatedStyle(() => ({ height: Math.max(3, v4.value * H) }))
+    const s5 = useAnimatedStyle(() => ({ height: Math.max(3, v5.value * H) }))
+    const s6 = useAnimatedStyle(() => ({ height: Math.max(3, v6.value * H) }))
+    const bar = { width: 3.5, borderRadius: 2, backgroundColor: color } as const
 
     return (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2.5, height: hauteur + 3 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2.5, height: H }}>
             <Animated.View style={[bar, s1]} />
             <Animated.View style={[bar, s2]} />
             <Animated.View style={[bar, s3]} />
+            <Animated.View style={[bar, s4]} />
+            <Animated.View style={[bar, s5]} />
+            <Animated.View style={[bar, s6]} />
         </View>
     )
 }

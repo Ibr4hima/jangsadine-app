@@ -127,42 +127,6 @@ function PressableScale({ onPress, style, children }: {
 }
 
 // ─── mini égaliseur (piste en cours de lecture) ───────────────
-function MiniEgaliseur({ color = 'white' }: { color?: string }) {
-  const b1 = useSharedValue(0.4)
-  const b2 = useSharedValue(0.8)
-  const b3 = useSharedValue(0.55)
-
-  useEffect(() => {
-    b1.value = withRepeat(withSequence(
-      withTiming(1, { duration: 340, easing: Easing.inOut(Easing.ease) }),
-      withTiming(0.25, { duration: 400, easing: Easing.inOut(Easing.ease) }),
-    ), -1, true)
-    b2.value = withRepeat(withSequence(
-      withTiming(0.3, { duration: 300, easing: Easing.inOut(Easing.ease) }),
-      withTiming(1, { duration: 380, easing: Easing.inOut(Easing.ease) }),
-    ), -1, true)
-    b3.value = withRepeat(withSequence(
-      withTiming(0.9, { duration: 360, easing: Easing.inOut(Easing.ease) }),
-      withTiming(0.35, { duration: 320, easing: Easing.inOut(Easing.ease) }),
-    ), -1, true)
-    return () => { cancelAnimation(b1); cancelAnimation(b2); cancelAnimation(b3) }
-  }, [])
-
-  const H = 14
-  const s1 = useAnimatedStyle(() => ({ height: b1.value * H + 3 }))
-  const s2 = useAnimatedStyle(() => ({ height: b2.value * H + 3 }))
-  const s3 = useAnimatedStyle(() => ({ height: b3.value * H + 3 }))
-  const bar = { width: 2.5, borderRadius: 2, backgroundColor: color } as const
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2.5, height: H + 3 }}>
-      <Animated.View style={[bar, s1]} />
-      <Animated.View style={[bar, s2]} />
-      <Animated.View style={[bar, s3]} />
-    </View>
-  )
-}
-
 // ─── pastille play / pause / égaliseur ────────────────────────
 function PastillePlay({ actif, enLecture, taille = 42 }: { actif: boolean, enLecture: boolean, taille?: number }) {
   return (
@@ -176,7 +140,7 @@ function PastillePlay({ actif, enLecture, taille = 42 }: { actif: boolean, enLec
       } : {}),
     }}>
       {actif && enLecture
-        ? <MiniEgaliseur color="white" />
+        ? <IconPause size={16} color="white" />
         : actif
           ? <IconPlay size={16} color="white" />
           : <IconPlay size={16} color={colors.bleu} />}

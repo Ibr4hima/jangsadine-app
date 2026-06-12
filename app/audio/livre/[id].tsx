@@ -6,7 +6,6 @@ import {
     HerosDetail,
     IconCasque,
     IconLivre,
-    IconMusicCast,
     IconMusicNote,
     MiniEgaliseur,
     PressableScale,
@@ -241,7 +240,7 @@ export default function PageLivre() {
                                             >
                                                 <View style={{
                                                     width: 44, height: 44, borderRadius: 22,
-                                                    backgroundColor: versionActive ? colors.bleu : bg,
+                                                    backgroundColor: versionActive ? colors.bleu : '#e8f0f8',
                                                     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                                                     ...(versionActive ? {
                                                         shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
@@ -249,8 +248,8 @@ export default function PageLivre() {
                                                     } : {}),
                                                 }}>
                                                     {versionActive && enLecture
-                                                        ? <IconMusicCast size={20} color="white" />
-                                                        : <IconMusicNote size={20} color={versionActive ? 'white' : txt} />}
+                                                        ? <MiniEgaliseur color="white" hauteur={16} />
+                                                        : <IconMusicNote size={20} color={versionActive ? 'white' : colors.bleu} />}
                                                 </View>
                                                 <View style={{ flex: 1, minWidth: 0 }}>
                                                     <Text numberOfLines={1} style={{
