@@ -466,11 +466,6 @@ export default function Prieres() {
                           dans {tempsRestant(p.heure)}
                         </Text>
                       )}
-                      {estSunrise && !estProchaine && (
-                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#b5b2ac', marginTop: 2 }}>
-                          Fin de l'heure du Fajr
-                        </Text>
-                      )}
                     </View>
                     <Text style={{
                       fontFamily: typography.fontFamily.bold,
