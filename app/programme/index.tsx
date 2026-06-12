@@ -42,7 +42,7 @@ function IconFermer({ size = 20, color = colors.texte }: { size?: number, color?
 function IconListe({ size = 20, color = colors.bleu }: { size?: number, color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
-      <Path d="m222-200-96-96 56-56 40 40 80-80 56 56-136 136Zm0-320-96-96 56-56 40 40 80-80 56 56-136 136Zm298 240v-80h360v80H520Zm0-320v-80h360v80H520Z" fill={color} />
+      <Path d="M222-200 80-342l56-56 85 85 170-170 56 57-225 226Zm0-320L80-662l56-56 85 85 170-170 56 57-225 226Zm298 240v-80h360v80H520Zm0-320v-80h360v80H520Z" fill={color} />
     </Svg>
   )
 }
@@ -64,7 +64,6 @@ export default function MesProgrammes() {
   const [charge, setCharge] = useState(false)
   const [modalCreer, setModalCreer] = useState(false)
   const [nomNouv, setNomNouv] = useState('')
-  const [intentionNouv, setIntentionNouv] = useState('')
 
   // Recharge à chaque retour sur la page (le détail peut modifier les données)
   useFocusEffect(useCallback(() => {
@@ -77,7 +76,7 @@ export default function MesProgrammes() {
     const nouveau: Programme = {
       id: genId(),
       nom: nomNouv.trim(),
-      intention: intentionNouv.trim(),
+      intention: '',
       cours: [],
       dateCreation: new Date().toISOString(),
       episodesEcoutes: [],
@@ -87,7 +86,6 @@ export default function MesProgrammes() {
     setProgrammes(mis)
     await sauvegarderProgrammes(mis)
     setNomNouv('')
-    setIntentionNouv('')
     setModalCreer(false)
     router.push(`/programme/${nouveau.id}` as any)
   }
@@ -263,27 +261,6 @@ export default function MesProgrammes() {
                   paddingHorizontal: spacing.md, paddingVertical: 14,
                   fontFamily: typography.fontFamily.medium,
                   fontSize: typography.size.md, color: colors.texte,
-                  marginBottom: spacing.xl,
-                  shadowColor: '#3a4a5c', shadowOffset: { width: 0, height: 3 },
-                  shadowOpacity: 0.05, shadowRadius: 8, elevation: 1,
-                }}
-              />
-
-              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.6, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.sm }}>
-                Intention (optionnel)
-              </Text>
-              <TextInput
-                value={intentionNouv}
-                onChangeText={setIntentionNouv}
-                placeholder="Ex : Apprendre les fondements de l'Islam"
-                placeholderTextColor="#aab4c0"
-                multiline
-                style={{
-                  backgroundColor: colors.blanc, borderRadius: 16,
-                  paddingHorizontal: spacing.md, paddingVertical: 14,
-                  fontFamily: typography.fontFamily.medium,
-                  fontSize: typography.size.md, color: colors.texte,
-                  minHeight: 90, textAlignVertical: 'top',
                   shadowColor: '#3a4a5c', shadowOffset: { width: 0, height: 3 },
                   shadowOpacity: 0.05, shadowRadius: 8, elevation: 1,
                 }}
