@@ -4,7 +4,7 @@ import { useAudio } from '@/contexts/AudioContext'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode, useEffect } from 'react'
-import { Pressable, Text, View, ViewStyle } from 'react-native'
+import { Pressable, View, ViewStyle } from 'react-native'
 import Animated, {
     cancelAnimation,
     Easing,
@@ -23,7 +23,7 @@ import TextTicker from 'react-native-text-ticker'
 const BG_L = '#3d6ba3'
 const BG_R = '#1c3d66'
 const W70 = 'rgba(255,255,255,0.70)'
-const W18 = 'rgba(255,255,255,0.18)'
+
 const W12 = 'rgba(255,255,255,0.12)'
 
 // ─── icônes ───────────────────────────────────────────────────
@@ -188,10 +188,6 @@ export default function LecteurPersistant() {
                         {/* Vignette égaliseur */}
                         <Animated.View style={[{
                             width: 46, height: 46,
-                            borderRadius: 14,
-                            backgroundColor: W12,
-                            borderWidth: 1,
-                            borderColor: W18,
                             alignItems: 'center',
                             justifyContent: 'center',
                         }, artStyle]}>
@@ -212,17 +208,17 @@ export default function LecteurPersistant() {
                             >
                                 {piste.titre}
                             </TextTicker>
-                            <Text
-                                numberOfLines={1}
+                            <TextTicker
                                 style={{
                                     fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
                                     fontSize: typography.size.xs,
                                     color: W70,
                                     fontVariant: ['tabular-nums'],
-                                }}
+                                } as any}
+                                loop bounce={false} repeatSpacer={50} marqueeDelay={3500} scrollSpeed={18}
                             >
                                 {piste.sheikh}{dureeTotal > 0 ? ` · ${formaterTemps(tempsActuel)} / ${formaterTemps(dureeTotal)}` : ''}
-                            </Text>
+                            </TextTicker>
                         </View>
                     </Pressable>
 
