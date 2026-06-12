@@ -108,7 +108,7 @@ export function PressableScale({ onPress, style, children }: {
 // ─── ondulation type Apple Podcasts ──────────────────────────
 // 5 points ronds qui s'étirent verticalement en capsules depuis
 // le centre, chacun avec son propre rythme organique
-export function MiniEgaliseur({ color = 'white', hauteur = 18, epaisseur = 4 }: { color?: string, hauteur?: number, epaisseur?: number }) {
+export function MiniEgaliseur({ color = 'white', hauteur = 18, epaisseur = 2.5 }: { color?: string, hauteur?: number, epaisseur?: number }) {
     const v1 = useSharedValue(0)
     const v2 = useSharedValue(0)
     const v3 = useSharedValue(0)
@@ -145,7 +145,7 @@ export function MiniEgaliseur({ color = 'white', hauteur = 18, epaisseur = 4 }: 
     const barre = { width: ep, borderRadius: ep / 2, backgroundColor: color } as const
 
     return (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: ep * 0.55, height: H }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: ep * 0.8, height: H }}>
             <Animated.View style={[barre, s1]} />
             <Animated.View style={[barre, s2]} />
             <Animated.View style={[barre, s3]} />
