@@ -269,8 +269,10 @@ function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean })
 // Tout vit sur le thread UI : remplissage, hauteur, thumb, bulle
 // flottante ET les libellés de temps (TextInput animés). Aucun
 // re-render React pendant le scrub → fluidité parfaite.
-function Progress({ tempsActuel, dureeTotal, onSeek }: {
+function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
     tempsActuel: number; dureeTotal: number; onSeek: (pct: number) => void
+    // Positions des chapitres (fractions 0-1) : encoches sur la barre
+    marks?: number[]
 }) {
     const barW      = useSharedValue(W - spacing.xl * 2)
     const prog      = useSharedValue(dureeTotal > 0 ? tempsActuel / dureeTotal : 0)
@@ -449,6 +451,19 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
                 >
                     <Animated.View style={[{ backgroundColor: W15, overflow: 'hidden' }, trackStyle]}>
                         <Animated.View style={[{ height: '100%', borderRadius: 8 }, fillStyle]} />
+                        {/* Encoches des chapitres : petites coupures sur la barre */}
+                        {marks.map((m, i) => (
+                            <View
+                                key={i}
+                                style={{
+                                    position: 'absolute',
+                                    left: `${m * 100}%` as any,
+                                    top: 0, bottom: 0, width: 2.5,
+                                    backgroundColor: BG_BOT,
+                                    opacity: 0.85,
+                                }}
+                            />
+                        ))}
                     </Animated.View>
                     <Animated.View style={[{
                         position: 'absolute',
@@ -851,9 +866,27 @@ export default function LecteurPleinEcran() {
         if (garderPanelRef.current) garderPanelRef.current = false
         else setPanel('none')
 
-        supabase.from('markers').select('id, titre, temps_secondes')
-            .eq('episode_id', piste.id).order('temps_secondes')
-            .then(({ data }) => { if (data) setMarkers(data) })
+        // Les markers peuvent être rattachés à un épisode classique ou à
+        // un livre audio : côté app l'id d'un livre est préfixé `livre_`
+        // alors qu'en base ils sont enregistrés sous l'uuid brut.
+        // On tente les identifiants candidats l'un après l'autre.
+        let annule = false
+        const charger = async () => {
+            const candidats = piste.id.startsWith('livre_')
+                ? [piste.id.slice(6), piste.id]
+                : [piste.id]
+            for (const idC of candidats) {
+                const { data, error } = await supabase
+                    .from('markers')
+                    .select('id, titre, temps_secondes')
+                    .eq('episode_id', idC)
+                    .order('temps_secondes')
+                if (annule) return
+                if (!error && data && data.length > 0) { setMarkers(data); return }
+            }
+        }
+        charger()
+        return () => { annule = true }
     }, [piste?.id])
 
     if (!piste) return null
@@ -879,6 +912,14 @@ export default function LecteurPleinEcran() {
     }
 
     const panelOpen = panel === 'chapters'
+
+    // Chapitre en cours d'écoute + encoches sur la barre de progression
+    const chapitreActuel = markers.length > 0
+        ? [...markers].reverse().find(m => tempsActuel >= m.temps_secondes) ?? markers[0]
+        : null
+    const marksFractions = dureeTotal > 0
+        ? markers.map(m => m.temps_secondes / dureeTotal).filter(f => f > 0.005 && f < 0.995)
+        : []
 
     const ouvrirNote = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -986,10 +1027,39 @@ export default function LecteurPleinEcran() {
                                     >
                                         {piste.sheikh}
                                     </TextTicker>
+
+                                    {/* Chapitre en cours (markers) — tap : ouvre la liste */}
+                                    {chapitreActuel && (
+                                        <Pressable
+                                            onPress={() => { Haptics.selectionAsync(); setPanel('chapters') }}
+                                            style={{
+                                                alignSelf: 'flex-start',
+                                                flexDirection: 'row', alignItems: 'center', gap: 7,
+                                                backgroundColor: W08,
+                                                borderWidth: 1, borderColor: W15,
+                                                borderRadius: radius.full,
+                                                paddingHorizontal: 11, paddingVertical: 5,
+                                                marginTop: spacing.sm,
+                                            }}
+                                        >
+                                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.or }} />
+                                            <Text
+                                                numberOfLines={1}
+                                                style={{
+                                                    fontFamily: typography.fontFamily.semibold,
+                                                    fontSize: typography.size.xs,
+                                                    color: W85,
+                                                    maxWidth: W - spacing.xl * 2 - 60,
+                                                }}
+                                            >
+                                                {chapitreActuel.titre}
+                                            </Text>
+                                        </Pressable>
+                                    )}
                                 </View>
 
                                 {/* Progress */}
-                                <Progress tempsActuel={tempsActuel} dureeTotal={dureeTotal} onSeek={seeker} />
+                                <Progress tempsActuel={tempsActuel} dureeTotal={dureeTotal} onSeek={seeker} marks={marksFractions} />
 
                                 {/* Controls */}
                                 <View style={{
