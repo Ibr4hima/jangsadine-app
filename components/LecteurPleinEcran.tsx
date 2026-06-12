@@ -1,3 +1,4 @@
+import { MiniEgaliseur } from '@/components/AudioUI'
 import EditeurNote from '@/components/EditeurNote'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
@@ -799,6 +800,9 @@ export default function LecteurPleinEcran() {
     const [markers, setMarkers] = useState<{ id: string; titre: string; temps_secondes: number }[]>([])
     const [noteVisible, setNoteVisible] = useState(false)
     const [tsNote, setTsNote]       = useState(0)
+    // Piste lancée depuis la File : on reste sur la liste au lieu de
+    // basculer sur la vue lecteur
+    const garderPanelRef = useRef(false)
 
     const translateY = useSharedValue(SCREEN_H)
 
@@ -844,7 +848,8 @@ export default function LecteurPleinEcran() {
     useEffect(() => {
         if (!piste) return
         setMarkers([])
-        setPanel('none')
+        if (garderPanelRef.current) garderPanelRef.current = false
+        else setPanel('none')
 
         supabase.from('markers').select('id, titre, temps_secondes')
             .eq('episode_id', piste.id).order('temps_secondes')
@@ -1034,10 +1039,10 @@ export default function LecteurPleinEcran() {
                             (() => {
                                 // Utilise la playlist complète si dispo, sinon current + file
                                 const liste = playlist.length > 0 ? playlist : [piste, ...file]
-                                const idxActuel = liste.findIndex(p => p.id === piste.id)
 
                                 const jouerIndex = (i: number) => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                                    garderPanelRef.current = true
                                     jouer(liste[i], liste.slice(i + 1), undefined, liste)
                                 }
                                 const togglePlay = () => {
@@ -1067,7 +1072,6 @@ export default function LecteurPleinEcran() {
                                         {/* ── Liste ── */}
                                         {liste.map((ep, i) => {
                                             const actif = ep.id === piste.id
-                                            const passe = i < idxActuel
                                             const epArabe = /[؀-ۿ]/.test(ep.sheikh)
 
                                             return (
@@ -1100,11 +1104,7 @@ export default function LecteurPleinEcran() {
                                                                 alignItems: 'center', justifyContent: 'center',
                                                             }}>
                                                                 {enLecture
-                                                                    ? <View style={{ flexDirection: 'row', gap: 2.5, alignItems: 'flex-end', height: 14 }}>
-                                                                        <View style={{ width: 2.5, height: 8,  backgroundColor: BG_MID, borderRadius: 1.5 }} />
-                                                                        <View style={{ width: 2.5, height: 14, backgroundColor: BG_MID, borderRadius: 1.5 }} />
-                                                                        <View style={{ width: 2.5, height: 10, backgroundColor: BG_MID, borderRadius: 1.5 }} />
-                                                                      </View>
+                                                                    ? <MiniEgaliseur color={BG_MID} hauteur={14} epaisseur={2.5} />
                                                                     : <IcoPlay size={14} color={BG_MID} />
                                                                 }
                                                             </View>
@@ -1112,7 +1112,7 @@ export default function LecteurPleinEcran() {
                                                             <Text style={{
                                                                 fontFamily: typography.fontFamily.medium,
                                                                 fontSize: typography.size.sm,
-                                                                color: passe ? W35 : W60,
+                                                                color: W60,
                                                                 fontVariant: ['tabular-nums'],
                                                             }}>
                                                                 {i + 1}
@@ -1126,8 +1126,8 @@ export default function LecteurPleinEcran() {
                                                             numberOfLines={1}
                                                             style={{
                                                                 fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.medium,
-                                                                fontSize: actif ? typography.size.base : typography.size.base,
-                                                                color: actif ? colors.or : passe ? W35 : W85,
+                                                                fontSize: typography.size.base,
+                                                                color: actif ? colors.or : W85,
                                                             }}
                                                         >
                                                             {ep.titre}
@@ -1137,7 +1137,7 @@ export default function LecteurPleinEcran() {
                                                             style={{
                                                                 fontFamily: epArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
                                                                 fontSize: typography.size.xs,
-                                                                color: actif ? 'rgba(214,173,58,0.7)' : passe ? W35 : W60,
+                                                                color: actif ? 'rgba(214,173,58,0.7)' : W60,
                                                                 marginTop: 3,
                                                             }}
                                                         >
@@ -1145,26 +1145,17 @@ export default function LecteurPleinEcran() {
                                                         </Text>
                                                     </View>
 
-                                                    {/* Durée ou état passé */}
+                                                    {/* Durée */}
                                                     {ep.duree ? (
                                                         <Text style={{
                                                             fontFamily: typography.fontFamily.regular,
                                                             fontSize: typography.size.xs,
-                                                            color: actif ? 'rgba(214,173,58,0.6)' : passe ? W35 : W35,
+                                                            color: actif ? 'rgba(214,173,58,0.6)' : W35,
                                                             marginLeft: 10,
                                                             fontVariant: ['tabular-nums'],
                                                         }}>
                                                             {ep.duree}
                                                         </Text>
-                                                    ) : passe ? (
-                                                        <View style={{
-                                                            width: 16, height: 16, borderRadius: 8,
-                                                            backgroundColor: W08,
-                                                            alignItems: 'center', justifyContent: 'center',
-                                                            marginLeft: 10,
-                                                        }}>
-                                                            <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: W35 }} />
-                                                        </View>
                                                     ) : null}
                                                 </Pressable>
                                             )

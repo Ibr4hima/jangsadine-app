@@ -77,15 +77,12 @@ export default function PageChapitre() {
     }, [chapitreId])
 
     function jouerEpisode(ep: Episode, index: number) {
-        const urlLocale = getCheminLocal(ep.id)
-        const suivantes = episodes.slice(index + 1).map(e => {
+        // Playlist complète (passés + actuel + suivants) pour la File du lecteur
+        const toutes = episodes.map(e => {
             const locale = getCheminLocal(e.id)
             return { id: e.id, titre: e.titre, sheikh, url: locale ?? e.url_audio, duree: e.duree, href }
         })
-        jouer(
-            { id: ep.id, titre: ep.titre, sheikh, url: urlLocale ?? ep.url_audio, duree: ep.duree, href },
-            suivantes,
-        )
+        jouer(toutes[index], toutes.slice(index + 1), undefined, toutes)
     }
 
     function toutEcouter() {

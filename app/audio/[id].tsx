@@ -71,18 +71,15 @@ export default function DetailCours() {
     }, [id])
 
     function jouerEpisode(ep: Episode, index: number) {
-        const urlLocale = getCheminLocal(ep.id)
-        const suivantes = episodes.slice(index + 1).map(e => {
+        // Playlist complète (passés + actuel + suivants) pour la File du lecteur
+        const toutes = episodes.map(e => {
             const locale = getCheminLocal(e.id)
             return {
                 id: e.id, titre: e.titre, sheikh: cours?.sheikh ?? '',
                 url: locale ?? e.url_audio, duree: e.duree, href: `/audio/${id}`,
             }
         })
-        jouer({
-            id: ep.id, titre: ep.titre, sheikh: cours?.sheikh ?? '',
-            url: urlLocale ?? ep.url_audio, duree: ep.duree, href: `/audio/${id}`,
-        }, suivantes)
+        jouer(toutes[index], toutes.slice(index + 1), undefined, toutes)
     }
 
     function toutEcouter() {

@@ -181,7 +181,10 @@ function GroupeContenu({
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                   if (epActif) { enLecture ? pause() : reprendre() }
-                  else jouer({ id: ep.id, titre: ep.titre, sheikh: ep.sheikh, url: ep.cheminLocal })
+                  else {
+                    const toutes = episodesOrdres.map(e => ({ id: e.id, titre: e.titre, sheikh: e.sheikh, url: e.cheminLocal }))
+                    jouer(toutes[epIdx], toutes.slice(epIdx + 1), undefined, toutes)
+                  }
                 }}
                 style={{
                   flexDirection: 'row', alignItems: 'center',
