@@ -222,6 +222,8 @@ export default function DetailCours() {
                                                             coursId: id as string,
                                                             coursTitre: cours?.titre ?? '',
                                                             url: ep.url_audio,
+                                                            type: 'cours',
+                                                            numero: ep.numero,
                                                         }}
                                                     />
 

@@ -14,6 +14,8 @@ export type Telechargement = {
     cheminLocal: string
     taille: number
     dateTelechargement: string
+    type?: 'cours' | 'conference' | 'khoutbah' | 'fatwa'
+    numero?: number
 }
 
 export type ProgressionTelecharge = {
@@ -32,6 +34,8 @@ type TelechargementContextType = {
         coursId: string
         coursTitre: string
         url: string
+        type?: 'cours' | 'conference' | 'khoutbah' | 'fatwa'
+        numero?: number
     }) => Promise<void>
     supprimer: (id: string) => Promise<void>
     estTelecharge: (id: string) => boolean
@@ -81,6 +85,8 @@ export function TelechargementProvider({ children }: { children: React.ReactNode
         coursId: string
         coursTitre: string
         url: string
+        type?: 'cours' | 'conference' | 'khoutbah' | 'fatwa'
+        numero?: number
     }) => {
         // Déjà téléchargé ou en cours
         if (telechargements.find(t => t.id === episode.id)) return
@@ -125,6 +131,8 @@ export function TelechargementProvider({ children }: { children: React.ReactNode
                 cheminLocal: chemin,
                 taille,
                 dateTelechargement: new Date().toISOString(),
+                type: episode.type ?? 'cours',
+                numero: episode.numero,
             }
 
             const nouveaux = [...telechargements, nouveau]
