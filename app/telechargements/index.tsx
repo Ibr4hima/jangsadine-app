@@ -73,7 +73,6 @@ function GroupeContenu({
   const { jouer, piste, enLecture, pause, reprendre } = useAudio()
 
   const groupeActif = episodes.some(e => e.id === piste?.id)
-  const sheikhsMixtes = new Set(episodes.map(e => e.sheikh).filter(Boolean)).size > 1
 
   const episodesOrdres = [...episodes].sort((a, b) => (a.numero ?? 0) - (b.numero ?? 0))
 
@@ -207,9 +206,7 @@ function GroupeContenu({
                     ? <MiniEgaliseur color="white" hauteur={14} />
                     : epActif
                       ? <IconPlay size={13} color="white" />
-                      : <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 11, color: colors.bleu, includeFontPadding: false }}>
-                          {ep.numero ?? epIdx + 1}
-                        </Text>}
+                      : <IconPlay size={13} color={colors.bleu} />}
                 </View>
 
                 <View style={{ flex: 1, minWidth: 0 }}>
@@ -220,9 +217,11 @@ function GroupeContenu({
                   }}>
                     {ep.titre}
                   </Text>
-                  <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#aab4c0', marginTop: 2, fontVariant: ['tabular-nums'] }}>
-                    {sheikhsMixtes && ep.sheikh ? `${ep.sheikh} · ` : ''}{formaterTaille(ep.taille)}
-                  </Text>
+                  {ep.sheikh ? (
+                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#aab4c0', marginTop: 2 }}>
+                      {ep.sheikh}
+                    </Text>
+                  ) : null}
                 </View>
 
                 <Pressable
@@ -330,10 +329,11 @@ export default function Telechargements() {
           <Animated.View entering={FadeIn.duration(220)}>
             {sectionsAvecContenu.map((section, sIdx) => {
               const groupes = parSection.get(section.type)!
+              const totalEpisodes = Array.from(groupes.values()).reduce((sum, eps) => sum + eps.length, 0)
               let groupIndex = 0
               return (
                 <View key={section.type} style={{ marginBottom: sIdx < sectionsAvecContenu.length - 1 ? spacing['2xl'] : 0 }}>
-                  <EnTeteSection eyebrow={section.label} />
+                  <EnTeteSection eyebrow={section.label} titre={`${totalEpisodes} épisode${totalEpisodes > 1 ? 's' : ''}`} />
                   <View style={{ gap: spacing.sm }}>
                     {Array.from(groupes.entries()).map(([groupId, episodes]) => (
                       <GroupeContenu
