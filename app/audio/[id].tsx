@@ -4,6 +4,7 @@ import {
     EtatVideDetail,
     HerosDetail,
     IconLivre,
+    IconPause,
     IconPlay,
     MiniEgaliseur,
     PressableScale,
@@ -101,7 +102,7 @@ export default function DetailCours() {
             <StatusBar barStyle="light-content" />
 
             {/* ── Héros ── */}
-            <HerosDetail paddingTop={insets.top + spacing.sm}>
+            <HerosDetail paddingTop={insets.top + 4}>
                 <View style={{ alignItems: 'center' }}>
                     {nomCat ? (
                         <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: spacing.sm }}>
@@ -192,7 +193,7 @@ export default function DetailCours() {
                                                         } : {}),
                                                     }}>
                                                         {actif && enLecture
-                                                            ? <MiniEgaliseur color="white" />
+                                                            ? <IconPause size={15} color="white" />
                                                             : actif
                                                                 ? <IconPlay size={15} color="white" />
                                                                 : <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>{ep.numero}</Text>}

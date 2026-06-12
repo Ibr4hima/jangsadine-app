@@ -4,6 +4,7 @@ import {
     EtatVideDetail,
     HerosDetail,
     IconLivre,
+    IconPause,
     IconPlay,
     MiniEgaliseur,
     PressableScale,
@@ -84,7 +85,7 @@ export default function PageChapitre() {
             <StatusBar barStyle="light-content" />
 
             {/* ── Héros ── */}
-            <HerosDetail paddingTop={insets.top + spacing.sm}>
+            <HerosDetail paddingTop={insets.top + 4}>
                 <View style={{ alignItems: 'center' }}>
                     <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: spacing.sm }}>
                         <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.8, color: colors.or, textTransform: 'uppercase' }}>
@@ -168,7 +169,7 @@ export default function PageChapitre() {
                                                         } : {}),
                                                     }}>
                                                         {actif && enLecture
-                                                            ? <MiniEgaliseur color="white" />
+                                                            ? <IconPause size={15} color="white" />
                                                             : actif
                                                                 ? <IconPlay size={15} color="white" />
                                                                 : <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>{index + 1}</Text>}

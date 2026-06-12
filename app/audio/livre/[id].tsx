@@ -6,7 +6,7 @@ import {
     HerosDetail,
     IconCasque,
     IconLivre,
-    IconPlay,
+    InitialesAvatar,
     MiniEgaliseur,
     PressableScale,
     Squelettes,
@@ -77,7 +77,7 @@ export default function PageLivre() {
         if (livreActif) {
             enLecture ? pause() : reprendre()
         } else {
-            jouer({ id: livreAudioId, titre: livre.titre, sheikh: livre.sheikh ?? '', url: livre.url_audio })
+            jouer({ id: livreAudioId, titre: livre.titre, sheikh: livre.titre_arabe ?? livre.sheikh ?? '', url: livre.url_audio })
         }
     }
 
@@ -86,7 +86,7 @@ export default function PageLivre() {
             <StatusBar barStyle="light-content" />
 
             {/* ── Héros ── */}
-            <HerosDetail paddingTop={insets.top + spacing.sm}>
+            <HerosDetail paddingTop={insets.top + 4}>
                 <View style={{ alignItems: 'center' }}>
                     {categorie ? (
                         <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: spacing.sm }}>
@@ -207,9 +207,7 @@ export default function PageLivre() {
                     <Animated.View entering={FadeIn.duration(220)}>
                         <EnTeteSection
                             eyebrow="Versions disponibles"
-                            titre={versions.length > 1
-                                ? `${versions.length} sheikhs enseignent ce livre`
-                                : undefined}
+                            titre={`${versions.length} version${versions.length > 1 ? 's' : ''} de ce cours`}
                         />
                         {versions.length === 0 ? (
                             <EtatVideDetail message="Les audios de ce cours arrivent bientôt" />
@@ -240,19 +238,24 @@ export default function PageLivre() {
                                                     elevation: 2,
                                                 }}
                                             >
-                                                <View style={{
-                                                    width: 44, height: 44, borderRadius: 22,
-                                                    backgroundColor: versionActive ? colors.bleu : '#edf2f8',
-                                                    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                                    ...(versionActive ? {
-                                                        shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
-                                                        shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
-                                                    } : {}),
-                                                }}>
-                                                    {versionActive && enLecture
-                                                        ? <MiniEgaliseur color="white" />
-                                                        : <IconPlay size={16} color={versionActive ? 'white' : colors.bleu} />}
-                                                </View>
+                                                {versionActive && enLecture
+                                                    ? (
+                                                        <View style={{
+                                                            width: 44, height: 44, borderRadius: 22,
+                                                            backgroundColor: colors.bleu,
+                                                            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                            shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
+                                                            shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+                                                        }}>
+                                                            <MiniEgaliseur color="white" />
+                                                        </View>
+                                                    ) : (
+                                                        <InitialesAvatar
+                                                            nom={v.sheikh}
+                                                            bg={versionActive ? colors.bleu + '22' : (bg || '#edf2f8')}
+                                                            txt={versionActive ? colors.bleu : (txt || colors.bleu)}
+                                                        />
+                                                    )}
                                                 <View style={{ flex: 1, minWidth: 0 }}>
                                                     <Text numberOfLines={1} style={{
                                                         fontFamily: typography.fontFamily.semibold,

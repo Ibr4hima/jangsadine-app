@@ -170,20 +170,20 @@ export function HerosDetail({ paddingTop, children }: { paddingTop: number, chil
             <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.12)', top: -140, right: -100 }} />
             <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.06)', bottom: -80, left: -70 }} />
 
-            <View style={{ paddingTop, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl }}>
+            <View style={{ paddingTop, paddingHorizontal: spacing.xl, paddingBottom: spacing.md }}>
                 <Pressable
                     onPress={() => { Haptics.selectionAsync(); router.back() }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     style={({ pressed }) => ({
-                        width: 38, height: 38, borderRadius: 19,
+                        width: 36, height: 36, borderRadius: 18,
                         backgroundColor: W10,
                         borderWidth: 1, borderColor: W14,
                         alignItems: 'center', justifyContent: 'center',
-                        marginBottom: spacing.md,
+                        marginBottom: 8,
                         opacity: pressed ? 0.7 : 1,
                     })}
                 >
-                    <IconBack size={19} color="white" />
+                    <IconBack size={18} color="white" />
                 </Pressable>
                 {children}
             </View>
@@ -230,6 +230,29 @@ export function EnTeteSection({ eyebrow, titre }: { eyebrow: string, titre?: str
                     {titre}
                 </Text>
             ) : null}
+        </View>
+    )
+}
+
+// ─── avatar initiales sheikh (cartes de version) ──────────────
+export function InitialesAvatar({ nom, bg, txt, taille = 44 }: { nom: string, bg: string, txt: string, taille?: number }) {
+    const initiales = nom
+        .replace(/^(Dr\.?|Oustaz|Sheikh|Cheikh|Al[-\s]|Professeur)\s*/gi, '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(w => w[0]?.toUpperCase() ?? '')
+        .join('')
+    return (
+        <View style={{
+            width: taille, height: taille, borderRadius: taille / 2,
+            backgroundColor: bg,
+            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: taille * 0.32, color: txt, lineHeight: taille * 0.35 }}>
+                {initiales || '?'}
+            </Text>
         </View>
     )
 }
