@@ -159,7 +159,7 @@ function AppShell() {
 
       {tabBarVisible && (
         <SafeAreaView edges={['bottom']} style={{ backgroundColor: 'transparent' }}>
-          <View style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md, gap: spacing.sm }}>
+          <View style={{ marginHorizontal: spacing.lg, marginBottom: 4, gap: spacing.sm }}>
             <LecteurPersistant />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <View
