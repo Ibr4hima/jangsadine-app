@@ -1,11 +1,10 @@
 import {
     BoutonHeros,
-    couleurBg, couleurTxt,
     EnTeteSection,
     EtatVideDetail,
     HerosDetail,
     IconCasque,
-    IconChevronRight,
+    IconCompteur,
     IconLivre,
     IconMusicNote,
     MiniEgaliseur,
@@ -70,8 +69,6 @@ export default function PageLivre() {
     }, [id])
 
     const categorie = livre?.categories?.nom ?? ''
-    const bg = couleurBg[categorie] ?? '#edf2f8'
-    const txt = couleurTxt[categorie] ?? colors.bleu
 
     const jouerLivre = () => {
         if (!livre?.url_audio) return
@@ -184,20 +181,19 @@ export default function PageLivre() {
                                         >
                                             <View style={{
                                                 width: 38, height: 38, borderRadius: 19,
-                                                backgroundColor: bg,
+                                                backgroundColor: '#e8f0f8',
                                                 alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                                             }}>
-                                                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.sm, color: txt }}>
-                                                    {chap.numero}
-                                                </Text>
+                                                <IconCompteur n={chap.numero} size={22} color={colors.bleu} />
                                             </View>
-                                            <TextTicker
-                                                style={{ flex: 1, fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}
-                                                loop bounce={false} repeatSpacer={50} marqueeDelay={2000} scrollSpeed={10}
-                                            >
-                                                {chap.titre}
-                                            </TextTicker>
-                                            <IconChevronRight size={18} />
+                                            <View style={{ flex: 1, justifyContent: 'center' }}>
+                                                <TextTicker
+                                                    style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}
+                                                    loop bounce={false} repeatSpacer={50} marqueeDelay={2000} scrollSpeed={10}
+                                                >
+                                                    {chap.titre}
+                                                </TextTicker>
+                                            </View>
                                         </PressableScale>
                                     </Animated.View>
                                 ))}
