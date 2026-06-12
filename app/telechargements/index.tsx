@@ -1,7 +1,6 @@
 import {
   EnTeteSection,
   HerosDetail,
-  IconPause,
   IconPlay,
   MiniEgaliseur,
   PressableScale,
@@ -47,27 +46,6 @@ function IconChevron({ size = 18, color = '#b6c0cc', bas = false }: { size?: num
     </Svg>
   )
 }
-function IconCasque({ size = 20, color = colors.bleu }: { size?: number, color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 -960 960 960">
-      <Path d="M360-120H200q-33 0-56.5-23.5T120-200v-280q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-840q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-480v280q0 33-23.5 56.5T760-120H600v-320h160v-40q0-117-81.5-198.5T480-760q-117 0-198.5 81.5T200-480v40h160v320Zm-80-240h-80v160h80v-160Zm400 0v160h80v-160h-80Zm-400 0h-80 80Zm400 0h80-80Z" fill={color} />
-    </Svg>
-  )
-}
-function IconMicro({ size = 20, color = '#c05c2e' }: { size?: number, color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 -960 960 960">
-      <Path d="M480-400q-50 0-85-35t-35-85v-240q0-50 35-85t85-35q50 0 85 35t35 85v240q0 50-35 85t-85 35Zm0-240Zm-40 520v-123q-104-14-172-93t-68-184h80q0 83 58.5 141.5T480-320q83 0 141.5-58.5T680-520h80q0 105-68 184t-172 93v123h-80Zm40-360q17 0 28.5-11.5T520-520v-240q0-17-11.5-28.5T480-800q-17 0-28.5 11.5T440-760v240q0 17 11.5 28.5T480-480Z" fill={color} />
-    </Svg>
-  )
-}
-function IconCoran({ size = 20, color = '#a02060' }: { size?: number, color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 -960 960 960">
-      <Path d="M560-564v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-600q-38 0-73 9.5T560-564Zm0 220v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-380q-38 0-73 9.5T560-344ZM260-320q47 0 91.5 10.5T440-278v-394q-41-24-87-36t-93-12q-36 0-71.5 7T120-692v396q35-12 69.5-18t70.5-6Zm260 42q44-21 88.5-31.5T700-320q36 0 70.5 6t69.5 18v-396q-33-14-68.5-21t-71.5-7q-47 0-93 12t-87 36v394Zm-40 118q-48-35-103.5-54.5T260-234q-36 0-70 8t-65 22q-31 14-61-1t-30-47v-488q0-20 10-38t28-26q44-21 91-32t97-11q52 0 100.5 13.5T360-798q41-26 89.5-39.5T550-851q50 0 97 11t91 32q18 8 28 26t10 38v488q0 32-30 47t-61 1q-31-14-65-22t-70-8q-58 0-113.5 19.5T480-160Z" fill={color} />
-    </Svg>
-  )
-}
 
 // ─── helpers ─────────────────────────────────────────────────
 function formaterTaille(bytes: number): string {
@@ -77,20 +55,18 @@ function formaterTaille(bytes: number): string {
 
 // ─── config sections ──────────────────────────────────────────
 type TypeSection = 'cours' | 'conference' | 'khoutbah' | 'fatwa'
-const SECTIONS: { type: TypeSection, label: string, icone: (c: string) => React.ReactElement, couleur: string, fond: string }[] = [
-  { type: 'cours', label: 'Cours audio', icone: (c) => <IconCasque size={20} color={c} />, couleur: colors.bleu, fond: '#e8f0f8' },
-  { type: 'conference', label: 'Conférences', icone: (c) => <IconMicro size={20} color={c} />, couleur: '#c05c2e', fond: '#fdf0eb' },
-  { type: 'khoutbah', label: 'Khoutbah', icone: (c) => <IconMicro size={20} color={c} />, couleur: '#2d7a4f', fond: '#eaf4ee' },
-  { type: 'fatwa', label: 'Fatwas', icone: (c) => <IconCoran size={20} color={c} />, couleur: '#a02060', fond: '#fde8f0' },
+const SECTIONS: { type: TypeSection, label: string }[] = [
+  { type: 'cours', label: 'Cours audio' },
+  { type: 'conference', label: 'Conférences' },
+  { type: 'khoutbah', label: 'Khoutbah' },
+  { type: 'fatwa', label: 'Fatwas' },
 ]
 
 // ─── groupe d'un même contenu (cours, conférence…) ───────────
 function GroupeContenu({
   groupId, titre, episodes, index: groupIndex,
-  couleur, fond, icone,
 }: {
   groupId: string, titre: string, episodes: Telechargement[], index: number,
-  couleur: string, fond: string, icone: React.ReactElement,
 }) {
   const [ouvert, setOuvert] = useState(true)
   const { supprimer } = useTelechargement()
@@ -148,9 +124,9 @@ function GroupeContenu({
           hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           style={{
             width: 40, height: 40, borderRadius: 20,
-            backgroundColor: couleur,
+            backgroundColor: colors.bleu,
             alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            shadowColor: couleur, shadowOffset: { width: 0, height: 3 },
+            shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
             shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
           }}
         >
@@ -220,10 +196,10 @@ function GroupeContenu({
                 {/* Numéro / état lecture */}
                 <View style={{
                   width: 30, height: 30, borderRadius: 15,
-                  backgroundColor: epActif ? couleur : '#edf2f8',
+                  backgroundColor: epActif ? colors.bleu : '#edf2f8',
                   alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                   ...(epActif ? {
-                    shadowColor: couleur, shadowOffset: { width: 0, height: 2 },
+                    shadowColor: colors.bleu, shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.25, shadowRadius: 4, elevation: 3,
                   } : {}),
                 }}>
@@ -240,7 +216,7 @@ function GroupeContenu({
                   <Text numberOfLines={1} style={{
                     fontFamily: typography.fontFamily.semibold,
                     fontSize: typography.size.base,
-                    color: epActif ? couleur : colors.texte,
+                    color: epActif ? colors.bleu : colors.texte,
                   }}>
                     {ep.titre}
                   </Text>
@@ -354,19 +330,10 @@ export default function Telechargements() {
           <Animated.View entering={FadeIn.duration(220)}>
             {sectionsAvecContenu.map((section, sIdx) => {
               const groupes = parSection.get(section.type)!
-              const nbEpisodesSection = Array.from(groupes.values()).reduce((a, eps) => a + eps.length, 0)
-              const titreSection = section.type === 'cours'
-                ? `${groupes.size} cours`
-                : `${nbEpisodesSection} ${section.type === 'conference' ? `conférence${nbEpisodesSection > 1 ? 's' : ''}`
-                  : section.type === 'khoutbah' ? `khoutbah${nbEpisodesSection > 1 ? 's' : ''}`
-                  : `fatwa${nbEpisodesSection > 1 ? 's' : ''}`}`
               let groupIndex = 0
               return (
                 <View key={section.type} style={{ marginBottom: sIdx < sectionsAvecContenu.length - 1 ? spacing['2xl'] : 0 }}>
-                  <EnTeteSection
-                    eyebrow={section.label}
-                    titre={titreSection}
-                  />
+                  <EnTeteSection eyebrow={section.label} />
                   <View style={{ gap: spacing.sm }}>
                     {Array.from(groupes.entries()).map(([groupId, episodes]) => (
                       <GroupeContenu
@@ -375,9 +342,6 @@ export default function Telechargements() {
                         titre={episodes[0].coursTitre}
                         episodes={episodes}
                         index={groupIndex++}
-                        couleur={section.couleur}
-                        fond={section.fond}
-                        icone={section.icone(section.couleur)}
                       />
                     ))}
                   </View>
