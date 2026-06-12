@@ -89,7 +89,7 @@ function IcoAddNotes({ size = 22, color = '#fff' }: { size?: number; color?: str
 function IcoChapters({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
-            <Path d="M280-600v-80h560v80H280Zm0 160v-80h560v80H280Zm0 160v-80h560v80H280ZM160-600q-17 0-28.5-11.5T120-640q0-17 11.5-28.5T160-680q17 0 28.5 11.5T200-640q0 17-11.5 28.5T160-600Zm0 160q-17 0-28.5-11.5T120-480q0-17 11.5-28.5T160-520q17 0 28.5 11.5T200-480q0 17-11.5 28.5T160-440Zm0 160q-17 0-28.5-11.5T120-320q0-17 11.5-28.5T160-360q17 0 28.5 11.5T200-320q0 17-11.5 28.5T160-280Z" fill={color} />
+            <Path d="M120-80v-60h100v-30h-60v-60h60v-30H120v-60h160q17 0 28.5 11.5T320-280v40q0 17-11.5 28.5T280-200q17 0 28.5 11.5T320-160v40q0 17-11.5 28.5T280-80H120Zm0-280v-110q0-17 11.5-28.5T160-510h100v-30H120v-60h160q17 0 28.5 11.5T320-560v70q0 17-11.5 28.5T280-450h-100v30h140v60H120Zm60-280v-180h-60v-60h120v240h-60Zm180 440v-80h480v80H360Zm0-240v-80h480v80H360Zm0-240v-80h480v80H360Z" fill={color} />
         </Svg>
     )
 }
@@ -965,56 +965,93 @@ export default function LecteurPleinEcran() {
                                         <ScrollView
                                             style={{ alignSelf: 'stretch' }}
                                             showsVerticalScrollIndicator={false}
-                                            contentContainerStyle={{ paddingVertical: spacing.sm }}
+                                            contentContainerStyle={{ paddingVertical: 4 }}
                                         >
-                                            <View style={{
-                                                backgroundColor: W08,
-                                                borderRadius: radius.xl,
-                                                borderWidth: 1,
-                                                borderColor: W15,
-                                                overflow: 'hidden',
-                                            }}>
-                                                {panel === 'chapters' && (
-                                                    markers.length === 0 ? (
-                                                        <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-                                                            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W60 }}>
-                                                                Aucun chapitre
+                                            {markers.length === 0 ? (
+                                                <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                                                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W60 }}>
+                                                        Aucun chapitre
+                                                    </Text>
+                                                </View>
+                                            ) : markers.map((m, i) => {
+                                                const actif = tempsActuel >= m.temps_secondes &&
+                                                    (i === markers.length - 1 || tempsActuel < markers[i + 1].temps_secondes)
+                                                const passe = !actif && tempsActuel > m.temps_secondes
+                                                const debutSuivant = i < markers.length - 1 ? markers[i + 1].temps_secondes : dureeTotal
+                                                const dureeChap = Math.max(0, debutSuivant - m.temps_secondes)
+                                                const restant = actif
+                                                    ? Math.max(0, dureeChap - (tempsActuel - m.temps_secondes))
+                                                    : dureeChap
+                                                return (
+                                                    <Pressable
+                                                        key={m.id}
+                                                        onPress={() => { Haptics.selectionAsync(); seeker((m.temps_secondes / dureeTotal) * 100) }}
+                                                        style={({ pressed }) => ({
+                                                            flexDirection: 'row', alignItems: 'center',
+                                                            paddingHorizontal: spacing.md,
+                                                            paddingVertical: 12,
+                                                            backgroundColor: actif
+                                                                ? 'rgba(214,173,58,0.09)'
+                                                                : pressed ? 'rgba(255,255,255,0.04)' : 'transparent',
+                                                            borderLeftWidth: actif ? 3 : 3,
+                                                            borderLeftColor: actif ? colors.or : 'transparent',
+                                                            borderBottomWidth: i < markers.length - 1 ? 1 : 0,
+                                                            borderBottomColor: 'rgba(255,255,255,0.05)',
+                                                        })}
+                                                    >
+                                                        {/* Numéro */}
+                                                        <View style={{
+                                                            width: 28, height: 28, borderRadius: 14,
+                                                            backgroundColor: actif ? colors.or : passe ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.10)',
+                                                            alignItems: 'center', justifyContent: 'center',
+                                                            marginRight: 14, flexShrink: 0,
+                                                        }}>
+                                                            <Text style={{
+                                                                fontFamily: typography.fontFamily.bold,
+                                                                fontSize: 11,
+                                                                color: actif ? BG_BOT : passe ? W35 : W60,
+                                                                fontVariant: ['tabular-nums'],
+                                                            }}>
+                                                                {i + 1}
                                                             </Text>
                                                         </View>
-                                                    ) : markers.map((m, i) => {
-                                                        const actif = tempsActuel >= m.temps_secondes &&
-                                                            (i === markers.length - 1 || tempsActuel < markers[i + 1].temps_secondes)
-                                                        return (
-                                                            <Pressable
-                                                                key={m.id}
-                                                                onPress={() => { Haptics.selectionAsync(); seeker((m.temps_secondes / dureeTotal) * 100) }}
-                                                                style={{
-                                                                    flexDirection: 'row', alignItems: 'center',
-                                                                    gap: spacing.md,
-                                                                    paddingHorizontal: spacing.lg,
-                                                                    paddingVertical: spacing.md,
-                                                                    backgroundColor: actif ? OR_DIM : 'transparent',
-                                                                    borderBottomWidth: i < markers.length - 1 ? 1 : 0,
-                                                                    borderBottomColor: W08,
-                                                                }}
-                                                            >
-                                                                <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: actif ? colors.or : W35, minWidth: 44, fontVariant: ['tabular-nums'] }}>
-                                                                    {fmt(m.temps_secondes)}
-                                                                </Text>
-                                                                <Text style={{ flex: 1, fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.regular, fontSize: typography.size.md, color: actif ? colors.or : W85 }}>
-                                                                    {m.titre}
-                                                                </Text>
-                                                            </Pressable>
-                                                        )
-                                                    })
-                                                )}
-                                            </View>
+
+                                                        {/* Titre */}
+                                                        <Text
+                                                            numberOfLines={2}
+                                                            style={{
+                                                                flex: 1,
+                                                                fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.medium,
+                                                                fontSize: typography.size.sm,
+                                                                color: actif ? colors.or : passe ? W60 : W85,
+                                                                lineHeight: 18,
+                                                            }}
+                                                        >
+                                                            {m.titre}
+                                                        </Text>
+
+                                                        {/* Durée / countdown */}
+                                                        {dureeTotal > 0 && (
+                                                            <Text style={{
+                                                                fontFamily: typography.fontFamily.medium,
+                                                                fontSize: typography.size.xs,
+                                                                color: actif ? 'rgba(214,173,58,0.75)' : W35,
+                                                                marginLeft: 10,
+                                                                fontVariant: ['tabular-nums'],
+                                                                minWidth: 44, textAlign: 'right',
+                                                            }}>
+                                                                {actif ? `-${fmt(restant)}` : fmt(dureeChap)}
+                                                            </Text>
+                                                        )}
+                                                    </Pressable>
+                                                )
+                                            })}
                                         </ScrollView>
                                     )}
                                 </View>
 
                                 {/* Title + Sheikh */}
-                                <View style={{ marginTop: spacing.lg, marginBottom: 2 }}>
+                                <View style={{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 10 : 14 }}>
                                     <TextTicker
                                         style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: '#fff', lineHeight: 28 }}
                                         loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
@@ -1027,36 +1064,36 @@ export default function LecteurPleinEcran() {
                                     >
                                         {piste.sheikh}
                                     </TextTicker>
+                                </View>
 
-                                    {/* Chapitre en cours (markers) — tap : ouvre la liste */}
-                                    {chapitreActuel && (
-                                        <Pressable
-                                            onPress={() => { Haptics.selectionAsync(); setPanel('chapters') }}
+                                {/* Chapitre en cours — centré, au-dessus de la barre */}
+                                {chapitreActuel && (
+                                    <Pressable
+                                        onPress={() => { Haptics.selectionAsync(); setPanel('chapters') }}
+                                        style={{
+                                            alignSelf: 'center',
+                                            flexDirection: 'row', alignItems: 'center', gap: 6,
+                                            backgroundColor: 'rgba(255,255,255,0.06)',
+                                            borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+                                            borderRadius: radius.full,
+                                            paddingHorizontal: 13, paddingVertical: 5,
+                                            marginBottom: 10,
+                                            maxWidth: W - spacing.xl * 2 - 20,
+                                        }}
+                                    >
+                                        <Text
+                                            numberOfLines={1}
                                             style={{
-                                                alignSelf: 'flex-start',
-                                                flexDirection: 'row', alignItems: 'center', gap: 7,
-                                                backgroundColor: W08,
-                                                borderWidth: 1, borderColor: W15,
-                                                borderRadius: radius.full,
-                                                paddingHorizontal: 11, paddingVertical: 5,
-                                                marginTop: spacing.sm,
+                                                fontFamily: typography.fontFamily.semibold,
+                                                fontSize: typography.size.xs,
+                                                color: W85,
+                                                letterSpacing: 0.2,
                                             }}
                                         >
-                                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.or }} />
-                                            <Text
-                                                numberOfLines={1}
-                                                style={{
-                                                    fontFamily: typography.fontFamily.semibold,
-                                                    fontSize: typography.size.xs,
-                                                    color: W85,
-                                                    maxWidth: W - spacing.xl * 2 - 60,
-                                                }}
-                                            >
-                                                {chapitreActuel.titre}
-                                            </Text>
-                                        </Pressable>
-                                    )}
-                                </View>
+                                            {chapitreActuel.titre}
+                                        </Text>
+                                    </Pressable>
+                                )}
 
                                 {/* Progress */}
                                 <Progress tempsActuel={tempsActuel} dureeTotal={dureeTotal} onSeek={seeker} marks={marksFractions} />
