@@ -1,3 +1,4 @@
+import { MiniEgaliseur } from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { Piste, useAudio } from '@/contexts/AudioContext'
 import { useTabBar } from '@/contexts/TabBarContext'
@@ -26,6 +27,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
+import TextTicker from 'react-native-text-ticker'
 
 const { width: W } = Dimensions.get('window')
 
@@ -60,14 +62,11 @@ function IcoCompass({ size = 24, color = colors.bleu }: IcoProps) {
 function IcoPlay({ size = 18, color = '#fff' }: IcoProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M320-200v-560l440 280-440 280Z" fill={color} /></Svg>
 }
-function IcoPause({ size = 18, color = '#fff' }: IcoProps) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M555-200v-560h205v560H555Zm-355 0v-560h205v560H200Z" fill={color} /></Svg>
-}
 function IcoChevron({ size = 18, color = '#bbb' }: IcoProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" fill={color} /></Svg>
 }
 function IcoNotes({ size = 16, color = colors.bleu }: IcoProps) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z" fill={color} /></Svg>
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M700-120h40v-100h100v-40H740v-100h-40v100H600v40h100v100Zm20 80q-83 0-141.5-58.5T520-240q0-83 58.5-141.5T720-440q83 0 141.5 58.5T920-240q0 83-58.5 141.5T720-40ZM280-600h400v-80H280v80Zm187 480H200q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v268q-29-14-58.5-21t-61.5-7q-11 0-20.5.5T680-517v-3H280v80h245q-18 17-32.5 37T467-360H280v80h163q-2 10-2.5 19.5T440-240q0 33 6 61.5t21 58.5Z" fill={color} /></Svg>
 }
 function IcoDownload({ size = 16, color = colors.bleu }: IcoProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z" fill={color} /></Svg>
@@ -305,7 +304,7 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
 
 // ─── reprendre l'écoute ───────────────────────────────────────
 function CarteReprendre() {
-  const { piste, enLecture, jouer, reprendre, setLecteurOuvert } = useAudio()
+  const { piste, enLecture, jouer, pause, reprendre, setLecteurOuvert } = useAudio()
   const [derniere, setDerniere] = useState<Piste | null>(null)
 
   useEffect(() => {
@@ -317,19 +316,23 @@ function CarteReprendre() {
   const affichee = piste ?? derniere
   if (!affichee) return null
 
-  const ouvrir = () => {
+  // Le rond or : lecture / pause, sans ouvrir le lecteur
+  const basculer = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    if (piste) {
-      if (!enLecture) reprendre()
-      setLecteurOuvert(true)
-    } else if (derniere) {
-      jouer(derniere)
-    }
+    if (piste) { enLecture ? pause() : reprendre() }
+    else if (derniere) jouer(derniere, [], { ouvrirLecteur: false })
+  }
+
+  // Le reste de la carte : ouvre le lecteur plein écran
+  const ouvrirLecteur = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    if (piste) setLecteurOuvert(true)
+    else if (derniere) jouer(derniere)
   }
 
   return (
     <Animated.View entering={FadeInDown.duration(500).delay(80)}>
-      <PressableScale onPress={ouvrir} haptic={false} style={{
+      <PressableScale onPress={ouvrirLecteur} haptic={false} style={{
         marginHorizontal: spacing.xl,
         marginTop: spacing.lg,
         borderRadius: radius.xl + 4,
@@ -340,22 +343,30 @@ function CarteReprendre() {
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg, gap: spacing.md }}
         >
-          <View style={{
-            width: 52, height: 52, borderRadius: 26, backgroundColor: colors.or,
-            alignItems: 'center', justifyContent: 'center',
-            shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 5,
-          }}>
+          <Pressable
+            onPress={basculer}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+            style={({ pressed }) => ({
+              width: 52, height: 52, borderRadius: 26, backgroundColor: colors.or,
+              alignItems: 'center', justifyContent: 'center',
+              shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 5,
+              transform: [{ scale: pressed ? 0.9 : 1 }],
+            })}
+          >
             {piste && enLecture
-              ? <IcoPause size={20} color="#1c3d66" />
+              ? <MiniEgaliseur color="#1c3d66" hauteur={18} />
               : <IcoPlay size={20} color="#1c3d66" />}
-          </View>
+          </Pressable>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: 'rgba(255,255,255,0.55)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>
               {piste && enLecture ? 'En cours d\'écoute' : 'Reprendre l\'écoute'}
             </Text>
-            <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: '#fff' }}>
+            <TextTicker
+              style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: '#fff' }}
+              loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+            >
               {affichee.titre}
-            </Text>
+            </TextTicker>
             <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>
               {affichee.sheikh}
             </Text>
@@ -512,7 +523,7 @@ export default function Accueil() {
 
         {/* recherche — chevauche le bas du héros */}
         <Animated.View entering={FadeInDown.duration(500)} style={{ marginTop: -26, paddingHorizontal: spacing.xl }}>
-          <PressableScale onPress={() => naviguer('/audio')} style={{
+          <PressableScale onPress={() => naviguer('/recherche')} style={{
             flexDirection: 'row',
             alignItems: 'center',
             backgroundColor: colors.blanc,
