@@ -1,3 +1,4 @@
+import EditeurNote from '@/components/EditeurNote'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import { supabase } from '@/lib/supabase'
@@ -70,10 +71,10 @@ function IcoPause({ size = 36, color = BG_MID }: { size?: number; color?: string
         </Svg>
     )
 }
-function IcoInfo({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
+function IcoAddNotes({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
-            <Path d="M423.5-703.5Q400-727 400-760t23.5-56.5Q447-840 480-840t56.5 23.5Q560-793 560-760t-23.5 56.5Q513-680 480-680t-56.5-23.5ZM420-120v-480h120v480H420Z" fill={color} />
+            <Path d="M700-120h40v-100h100v-40H740v-100h-40v100H600v40h100v100Zm20 80q-83 0-141.5-58.5T520-240q0-83 58.5-141.5T720-440q83 0 141.5 58.5T920-240q0 83-58.5 141.5T720-40ZM280-600h400v-80H280v80Zm187 480H200q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v268q-29-14-58.5-21t-61.5-7q-11 0-20.5.5T680-517v-3H280v80h245q-18 17-32.5 37T467-360H280v80h163q-2 10-2.5 19.5T440-240q0 33 6 61.5t21 58.5Z" fill={color} />
         </Svg>
     )
 }
@@ -489,13 +490,14 @@ export default function LecteurPleinEcran() {
         changerVitesse, changerVolume, file, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
 
-    const [panel, setPanel]         = useState<'none' | 'description' | 'chapters' | 'queue'>('none')
+    const [panel, setPanel]         = useState<'none' | 'chapters' | 'queue'>('none')
     const [showSleep, setShowSleep] = useState(false)
     const [sleepMin, setSleepMin]   = useState(0)
     const [sleepLeft, setSleepLeft] = useState(0)
     const sleepRef = useRef<ReturnType<typeof setInterval> | null>(null)
     const [markers, setMarkers]     = useState<{ id: string; titre: string; temps_secondes: number }[]>([])
-    const [desc, setDesc]           = useState<string | null>(null)
+    const [noteVisible, setNoteVisible] = useState(false)
+    const [tsNote, setTsNote]       = useState(0)
 
     const translateY = useSharedValue(SCREEN_H)
 
@@ -558,16 +560,11 @@ export default function LecteurPleinEcran() {
     useEffect(() => {
         if (!piste) return
         setMarkers([])
-        setDesc(null)
         setPanel('none')
 
         supabase.from('markers').select('id, titre, temps_secondes')
             .eq('episode_id', piste.id).order('temps_secondes')
             .then(({ data }) => { if (data) setMarkers(data) })
-
-        supabase.from('episodes').select('description')
-            .eq('id', piste.id).single()
-            .then(({ data }) => { if (data?.description) setDesc(data.description) })
     }, [piste?.id])
 
     if (!piste) return null
@@ -592,7 +589,13 @@ export default function LecteurPleinEcran() {
         fn(10)
     }
 
-    const panelOpen = panel === 'description' || panel === 'chapters'
+    const panelOpen = panel === 'chapters'
+
+    const ouvrirNote = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        setTsNote(tempsActuel)
+        setNoteVisible(true)
+    }
 
     return (
         <Animated.View style={[{
@@ -641,16 +644,6 @@ export default function LecteurPleinEcran() {
                                                 borderColor: W15,
                                                 overflow: 'hidden',
                                             }}>
-                                                {panel === 'description' && (
-                                                    <View style={{ padding: spacing.lg }}>
-                                                        <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.or, marginBottom: spacing.sm }}>
-                                                            Description
-                                                        </Text>
-                                                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.md, color: desc ? W85 : W60, lineHeight: 23 }}>
-                                                            {desc ?? 'Aucune description disponible'}
-                                                        </Text>
-                                                    </View>
-                                                )}
                                                 {panel === 'chapters' && (
                                                     markers.length === 0 ? (
                                                         <View style={{ padding: spacing.xl, alignItems: 'center' }}>
@@ -867,11 +860,11 @@ export default function LecteurPleinEcran() {
                             borderTopWidth: 1, borderTopColor: W08,
                         }}>
                             <TabBtn
-                                label="Description"
-                                active={panel === 'description'}
-                                onPress={() => { Haptics.selectionAsync(); setPanel(p => p === 'description' ? 'none' : 'description') }}
+                                label="Notes"
+                                active={noteVisible}
+                                onPress={ouvrirNote}
                             >
-                                <IcoInfo size={22} color={panel === 'description' ? colors.or : W35} />
+                                <IcoAddNotes size={22} color={noteVisible ? colors.or : W35} />
                             </TabBtn>
                             <TabBtn
                                 label="Chapitres"
@@ -891,6 +884,14 @@ export default function LecteurPleinEcran() {
                     </SafeAreaView>
                 </View>
             </GestureDetector>
+
+            {/* ── Prise de notes pendant l'écoute ── */}
+            <EditeurNote
+                visible={noteVisible}
+                episode={{ id: piste.id, titre: piste.titre, sheikh: piste.sheikh }}
+                timestamp={tsNote}
+                onClose={() => setNoteVisible(false)}
+            />
         </Animated.View>
     )
 }

@@ -14,6 +14,7 @@ export type Note = {
 type NotesContextType = {
     notes: Note[]
     ajouterNote: (note: Omit<Note, 'id' | 'created_at'>) => Promise<void>
+    modifierNote: (id: number, texte: string) => Promise<void>
     supprimerNote: (id: number) => Promise<void>
     notesParEpisode: (episodeId: string) => Note[]
 }
@@ -56,6 +57,12 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         setNotes(rows)
     }, [db])
 
+    const modifierNote = useCallback(async (id: number, texte: string) => {
+        if (!db) return
+        await db.runAsync('UPDATE notes SET texte = ? WHERE id = ?', [texte, id])
+        setNotes(prev => prev.map(n => (n.id === id ? { ...n, texte } : n)))
+    }, [db])
+
     const supprimerNote = useCallback(async (id: number) => {
         if (!db) return
         await db.runAsync('DELETE FROM notes WHERE id = ?', [id])
@@ -67,7 +74,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     }, [notes])
 
     return (
-        <NotesCtx.Provider value={{ notes, ajouterNote, supprimerNote, notesParEpisode }}>
+        <NotesCtx.Provider value={{ notes, ajouterNote, modifierNote, supprimerNote, notesParEpisode }}>
             {children}
         </NotesCtx.Provider>
     )
