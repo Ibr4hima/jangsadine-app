@@ -1,7 +1,6 @@
 import { colors, spacing, typography } from '@/constants/theme'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useRouter } from 'expo-router'
 import { ReactNode, useEffect } from 'react'
 import { Pressable, Text, View, ViewStyle } from 'react-native'
 import Animated, {
@@ -41,13 +40,6 @@ export const couleurTxt: Record<string, string> = {
 }
 
 // ─── icônes ───────────────────────────────────────────────────
-export function IconBack({ size = 20, color = 'white' }: { size?: number, color?: string }) {
-    return (
-        <Svg width={size} height={size} viewBox="0 -960 960 960">
-            <Path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z" fill={color} />
-        </Svg>
-    )
-}
 export function IconLivre({ size = 16, color = 'white' }: { size?: number, color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
@@ -66,6 +58,20 @@ export function IconPlay({ size = 16, color = 'white' }: { size?: number, color?
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
             <Path d="M320-200v-560l440 280-440 280Z" fill={color} />
+        </Svg>
+    )
+}
+export function IconMusicNote({ size = 18, color = 'white' }: { size?: number, color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47Z" fill={color} />
+        </Svg>
+    )
+}
+export function IconMusicCast({ size = 18, color = 'white' }: { size?: number, color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M560-160q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T640-458v-342h240v120H720v360q0 66-47 113t-113 47ZM80-320q0-99 38-186.5T221-659q65-65 152.5-103T560-800v80q-82 0-155 31.5t-127.5 86Q378-590 436-615t124-25v80q-100 0-170 70t-70 170h-80Z" fill={color} />
         </Svg>
     )
 }
@@ -157,9 +163,8 @@ export function Squelettes({ n = 4, h = 76 }: { n?: number, h?: number }) {
     )
 }
 
-// ─── héros dégradé avec bouton retour ─────────────────────────
+// ─── héros dégradé ────────────────────────────────────────────
 export function HerosDetail({ paddingTop, children }: { paddingTop: number, children: ReactNode }) {
-    const router = useRouter()
     return (
         <View style={{ borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden' }}>
             <LinearGradient
@@ -170,21 +175,7 @@ export function HerosDetail({ paddingTop, children }: { paddingTop: number, chil
             <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.12)', top: -140, right: -100 }} />
             <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.06)', bottom: -80, left: -70 }} />
 
-            <View style={{ paddingTop, paddingHorizontal: spacing.xl, paddingBottom: spacing.md }}>
-                <Pressable
-                    onPress={() => { Haptics.selectionAsync(); router.back() }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    style={({ pressed }) => ({
-                        width: 36, height: 36, borderRadius: 18,
-                        backgroundColor: W10,
-                        borderWidth: 1, borderColor: W14,
-                        alignItems: 'center', justifyContent: 'center',
-                        marginBottom: 8,
-                        opacity: pressed ? 0.7 : 1,
-                    })}
-                >
-                    <IconBack size={18} color="white" />
-                </Pressable>
+            <View style={{ paddingTop, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl }}>
                 {children}
             </View>
         </View>
@@ -230,29 +221,6 @@ export function EnTeteSection({ eyebrow, titre }: { eyebrow: string, titre?: str
                     {titre}
                 </Text>
             ) : null}
-        </View>
-    )
-}
-
-// ─── avatar initiales sheikh (cartes de version) ──────────────
-export function InitialesAvatar({ nom, bg, txt, taille = 44 }: { nom: string, bg: string, txt: string, taille?: number }) {
-    const initiales = nom
-        .replace(/^(Dr\.?|Oustaz|Sheikh|Cheikh|Al[-\s]|Professeur)\s*/gi, '')
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map(w => w[0]?.toUpperCase() ?? '')
-        .join('')
-    return (
-        <View style={{
-            width: taille, height: taille, borderRadius: taille / 2,
-            backgroundColor: bg,
-            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: taille * 0.32, color: txt, lineHeight: taille * 0.35 }}>
-                {initiales || '?'}
-            </Text>
         </View>
     )
 }

@@ -6,7 +6,8 @@ import {
     HerosDetail,
     IconCasque,
     IconLivre,
-    InitialesAvatar,
+    IconMusicCast,
+    IconMusicNote,
     MiniEgaliseur,
     PressableScale,
     Squelettes,
@@ -86,7 +87,7 @@ export default function PageLivre() {
             <StatusBar barStyle="light-content" />
 
             {/* ── Héros ── */}
-            <HerosDetail paddingTop={insets.top + 4}>
+            <HerosDetail paddingTop={insets.top + spacing.sm}>
                 <View style={{ alignItems: 'center' }}>
                     {categorie ? (
                         <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: spacing.sm }}>
@@ -238,24 +239,19 @@ export default function PageLivre() {
                                                     elevation: 2,
                                                 }}
                                             >
-                                                {versionActive && enLecture
-                                                    ? (
-                                                        <View style={{
-                                                            width: 44, height: 44, borderRadius: 22,
-                                                            backgroundColor: colors.bleu,
-                                                            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                                            shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
-                                                            shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
-                                                        }}>
-                                                            <MiniEgaliseur color="white" />
-                                                        </View>
-                                                    ) : (
-                                                        <InitialesAvatar
-                                                            nom={v.sheikh}
-                                                            bg={versionActive ? colors.bleu + '22' : (bg || '#edf2f8')}
-                                                            txt={versionActive ? colors.bleu : (txt || colors.bleu)}
-                                                        />
-                                                    )}
+                                                <View style={{
+                                                    width: 44, height: 44, borderRadius: 22,
+                                                    backgroundColor: versionActive ? colors.bleu : bg,
+                                                    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                    ...(versionActive ? {
+                                                        shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
+                                                        shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+                                                    } : {}),
+                                                }}>
+                                                    {versionActive && enLecture
+                                                        ? <IconMusicCast size={20} color="white" />
+                                                        : <IconMusicNote size={20} color={versionActive ? 'white' : txt} />}
+                                                </View>
                                                 <View style={{ flex: 1, minWidth: 0 }}>
                                                     <Text numberOfLines={1} style={{
                                                         fontFamily: typography.fontFamily.semibold,

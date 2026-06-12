@@ -102,7 +102,7 @@ export default function DetailCours() {
             <StatusBar barStyle="light-content" />
 
             {/* ── Héros ── */}
-            <HerosDetail paddingTop={insets.top + 4}>
+            <HerosDetail paddingTop={insets.top + spacing.sm}>
                 <View style={{ alignItems: 'center' }}>
                     {nomCat ? (
                         <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: spacing.sm }}>

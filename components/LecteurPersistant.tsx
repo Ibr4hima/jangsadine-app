@@ -2,7 +2,7 @@ import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import * as Haptics from 'expo-haptics'
 import { ReactNode, useEffect } from 'react'
-import { Image, Pressable, View, ViewStyle } from 'react-native'
+import { Image, Pressable, Text, View, ViewStyle } from 'react-native'
 import Animated, {
     cancelAnimation,
     Easing,
@@ -106,6 +106,10 @@ export default function LecteurPersistant() {
 
     if (!piste) return null
 
+    // Le champ sheikh peut contenir le titre arabe du livre : on le rend
+    // alors avec la police arabe de l'app
+    const sousTitreArabe = /[؀-ۿ]/.test(piste.sheikh)
+
     const onPressPlay = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
         enLecture ? pause() : reprendre()
@@ -186,7 +190,8 @@ export default function LecteurPersistant() {
                                 } as any}
                                 loop bounce={false} repeatSpacer={40} marqueeDelay={4000} scrollSpeed={12}
                             >
-                                {piste.sheikh}{dureeTotal > 0 ? ` · ${formaterTemps(tempsActuel)} / ${formaterTemps(dureeTotal)}` : ''}
+                                <Text style={sousTitreArabe ? { fontFamily: typography.fontFamily.arabic } : undefined}>{piste.sheikh}</Text>
+                                {dureeTotal > 0 ? ` · ${formaterTemps(tempsActuel)} / ${formaterTemps(dureeTotal)}` : ''}
                             </TextTicker>
                         </View>
 

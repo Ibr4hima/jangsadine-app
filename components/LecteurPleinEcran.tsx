@@ -572,6 +572,10 @@ export default function LecteurPleinEcran() {
 
     if (!piste) return null
 
+    // Le champ sheikh peut contenir le titre arabe du livre : on le rend
+    // alors avec la police arabe de l'app
+    const sousTitreArabe = /[؀-ۿ]/.test(piste.sheikh)
+
     const cyclerVitesse = () => {
         Haptics.selectionAsync()
         const i = VITESSES.indexOf(vitesse)
@@ -694,7 +698,7 @@ export default function LecteurPleinEcran() {
                                     >
                                         {piste.titre}
                                     </TextTicker>
-                                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.md, color: W60, marginTop: 4 }}>
+                                    <Text numberOfLines={1} style={{ fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular, fontSize: typography.size.md, color: W60, marginTop: 4 }}>
                                         {piste.sheikh}
                                     </Text>
                                 </View>
@@ -826,7 +830,7 @@ export default function LecteurPleinEcran() {
                                     </View>
                                     <View style={{ flex: 1 }}>
                                         <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: '#fff' }}>{piste.titre}</Text>
-                                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W60, marginTop: 2 }}>{piste.sheikh}</Text>
+                                        <Text style={{ fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular, fontSize: typography.size.sm, color: W60, marginTop: 2 }}>{piste.sheikh}</Text>
                                     </View>
                                 </View>
 
