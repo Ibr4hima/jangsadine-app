@@ -279,43 +279,48 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
     const tapPos    = useSharedValue(0)   // position du tap (0-1)
     const duree     = useSharedValue(dureeTotal)
 
+    // Garde-fous côté JS : pas de lecture de shared values dans le
+    // useEffect (peu fiable inter-threads) — un simple ref + deadline
+    const dragJS     = useRef(false)
+    const blockUntil = useRef(0)
+
     useEffect(() => { duree.value = dureeTotal }, [dureeTotal])
 
     useEffect(() => {
-        // Bloque les mises à jour de progression pendant drag ou tap
-        if (scrubbing.value > 0 || tapping.value > 0) return
+        // Bloque la progression pendant le drag et ~800 ms après un seek
+        // (le temps que l'audio rapporte sa nouvelle position)
+        if (dragJS.current || Date.now() < blockUntil.current) return
         prog.value = withTiming(
             dureeTotal > 0 ? tempsActuel / dureeTotal : 0,
             { duration: 480, easing: Easing.linear }
         )
     }, [tempsActuel, dureeTotal])
 
+    const setDragJS = (v: boolean) => { dragJS.current = v }
+
     const finDeSeek = (v: number) => {
+        blockUntil.current = Date.now() + 800
         onSeek(v * 100)
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     }
 
     // ── tap : réponse VISUELLE dès le posé du doigt ──────────────
-    // onBegin → flash or immédiat à la position touchée
-    // onEnd   → confirme le seek audio + extinction du flash
+    // Le flash s'éteint TOUT SEUL (withSequence + withDelay) : aucune
+    // dépendance aux callbacks de fin de geste, qui peuvent ne pas
+    // être appelés si le geste est annulé par un geste parent.
     const tapGesture = Gesture.Tap()
         .onBegin(e => {
             tapPos.value = clamp01(e.x / barW.value)
-            tapping.value = withTiming(1, { duration: 50, easing: Easing.out(Easing.quad) })
+            tapping.value = withSequence(
+                withTiming(1, { duration: 50, easing: Easing.out(Easing.quad) }),
+                withDelay(220, withTiming(0, { duration: 380, easing: Easing.out(Easing.cubic) }))
+            )
         })
         .onEnd(e => {
             const p = clamp01(e.x / barW.value)
             tapPos.value = p
             prog.value = p
-            tapping.value = withSequence(
-                withTiming(1, { duration: 30 }),
-                withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) })
-            )
             runOnJS(finDeSeek)(p)
-            runOnJS(Haptics.selectionAsync)()
-        })
-        .onFinalize(() => {
-            tapping.value = withTiming(0, { duration: 250 })
         })
 
     // ── pan : scrub fluide — n'active l'état visuel qu'après 4 px ─
@@ -327,6 +332,7 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
         .onStart(e => {
             scrubbing.value = withTiming(1, { duration: 100 })
             scrub.value = clamp01(e.x / barW.value)
+            runOnJS(setDragJS)(true)
             runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light)
         })
         .onUpdate(e => {
@@ -338,6 +344,7 @@ function Progress({ tempsActuel, dureeTotal, onSeek }: {
         })
         .onFinalize(() => {
             scrubbing.value = withTiming(0, { duration: 180 })
+            runOnJS(setDragJS)(false)
         })
 
     const gesture = Gesture.Race(tapGesture, panGesture)
@@ -479,7 +486,6 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
     const barW      = useSharedValue(W - spacing.xl * 2 - 72)
     const vol       = useSharedValue(volume)
     const scrubbing = useSharedValue(0)
-    const tapping   = useSharedValue(0)
     const isDragging = useRef(false)
     const lastChange = useRef(0)
 
@@ -498,20 +504,12 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
     const tapGesture = Gesture.Tap()
         .onBegin(e => {
             vol.value = withTiming(clamp01(e.x / barW.value), { duration: 60, easing: Easing.out(Easing.quad) })
-            tapping.value = withTiming(1, { duration: 50 })
         })
         .onEnd(e => {
             const v = clamp01(e.x / barW.value)
             vol.value = v
-            tapping.value = withSequence(
-                withTiming(1, { duration: 20 }),
-                withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) })
-            )
             runOnJS(onChange)(v)
             runOnJS(hapticLight)()
-        })
-        .onFinalize(() => {
-            tapping.value = withTiming(0, { duration: 250 })
         })
 
     // pan : drag fluide — état visuel actif qu'après 4 px
