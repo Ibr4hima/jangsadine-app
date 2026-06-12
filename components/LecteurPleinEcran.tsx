@@ -877,7 +877,7 @@ export default function LecteurPleinEcran() {
                 : [piste.id]
             for (const idC of candidats) {
                 const { data, error } = await supabase
-                    .from('markers')
+                    .from('episode_markers')
                     .select('id, titre, temps_secondes')
                     .eq('episode_id', idC)
                     .order('temps_secondes')
