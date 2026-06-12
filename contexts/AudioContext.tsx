@@ -31,7 +31,7 @@ type AudioContextType = {
   volume: number
   lecteurOuvert: boolean
   setLecteurOuvert: (v: boolean) => void
-  jouer: (p: Piste, suivantes?: Piste[], options?: OptionsLecture) => void
+  jouer: (p: Piste, suivantes?: Piste[], options?: OptionsLecture, playlistComplete?: Piste[]) => void
   pause: () => void
   reprendre: () => void
   seeker: (pct: number) => void
@@ -42,6 +42,7 @@ type AudioContextType = {
   pisterSuivante: () => void
   pistePrecedente: () => void
   file: Piste[]
+  playlist: Piste[]
   ajouterAFile: (p: Piste[]) => void
 }
 
@@ -67,6 +68,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const [piste, setPiste] = useState<Piste | null>(null)
   const [file, setFile] = useState<Piste[]>([])
+  const [playlist, setPlaylist] = useState<Piste[]>([])
   const [enLecture, setEnLecture] = useState(false)
   const [progression, setProgression] = useState(0)
   const [tempsActuel, setTempsActuel] = useState(0)
@@ -212,7 +214,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const jouer = useCallback((p: Piste, suivantes: Piste[] = [], options?: OptionsLecture) => {
+  const jouer = useCallback((p: Piste, suivantes: Piste[] = [], options?: OptionsLecture, playlistComplete?: Piste[]) => {
+    setPlaylist(playlistComplete ?? [p, ...suivantes])
     chargerEtJouer(p, suivantes, options)
   }, [onUpdate])
 
@@ -274,7 +277,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       lecteurOuvert, setLecteurOuvert,
       jouer, pause, reprendre, seeker, avancer, reculer,
       changerVitesse, changerVolume, pisterSuivante, pistePrecedente,
-      file, ajouterAFile,
+      file, playlist, ajouterAFile,
     }}>
       {children}
     </AudioCtx.Provider>

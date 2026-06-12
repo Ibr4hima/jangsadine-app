@@ -95,7 +95,7 @@ function IcoChapters({ size = 22, color = '#fff' }: { size?: number; color?: str
 function IcoQueue({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
     return (
         <Svg width={size} height={size} viewBox="0 -960 960 960">
-            <Path d="M560-160v-80h240v80H560Zm0-160v-80h240v80H560ZM120-560v-80h240v80H120Zm0-160v-80h240v80H120Zm160 520L120-360l56-56 104 104 264-264 56 56-320 320Zm280-120v-80h240v80H560Z" fill={color} />
+            <Path d="M360-200v-80h480v80H360Zm0-240v-80h480v80H360Zm0-240v-80h480v80H360ZM200-160q-33 0-56.5-23.5T120-240q0-33 23.5-56.5T200-320q33 0 56.5 23.5T280-240q0 33-23.5 56.5T200-160Zm0-240q-33 0-56.5-23.5T120-480q0-33 23.5-56.5T200-560q33 0 56.5 23.5T280-480q0 33-23.5 56.5T200-400Zm0-240q-33 0-56.5-23.5T120-720q0-33 23.5-56.5T200-800q33 0 56.5 23.5T280-720q0 33-23.5 56.5T200-640Z" fill={color} />
         </Svg>
     )
 }
@@ -792,7 +792,7 @@ export default function LecteurPleinEcran() {
     const {
         piste, enLecture, tempsActuel, dureeTotal,
         vitesse, volume, pause, reprendre, seeker, avancer, reculer,
-        changerVitesse, changerVolume, file, lecteurOuvert, setLecteurOuvert,
+        changerVitesse, changerVolume, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
 
     const [panel, setPanel]     = useState<'none' | 'chapters' | 'queue'>('none')
@@ -1030,56 +1030,148 @@ export default function LecteurPleinEcran() {
 
                             </View>
                         ) : (
-                            /* ── Queue ── */
-                            <ScrollView
-                                showsVerticalScrollIndicator={false}
-                                style={{ flex: 1 }}
-                                contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}
-                            >
-                                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.5, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.sm }}>
-                                    En cours
-                                </Text>
+                            /* ── Queue : liste complète ── */
+                            (() => {
+                                // Utilise la playlist complète si dispo, sinon current + file
+                                const liste = playlist.length > 0 ? playlist : [piste, ...file]
+                                const idxActuel = liste.findIndex(p => p.id === piste.id)
 
-                                <View style={{ backgroundColor: W08, borderRadius: radius.lg, padding: spacing.md, flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl, borderWidth: 1, borderColor: W15 }}>
-                                    <View style={{ width: 36, height: 36, borderRadius: radius.full, backgroundColor: colors.or, alignItems: 'center', justifyContent: 'center', marginRight: spacing.md }}>
-                                        {enLecture
-                                            ? <View style={{ flexDirection: 'row', gap: 3, alignItems: 'flex-end', height: 16 }}>
-                                                <View style={{ width: 3, height: 10, backgroundColor: BG_MID, borderRadius: 2 }} />
-                                                <View style={{ width: 3, height: 16, backgroundColor: BG_MID, borderRadius: 2 }} />
-                                                <View style={{ width: 3, height: 12, backgroundColor: BG_MID, borderRadius: 2 }} />
-                                              </View>
-                                            : <IcoPlay size={16} color={BG_MID} />
-                                        }
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: '#fff' }}>{piste.titre}</Text>
-                                        <Text style={{ fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular, fontSize: typography.size.sm, color: W60, marginTop: 2 }}>{piste.sheikh}</Text>
-                                    </View>
-                                </View>
-
-                                {file.length > 0 && (
-                                    <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.5, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.sm }}>
-                                        Suivants ({file.length})
-                                    </Text>
-                                )}
-
-                                {file.length === 0
-                                    ? <View style={{ alignItems: 'center', paddingVertical: spacing['2xl'] }}>
-                                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: W60, textAlign: 'center' }}>
-                                            Aucun épisode dans la file
-                                        </Text>
-                                      </View>
-                                    : file.map((p, i) => (
-                                        <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: i < file.length - 1 ? 1 : 0, borderBottomColor: W08 }}>
-                                            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: W35, width: 28, fontVariant: ['tabular-nums'] }}>{i + 1}</Text>
-                                            <View style={{ flex: 1 }}>
-                                                <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.base, color: W85 }}>{p.titre}</Text>
-                                                <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W60, marginTop: 2 }}>{p.sheikh}</Text>
-                                            </View>
-                                        </View>
-                                    ))
+                                const jouerIndex = (i: number) => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                                    jouer(liste[i], liste.slice(i + 1), undefined, liste)
                                 }
-                            </ScrollView>
+                                const togglePlay = () => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                                    enLecture ? pause() : reprendre()
+                                }
+
+                                return (
+                                    <ScrollView
+                                        showsVerticalScrollIndicator={false}
+                                        style={{ flex: 1 }}
+                                        contentContainerStyle={{ paddingBottom: spacing.lg }}
+                                    >
+                                        {/* ── En-tête ── */}
+                                        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.md }}>
+                                            <Text style={{
+                                                fontFamily: typography.fontFamily.bold,
+                                                fontSize: typography.size.xs,
+                                                letterSpacing: 1.8,
+                                                color: colors.or,
+                                                textTransform: 'uppercase',
+                                            }}>
+                                                Playlist · {liste.length} épisode{liste.length > 1 ? 's' : ''}
+                                            </Text>
+                                        </View>
+
+                                        {/* ── Liste ── */}
+                                        {liste.map((ep, i) => {
+                                            const actif = ep.id === piste.id
+                                            const passe = i < idxActuel
+                                            const epArabe = /[؀-ۿ]/.test(ep.sheikh)
+
+                                            return (
+                                                <Pressable
+                                                    key={ep.id}
+                                                    onPress={() => actif ? togglePlay() : jouerIndex(i)}
+                                                    style={({ pressed }) => ({
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        paddingHorizontal: spacing.xl,
+                                                        paddingVertical: 13,
+                                                        backgroundColor: actif
+                                                            ? 'rgba(214,173,58,0.10)'
+                                                            : pressed ? W08 : 'transparent',
+                                                        borderLeftWidth: actif ? 3 : 0,
+                                                        borderLeftColor: colors.or,
+                                                        marginBottom: 1,
+                                                    })}
+                                                >
+                                                    {/* Numéro / icône état */}
+                                                    <View style={{
+                                                        width: 32, height: 32,
+                                                        alignItems: 'center', justifyContent: 'center',
+                                                        marginRight: 14,
+                                                    }}>
+                                                        {actif ? (
+                                                            <View style={{
+                                                                width: 32, height: 32, borderRadius: 16,
+                                                                backgroundColor: colors.or,
+                                                                alignItems: 'center', justifyContent: 'center',
+                                                            }}>
+                                                                {enLecture
+                                                                    ? <View style={{ flexDirection: 'row', gap: 2.5, alignItems: 'flex-end', height: 14 }}>
+                                                                        <View style={{ width: 2.5, height: 8,  backgroundColor: BG_MID, borderRadius: 1.5 }} />
+                                                                        <View style={{ width: 2.5, height: 14, backgroundColor: BG_MID, borderRadius: 1.5 }} />
+                                                                        <View style={{ width: 2.5, height: 10, backgroundColor: BG_MID, borderRadius: 1.5 }} />
+                                                                      </View>
+                                                                    : <IcoPlay size={14} color={BG_MID} />
+                                                                }
+                                                            </View>
+                                                        ) : (
+                                                            <Text style={{
+                                                                fontFamily: typography.fontFamily.medium,
+                                                                fontSize: typography.size.sm,
+                                                                color: passe ? W35 : W60,
+                                                                fontVariant: ['tabular-nums'],
+                                                            }}>
+                                                                {i + 1}
+                                                            </Text>
+                                                        )}
+                                                    </View>
+
+                                                    {/* Titre + sheikh */}
+                                                    <View style={{ flex: 1, minWidth: 0 }}>
+                                                        <Text
+                                                            numberOfLines={1}
+                                                            style={{
+                                                                fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.medium,
+                                                                fontSize: actif ? typography.size.base : typography.size.base,
+                                                                color: actif ? colors.or : passe ? W35 : W85,
+                                                            }}
+                                                        >
+                                                            {ep.titre}
+                                                        </Text>
+                                                        <Text
+                                                            numberOfLines={1}
+                                                            style={{
+                                                                fontFamily: epArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
+                                                                fontSize: typography.size.xs,
+                                                                color: actif ? 'rgba(214,173,58,0.7)' : passe ? W35 : W60,
+                                                                marginTop: 3,
+                                                            }}
+                                                        >
+                                                            {ep.sheikh}
+                                                        </Text>
+                                                    </View>
+
+                                                    {/* Durée ou état passé */}
+                                                    {ep.duree ? (
+                                                        <Text style={{
+                                                            fontFamily: typography.fontFamily.regular,
+                                                            fontSize: typography.size.xs,
+                                                            color: actif ? 'rgba(214,173,58,0.6)' : passe ? W35 : W35,
+                                                            marginLeft: 10,
+                                                            fontVariant: ['tabular-nums'],
+                                                        }}>
+                                                            {ep.duree}
+                                                        </Text>
+                                                    ) : passe ? (
+                                                        <View style={{
+                                                            width: 16, height: 16, borderRadius: 8,
+                                                            backgroundColor: W08,
+                                                            alignItems: 'center', justifyContent: 'center',
+                                                            marginLeft: 10,
+                                                        }}>
+                                                            <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: W35 }} />
+                                                        </View>
+                                                    ) : null}
+                                                </Pressable>
+                                            )
+                                        })}
+                                    </ScrollView>
+                                )
+                            })()
                         )}
 
                         {/* ── Bottom tabs — pilule verre ── */}
