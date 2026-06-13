@@ -1054,7 +1054,7 @@ export default function LecteurPleinEcran() {
                                 </View>
 
                                 {/* Title + Sheikh */}
-                                <View style={{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 6 : spacing.md }}>
+                                <View style={{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 0 : spacing.sm }}>
                                     <TextTicker
                                         style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: '#fff', lineHeight: 28 }}
                                         loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
