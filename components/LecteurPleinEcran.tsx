@@ -419,8 +419,10 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
 
     return (
         <View>
-            {/* bulle de temps flottante */}
-            <View style={{ height: 34 }}>
+            {/* bulle de temps flottante (déborde vers le haut pendant le
+                scrub : la réserve est volontairement basse pour que la
+                pill du chapitre reste proche de la barre) */}
+            <View style={{ height: 16 }}>
                 <Animated.View style={[{
                     position: 'absolute', bottom: 2,
                     width: 68, paddingVertical: 4,
@@ -1054,7 +1056,7 @@ export default function LecteurPleinEcran() {
                                 </View>
 
                                 {/* Title + Sheikh */}
-                                <View style={{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 0 : spacing.sm }}>
+                                <View style={{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 6 : spacing.md }}>
                                     <TextTicker
                                         style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: '#fff', lineHeight: 28 }}
                                         loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
