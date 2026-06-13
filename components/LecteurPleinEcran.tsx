@@ -1085,6 +1085,8 @@ export default function LecteurPleinEcran() {
                                             // Progress) équilibre exactement l'espace sous la barre
                                             // (libellés temps + marge contrôles + inset du cercle play)
                                             marginBottom: 0,
+                                            // Descend visuellement la pill sans toucher au reste
+                                            transform: [{ translateY: 8 }],
                                             maxWidth: W - spacing.xl * 2 - 20,
                                             overflow: 'hidden',
                                         }}
