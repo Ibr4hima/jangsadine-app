@@ -214,8 +214,19 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const playlistRef = useRef<Piste[]>([])
+
   const jouer = useCallback((p: Piste, suivantes: Piste[] = [], options?: OptionsLecture, playlistComplete?: Piste[]) => {
-    setPlaylist(playlistComplete ?? [p, ...suivantes])
+    if (playlistComplete) {
+      playlistRef.current = playlistComplete
+      setPlaylist(playlistComplete)
+    } else if (suivantes.length === 0 && playlistRef.current.some(t => t.id === p.id)) {
+      // Resuming a track that's already in the current playlist — keep the full playlist intact
+    } else {
+      const liste = [p, ...suivantes]
+      playlistRef.current = liste
+      setPlaylist(liste)
+    }
     chargerEtJouer(p, suivantes, options)
   }, [onUpdate])
 
