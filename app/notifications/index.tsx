@@ -1,78 +1,100 @@
+import { BoutonHeros, EnTeteSection, HerosDetail, PressableScale, W70 } from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { geocoderInverse } from '@/lib/geo'
 import * as adhan from 'adhan'
+import * as Haptics from 'expo-haptics'
 import * as Location from 'expo-location'
 import * as Notifications from 'expo-notifications'
-import { useRouter } from 'expo-router'
-import { ArrowLeft, Bell, BellOff } from 'lucide-react-native'
-import { useEffect, useState } from 'react'
-import { Alert, Pressable, ScrollView, StatusBar, Switch, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { useFocusEffect } from 'expo-router'
+import { CloudMoon, CloudSun, Moon, Sun, Sunset } from 'lucide-react-native'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Alert, AppState, ScrollView, StatusBar, Switch, Text, View } from 'react-native'
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import Svg, { Path } from 'react-native-svg'
 
-type PriereConfig = {
-  nom: string
-  icone: string
-  active: boolean
-  minutesAvant: number
+// ─── icône warning ────────────────────────────────────────────
+function IconWarning({ size = 18, color = '#d97706' }: { size?: number; color?: string }) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M40-120 480-880l440 760H40Zm138-80h604L480-720 178-200Zm302-40q17 0 28.5-11.5T520-280q0-17-11.5-28.5T480-320q-17 0-28.5 11.5T440-280q0 17 11.5 28.5T480-240Zm-40-120h80v-200h-80v200Zm40-100Z" fill={color} /></Svg>
 }
 
+// ─── config ───────────────────────────────────────────────────
 const STORAGE_KEY = 'jsd_notifications'
+const JOURS_PLAN = 30
+
+type PriereConfig = { nom: string; cle: string; active: boolean }
+
 const PRIERES_DEFAULT: PriereConfig[] = [
-  { nom: 'Fajr', icone: '🌙', active: true, minutesAvant: 5 },
-  { nom: 'Dhuhr', icone: '☀️', active: true, minutesAvant: 5 },
-  { nom: 'Asr', icone: '🌤️', active: true, minutesAvant: 5 },
-  { nom: 'Maghrib', icone: '🌇', active: true, minutesAvant: 5 },
-  { nom: 'Isha', icone: '🌑', active: true, minutesAvant: 5 },
+  { nom: 'Fajr',    cle: 'fajr',    active: true },
+  { nom: 'Dhuhr',   cle: 'dhuhr',   active: true },
+  { nom: 'Asr',     cle: 'asr',     active: true },
+  { nom: 'Maghrib', cle: 'maghrib', active: true },
+  { nom: 'Isha',    cle: 'isha',    active: true },
 ]
 
-function fmt(date: Date) {
-  return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0')
+type LuciIcon = { size?: number; color?: string; strokeWidth?: number }
+const ICONES_PRIERE: Record<string, React.ComponentType<LuciIcon>> = {
+  fajr:    CloudMoon,
+  dhuhr:   Sun,
+  asr:     CloudSun,
+  maghrib: Sunset,
+  isha:    Moon,
 }
 
 function getMethode(countryCode: string): adhan.CalculationParameters {
-  const amerique = ['US', 'CA', 'MX']
-  const moyen_orient = ['SA', 'AE', 'KW', 'QA']
-  if (amerique.includes(countryCode)) return adhan.CalculationMethod.NorthAmerica()
-  if (moyen_orient.includes(countryCode)) return adhan.CalculationMethod.MuslimWorldLeague()
+  if (['US','CA','MX'].includes(countryCode)) return adhan.CalculationMethod.NorthAmerica()
+  if (['SA','AE','KW','QA'].includes(countryCode)) return adhan.CalculationMethod.MuslimWorldLeague()
   return adhan.CalculationMethod.MoonsightingCommittee()
+}
+
+function fmt(date: Date) {
+  return date.getHours().toString().padStart(2,'0') + ':' + date.getMinutes().toString().padStart(2,'0')
 }
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
+    shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false,
+    shouldShowBanner: true, shouldShowList: true,
   }),
 })
 
+// ─── page ─────────────────────────────────────────────────────
 export default function NotificationsScreen() {
-  const router = useRouter()
+  const insets = useSafeAreaInsets()
   const [prieres, setPrieres] = useState<PriereConfig[]>(PRIERES_DEFAULT)
   const [permissionOk, setPermissionOk] = useState(false)
   const [loading, setLoading] = useState(true)
+  const appStateRef = useRef(AppState.currentState)
 
   useEffect(() => {
     async function init() {
-      // Charger config sauvegardée
       const raw = await AsyncStorage.getItem(STORAGE_KEY)
       if (raw) setPrieres(JSON.parse(raw))
-
-      // Vérifier permission
       const { status } = await Notifications.getPermissionsAsync()
       setPermissionOk(status === 'granted')
       setLoading(false)
     }
-    init()
+    init().catch(console.warn)
+  }, [])
+
+  // Replanifier à chaque retour au premier plan
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async next => {
+      if (appStateRef.current.match(/inactive|background/) && next === 'active') {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY)
+        const config: PriereConfig[] = raw ? JSON.parse(raw) : PRIERES_DEFAULT
+        if (config.some(p => p.active)) await planifierNotifications(config, false)
+      }
+      appStateRef.current = next
+    })
+    return () => sub.remove()
   }, [])
 
   const demanderPermission = async () => {
     const { status } = await Notifications.requestPermissionsAsync()
     setPermissionOk(status === 'granted')
-    if (status !== 'granted') {
-      Alert.alert('Permission refusée', 'Active les notifications dans les réglages de ton iPhone.')
-    }
+    if (status !== 'granted') Alert.alert('Permission refusée', 'Active les notifications dans les Réglages de ton iPhone.')
     return status === 'granted'
   }
 
@@ -81,241 +103,181 @@ export default function NotificationsScreen() {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(config))
   }
 
-  const togglePriere = async (index: number) => {
-    if (!permissionOk) {
-      const ok = await demanderPermission()
-      if (!ok) return
-    }
-    const nouv = prieres.map((p, i) => i === index ? { ...p, active: !p.active } : p)
-    await sauvegarder(nouv)
-    await planifierNotifications(nouv)
+  const planifierNotifications = async (config: PriereConfig[], avecFeedback = true) => {
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync()
+      const { status } = await Location.getForegroundPermissionsAsync()
+      if (status !== 'granted') return
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      const { latitude, longitude } = loc.coords
+      const geo = await geocoderInverse(latitude, longitude)
+      const coords = new adhan.Coordinates(latitude, longitude)
+      const params = getMethode(geo.isoCountryCode ?? 'FR')
+      const CLÉ: Record<string, keyof adhan.PrayerTimes> = {
+        fajr:'fajr', dhuhr:'dhuhr', asr:'asr', maghrib:'maghrib', isha:'isha',
+      }
+      for (let j = 0; j < JOURS_PLAN; j++) {
+        const date = new Date(); date.setDate(date.getDate() + j)
+        const times = new adhan.PrayerTimes(coords, date, params)
+        for (const p of config) {
+          if (!p.active) continue
+          const heure = times[CLÉ[p.cle]] as Date
+          if (!heure || heure <= new Date()) continue
+          await Notifications.scheduleNotificationAsync({
+            content: { title: p.nom, body: `L'heure de ${p.nom} est arrivée — ${fmt(heure)}`, sound: true },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: heure },
+          })
+        }
+      }
+      if (avecFeedback) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    } catch (e) { console.warn('planifier:', e) }
   }
 
-  const planifierNotifications = async (config: PriereConfig[]) => {
-    // Annuler toutes les notifications existantes
-    await Notifications.cancelAllScheduledNotificationsAsync()
-
-    // Obtenir position
-    const { status } = await Location.getForegroundPermissionsAsync()
-    if (status !== 'granted') return
-
-    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-    const { latitude, longitude } = loc.coords
-    const geo = await Location.reverseGeocodeAsync({ latitude, longitude })
-    const countryCode = geo[0]?.isoCountryCode ?? 'FR'
-
-    const coords = new adhan.Coordinates(latitude, longitude)
-    const params = getMethode(countryCode)
-
-    // Planifier pour les 7 prochains jours
-    for (let jour = 0; jour < 7; jour++) {
-      const date = new Date()
-      date.setDate(date.getDate() + jour)
-      const times = new adhan.PrayerTimes(coords, date, params)
-
-      const heures: Record<string, Date> = {
-        Fajr: times.fajr,
-        Dhuhr: times.dhuhr,
-        Asr: times.asr,
-        Maghrib: times.maghrib,
-        Isha: times.isha,
-      }
-
-      for (const priere of config) {
-        if (!priere.active) continue
-        const heure = heures[priere.nom]
-        if (!heure) continue
-
-        const triggerDate = new Date(heure.getTime() - priere.minutesAvant * 60 * 1000)
-        if (triggerDate <= new Date()) continue
-
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: `${priere.icone} ${priere.nom}`,
-            body: priere.minutesAvant > 0
-              ? `La prière de ${priere.nom} commence dans ${priere.minutesAvant} minutes (${fmt(heure)})`
-              : `L'heure de ${priere.nom} est arrivée (${fmt(heure)})`,
-            sound: true,
-          },
-          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: triggerDate },
-        })
-      }
-    }
+  const togglePriere = async (cle: string) => {
+    if (!permissionOk) { const ok = await demanderPermission(); if (!ok) return }
+    Haptics.selectionAsync()
+    const nouv = prieres.map(p => p.cle === cle ? { ...p, active: !p.active } : p)
+    await sauvegarder(nouv)
+    await planifierNotifications(nouv)
   }
 
   const toutActiver = async () => {
-    if (!permissionOk) {
-      const ok = await demanderPermission()
-      if (!ok) return
-    }
+    if (!permissionOk) { const ok = await demanderPermission(); if (!ok) return }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     const nouv = prieres.map(p => ({ ...p, active: true }))
-    await sauvegarder(nouv)
-    await planifierNotifications(nouv)
-    Alert.alert('✓ Notifications activées', 'Tu recevras des rappels pour toutes les prières.')
+    await sauvegarder(nouv); await planifierNotifications(nouv)
   }
 
   const toutDesactiver = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     const nouv = prieres.map(p => ({ ...p, active: false }))
-    await sauvegarder(nouv)
-    await Notifications.cancelAllScheduledNotificationsAsync()
-    Alert.alert('Notifications désactivées', 'Tu ne recevras plus de rappels.')
+    await sauvegarder(nouv); await Notifications.cancelAllScheduledNotificationsAsync()
   }
 
   const nbActives = prieres.filter(p => p.active).length
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={['top']}>
-      <StatusBar barStyle="dark-content" />
+    <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
+      <StatusBar barStyle="light-content" />
 
-      {/* Header */}
-      <View style={{
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-        borderBottomWidth: 1, borderBottomColor: colors.bordure,
-        backgroundColor: colors.blanc,
-      }}>
-        <Pressable onPress={() => router.back()} style={{ marginRight: spacing.md, padding: 4 }}>
-          <ArrowLeft size={22} color={colors.texte} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 2, color: colors.or, textTransform: 'uppercase' }}>
-            Rappels
-          </Text>
-          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte }}>
+      <HerosDetail paddingTop={insets.top + spacing.sm}>
+        <View style={{ alignItems: 'center' }}>
+          <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: spacing.sm }}>
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.8, color: colors.or, textTransform: 'uppercase' }}>
+              Rappels
+            </Text>
+          </View>
+          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: 'white' }}>
             Notifications
           </Text>
         </View>
-      </View>
+      </HerosDetail>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: 120 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: 140 }}>
+        <Animated.View entering={FadeIn.duration(220)}>
 
-        {/* Statut permission */}
-        <View style={{
-          backgroundColor: permissionOk ? '#eaf4ee' : '#fff3e0',
-          borderRadius: radius.lg,
-          borderWidth: 1,
-          borderColor: permissionOk ? '#2d7a4f' : '#e65100',
-          padding: spacing.md,
-          flexDirection: 'row', alignItems: 'center',
-          marginBottom: spacing.xl,
-        }}>
-          {permissionOk
-            ? <Bell size={20} color="#2d7a4f" style={{ marginRight: spacing.md }} />
-            : <BellOff size={20} color="#e65100" style={{ marginRight: spacing.md }} />
-          }
-          <View style={{ flex: 1 }}>
-            <Text style={{
-              fontFamily: typography.fontFamily.semibold,
-              fontSize: typography.size.base,
-              color: permissionOk ? '#2d7a4f' : '#e65100',
-            }}>
-              {permissionOk ? 'Notifications autorisées' : 'Notifications non autorisées'}
-            </Text>
-            {!permissionOk && (
-              <Pressable onPress={demanderPermission}>
-                <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: '#e65100', marginTop: 2, textDecorationLine: 'underline' }}>
-                  Autoriser les notifications →
-                </Text>
-              </Pressable>
-            )}
+          {/* Bannière permission */}
+          {!permissionOk && (
+            <Animated.View entering={FadeInDown.duration(300)}>
+              <PressableScale
+                onPress={demanderPermission}
+                style={{
+                  backgroundColor: '#fffbeb', borderRadius: 18,
+                  padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                  marginBottom: spacing.lg, borderWidth: 1.5, borderColor: '#f59e0b',
+                  shadowColor: '#f59e0b', shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.15, shadowRadius: 8, elevation: 3,
+                }}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <IconWarning size={20} color="#d97706" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: '#92400e' }}>
+                    Autoriser les notifications
+                  </Text>
+                  <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#a16207', marginTop: 2 }}>
+                    Appuie pour donner l'autorisation →
+                  </Text>
+                </View>
+              </PressableScale>
+            </Animated.View>
+          )}
+
+          <EnTeteSection eyebrow="Prières" />
+
+          <View style={{ gap: spacing.sm }}>
+            {prieres.map((p, i) => {
+              const Icone = ICONES_PRIERE[p.cle]
+              return (
+                <Animated.View key={p.cle} entering={FadeInDown.duration(350).delay(i * 55)}>
+                  <View style={{
+                    backgroundColor: colors.blanc, borderRadius: 18,
+                    padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                    shadowColor: '#3a4a5c', shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.06, shadowRadius: 10, elevation: 2,
+                    borderWidth: p.active ? 1.5 : 0, borderColor: colors.bleu,
+                  }}>
+                    <View style={{
+                      width: 40, height: 40, borderRadius: 20,
+                      backgroundColor: p.active ? '#e8f0f8' : '#f4f5f7',
+                      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                      <Icone size={20} color={p.active ? colors.bleu : '#aab4c0'} strokeWidth={1.8} />
+                    </View>
+                    <Text style={{
+                      flex: 1,
+                      fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base,
+                      color: p.active ? colors.texte : colors.texteMuted,
+                    }}>
+                      {p.nom}
+                    </Text>
+                    <Switch
+                      value={p.active}
+                      onValueChange={() => togglePriere(p.cle)}
+                      trackColor={{ false: '#e2e8f0', true: colors.bleu }}
+                      thumbColor="white"
+                      ios_backgroundColor="#e2e8f0"
+                    />
+                  </View>
+                </Animated.View>
+              )
+            })}
           </View>
-        </View>
 
-        {/* Boutons tout activer/désactiver */}
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xl }}>
-          <Pressable
-            onPress={toutActiver}
-            style={{
-              flex: 1, backgroundColor: colors.bleu,
-              borderRadius: radius.md, paddingVertical: spacing.sm,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: 'white' }}>
-              Tout activer
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={toutDesactiver}
-            style={{
-              flex: 1, backgroundColor: colors.blanc,
-              borderRadius: radius.md, paddingVertical: spacing.sm,
-              alignItems: 'center', borderWidth: 1, borderColor: colors.bordure,
-            }}
-          >
-            <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.texteMuted }}>
-              Tout désactiver
-            </Text>
-          </Pressable>
-        </View>
+          {/* Tout activer / désactiver */}
+          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl }}>
+            <PressableScale
+              onPress={toutActiver}
+              style={{
+                flex: 1, backgroundColor: colors.bleu, borderRadius: 14,
+                paddingVertical: 14, alignItems: 'center',
+                shadowColor: colors.bleu, shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25, shadowRadius: 8, elevation: 3,
+              }}
+            >
+              <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: 'white' }}>
+                Tout activer
+              </Text>
+            </PressableScale>
+            <PressableScale
+              onPress={toutDesactiver}
+              style={{
+                flex: 1, backgroundColor: colors.blanc, borderRadius: 14,
+                paddingVertical: 14, alignItems: 'center',
+                borderWidth: 1.5, borderColor: '#dde4ec',
+                shadowColor: '#3a4a5c', shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+              }}
+            >
+              <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texteMuted }}>
+                Tout désactiver
+              </Text>
+            </PressableScale>
+          </View>
 
-        {/* Liste prières */}
-        <Text style={{
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.size.xs, letterSpacing: 2,
-          color: colors.or, textTransform: 'uppercase',
-          marginBottom: spacing.md,
-        }}>
-          Prières ({nbActives}/{prieres.length} actives)
-        </Text>
-
-        <View style={{ gap: spacing.sm }}>
-          {prieres.map((p, i) => (
-            <View key={p.nom} style={{
-              backgroundColor: colors.blanc,
-              borderRadius: radius.lg,
-              borderWidth: 1,
-              borderColor: p.active ? colors.bleu : colors.bordure,
-              padding: spacing.md,
-              flexDirection: 'row', alignItems: 'center',
-            }}>
-              <Text style={{ fontSize: 24, marginRight: spacing.md }}>{p.icone}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontFamily: typography.fontFamily.semibold,
-                  fontSize: typography.size.base,
-                  color: p.active ? colors.texte : colors.texteMuted,
-                }}>
-                  {p.nom}
-                </Text>
-                <Text style={{
-                  fontFamily: typography.fontFamily.regular,
-                  fontSize: typography.size.xs,
-                  color: colors.texteMuted, marginTop: 2,
-                }}>
-                  {p.active ? `Rappel ${p.minutesAvant} min avant` : 'Désactivé'}
-                </Text>
-              </View>
-              <Switch
-                value={p.active}
-                onValueChange={() => togglePriere(i)}
-                trackColor={{ false: '#ddd', true: colors.bleu }}
-                thumbColor="white"
-              />
-            </View>
-          ))}
-        </View>
-
-        {/* Info */}
-        <View style={{
-          marginTop: spacing.xl,
-          backgroundColor: '#f8f6f1',
-          borderRadius: radius.lg,
-          padding: spacing.md,
-          borderWidth: 1,
-          borderColor: colors.bordure,
-        }}>
-          <Text style={{
-            fontFamily: typography.fontFamily.regular,
-            fontSize: typography.size.sm,
-            color: colors.texteMuted,
-            lineHeight: 20,
-          }}>
-            ℹ️ Les notifications sont planifiées pour les 7 prochains jours selon ta position GPS. Elles se renouvellent automatiquement.
-          </Text>
-        </View>
-
+        </Animated.View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   )
 }

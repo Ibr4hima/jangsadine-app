@@ -1,23 +1,44 @@
+import { MiniEgaliseur } from '@/components/AudioUI'
+import BoutonTelecharger from '@/components/BoutonTelecharger'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import { useScroll } from '@/contexts/ScrollContext'
 import { supabase } from '@/lib/supabase'
+import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import {
-  ChevronDown,
-  Pause, Play, X
-} from 'lucide-react-native'
-import { useEffect, useRef, useState } from 'react'
-import {
-  Animated, Modal, Pressable, ScrollView,
-  StatusBar, Text, TextInput, View
+  Modal, Platform, Pressable, ScrollView,
+  StatusBar, Text, TextInput, View, ViewStyle,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import Animated, {
+  cancelAnimation,
+  Easing,
+  FadeIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 import TextTicker from 'react-native-text-ticker'
 
+// ─── palette héros (cohérente accueil / prières) ──────────────
+const BG_TOP = '#3d6ba3'
+const BG_MID = '#2d578c'
+const BG_BOT = '#234a7a'
+const W90 = 'rgba(255,255,255,0.90)'
+const W70 = 'rgba(255,255,255,0.70)'
+const W55 = 'rgba(255,255,255,0.55)'
+const W14 = 'rgba(255,255,255,0.14)'
+const W10 = 'rgba(255,255,255,0.10)'
 
+// ─── icônes ───────────────────────────────────────────────────
 function IconSearch({ size = 22, color = '#1f1f1f' }: { size?: number, color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
@@ -25,25 +46,47 @@ function IconSearch({ size = 22, color = '#1f1f1f' }: { size?: number, color?: s
     </Svg>
   )
 }
-
-function IconBooks({ size = 20, color = '#1f1f1f' }: { size?: number, color?: string }) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M160-80q-17 0-28.5-11.5T120-120v-558q0-15 6-25.5t20-16.5l400-160q20-8 37 5.5t17 34.5v120h40q17 0 28.5 11.5T680-680v120h-80v-80H200v480h207l80 80H160Zm200-640h160v-62l-160 62Zm178.5 581.5Q480-197 480-280t58.5-141.5Q597-480 680-480t141.5 58.5Q880-363 880-280t-58.5 141.5Q763-80 680-80t-141.5-58.5ZM630-180l160-100-160-100v200Zm-430 20v-480 480Z" fill={color} /></Svg>
+function IconX({ size = 16, color = '#888' }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" fill={color} />
+    </Svg>
+  )
 }
-function IconMic({ size = 20, color = '#1f1f1f' }: { size?: number, color?: string }) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M192-680q-15-17-23.5-37t-8.5-43q0-50 35-85t85-35q50 0 85 35t35 85q0 23-8.5 43T368-680H192ZM400-80q-66 0-113-47t-47-113h-40l-40-400h240l-40 400h-40q0 33 23.5 56.5T400-160q33 0 56.5-23.5T480-240v-480q0-66 47-113t113-47q66 0 113 47t47 113v640h-80v-640q0-33-23.5-56.5T640-800q-33 0-56.5 23.5T560-720v480q0 66-47 113T400-80ZM272-320h16l24-240h-64l24 240Zm16-240h-40 64-24Z" fill={color} /></Svg>
+function IconPlay({ size = 16, color = 'white' }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="M320-200v-560l440 280-440 280Z" fill={color} />
+    </Svg>
+  )
 }
-function IconMosque({ size = 20, color = '#1f1f1f' }: { size?: number, color?: string }) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M40-120v-491q-18-11-29-28.5T0-680q0-23 24-56t56-64q32 31 56 64t24 56q0 23-11 40.5T120-611v171h80v-80q0-25 16-48t46-30q-11-17-16.5-37t-5.5-41q0-40 19-74t51-56l170-114 170 114q32 22 51 56t19 74q0 21-5.5 41T698-598q30 7 46 30t16 48v80h80v-171q-18-11-29-28.5T800-680q0-23 24-56t56-64q32 31 56 64t24 56q0 23-11 40.5T920-611v491H520v-160q0-17-11.5-28.5T480-320q-17 0-28.5 11.5T440-280v160H40Zm356-480h168q32 0 54-22t22-54q0-20-9-36.5T606-740l-126-84-126 84q-16 11-25 27.5t-9 36.5q0 32 22 54t54 22ZM120-200h240v-80q0-50 35-85t85-35q50 0 85 35t35 85v80h240v-160H680v-160H280v160H120v160Zm360-320Zm0-80Zm0 2Z" fill={color} /></Svg>
+function IconPause({ size = 16, color = 'white' }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="M560-200v-560h160v560H560Zm-320 0v-560h160v560H240Z" fill={color} />
+    </Svg>
+  )
 }
-function IconFatwas({ size = 20, color = '#1f1f1f' }: { size?: number, color?: string }) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="m480-80-10-120h-10q-142 0-241-99t-99-241q0-142 99-241t241-99q71 0 132.5 26.5t108 73q46.5 46.5 73 108T800-540q0 75-24.5 144t-67 128q-42.5 59-101 107T480-80Zm80-146q71-60 115.5-140.5T720-540q0-109-75.5-184.5T460-800q-109 0-184.5 75.5T200-540q0 109 75.5 184.5T460-280h100v54Zm-72-107q12-12 12-29t-12-29q-12-12-29-12t-29 12q-12 12-12 29t12 29q12 12 29 12t29-12Zm-58-115h60q0-30 6-42t38-44q18-18 30-39t12-45q0-51-34.5-76.5T460-720q-44 0-74 24.5T344-636l56 22q5-17 19-33.5t41-16.5q27 0 40.5 15t13.5 33q0 17-10 30.5T480-558q-35 30-42.5 47.5T430-448Zm30-65Z" fill={color} /></Svg>
+function IconChevron({ size = 18, color = '#bbb' }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z" fill={color} />
+    </Svg>
+  )
+}
+function IconFiltre({ size = 16, color = '#666' }: { size?: number, color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 -960 960 960">
+      <Path d="M440-120v-240h80v80h320v80H520v80h-80Zm-320-80v-80h240v80H120Zm160-160v-80H120v-80h160v-80h80v240h-80Zm160-80v-80h440v80H440Zm160-160v-240h80v80h160v80H680v80h-80Zm-480-80v-80h440v80H120Z" fill={color} />
+    </Svg>
+  )
 }
 
 const SECTIONS = [
-  { key: 'cours', label: 'Cours', icon: IconBooks },
-  { key: 'conferences', label: 'Conférences', icon: IconMic },
-  { key: 'khoutbah', label: 'Khoutbah', icon: IconMosque },
-  { key: 'fatwas', label: 'Fatwas', icon: IconFatwas },
+  { key: 'cours', label: 'Cours' },
+  { key: 'conferences', label: 'Conférences' },
+  { key: 'khoutbah', label: 'Khoutbah' },
+  { key: 'fatwas', label: 'Fatwas' },
 ]
 
 const couleurBg: Record<string, string> = {
@@ -63,67 +106,205 @@ function normaliser(texte: string): string {
   return texte.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
-function LivreCard({ livre, categorie, onPress }: { livre: any, categorie: any, onPress: () => void }) {
-  const scale = useRef(new Animated.Value(1)).current
-  const nomCat = categorie?.nom ?? ''
-  const bg = couleurBg[nomCat] ?? '#f0f0f0'
-  const txt = couleurTxt[nomCat] ?? '#666'
+// ─── pressable avec scale ressort ─────────────────────────────
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+
+function PressableScale({ onPress, style, children }: {
+  onPress: () => void
+  style?: ViewStyle | ViewStyle[]
+  children: ReactNode
+}) {
+  const s = useSharedValue(1)
+  const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }))
   return (
-    <Pressable
-      onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start()}
-      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()}
+    <AnimatedPressable
+      onPressIn={() => { s.value = withSpring(0.975, { damping: 18, stiffness: 420 }) }}
+      onPressOut={() => { s.value = withSpring(1, { damping: 15, stiffness: 320 }) }}
       onPress={onPress}
+      style={[style as any, a]}
     >
-      <Animated.View style={{ transform: [{ scale }], backgroundColor: colors.blanc, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.bordure, padding: spacing.lg, marginBottom: spacing.sm }}>
-        {nomCat ? (
-          <View style={{ alignSelf: 'flex-start', backgroundColor: bg, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3, marginBottom: spacing.sm }}>
-            <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: txt }}>{nomCat}</Text>
-          </View>
-        ) : null}
-        <TextTicker
-          style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte, lineHeight: 22, marginBottom: spacing.sm }}
-          loop bounce={false} repeatSpacer={50} marqueeDelay={2000} scrollSpeed={10}
-        >
-          {livre.titre}
-        </TextTicker>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          {livre.titre_arabe ? (
-            <View style={{ backgroundColor: '#f0f0f0', borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3 }}>
-              <Text style={{ fontFamily: typography.fontFamily.arabic, fontSize: typography.size.xs, color: '#888' }}>{livre.titre_arabe}</Text>
-            </View>
-          ) : <View />}
-          <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.bleu }}>Voir →</Text>
-        </View>
-      </Animated.View>
-    </Pressable>
+      {children}
+    </AnimatedPressable>
   )
 }
 
-function PisteCard({ item, onPlay, actif, enLecture }: { item: any, onPlay: () => void, actif: boolean, enLecture: boolean }) {
-  const scale = useRef(new Animated.Value(1)).current
+// ─── mini égaliseur (piste en cours de lecture) ───────────────
+// ─── pastille play / pause / égaliseur ────────────────────────
+function PastillePlay({ actif, enLecture, taille = 42 }: { actif: boolean, enLecture: boolean, taille?: number }) {
   return (
-    <Pressable
-      onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start()}
-      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()}
-      onPress={onPlay}
-    >
-      <Animated.View style={{ transform: [{ scale }], backgroundColor: actif ? '#e8f0f8' : colors.blanc, borderRadius: radius.lg, borderWidth: 1, borderColor: actif ? colors.bleu : colors.bordure, padding: spacing.md, flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-        <View style={{ width: 40, height: 40, borderRadius: radius.full, backgroundColor: actif ? colors.bleu : '#f0f0f0', alignItems: 'center', justifyContent: 'center', marginRight: spacing.md, flexShrink: 0 }}>
-          {actif && enLecture
-            ? <Pause size={14} color="white" fill="white" strokeWidth={0} />
-            : <Play size={14} color={actif ? 'white' : '#aaa'} fill={actif ? 'white' : '#aaa'} strokeWidth={0} style={{ marginLeft: 2 }} />
-          }
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: actif ? colors.bleu : colors.texte }}>{item.titre || item.question}</Text>
-          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>{item.sheikh}</Text>
-        </View>
-        {item.duree ? <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#bbb', flexShrink: 0 }}>{item.duree}</Text> : null}
-      </Animated.View>
-    </Pressable>
+    <View style={{
+      width: taille, height: taille, borderRadius: taille / 2,
+      backgroundColor: actif ? colors.bleu : '#edf2f8',
+      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      ...(actif ? {
+        shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+      } : {}),
+    }}>
+      {actif && enLecture
+        ? <MiniEgaliseur color="white" hauteur={16} />
+        : actif
+          ? <IconPlay size={16} color="white" />
+          : <IconPlay size={16} color={colors.bleu} />}
+    </View>
   )
 }
 
+// ─── squelette de chargement (pulse) ──────────────────────────
+function Squelette({ h, style }: { h: number, style?: ViewStyle }) {
+  const op = useSharedValue(0.35)
+  useEffect(() => {
+    op.value = withRepeat(withSequence(
+      withTiming(0.65, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+      withTiming(0.35, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+    ), -1, true)
+    return () => cancelAnimation(op)
+  }, [])
+  const a = useAnimatedStyle(() => ({ opacity: op.value }))
+  return <Animated.View style={[{ height: h, borderRadius: 18, backgroundColor: '#dde3ea' }, style, a]} />
+}
+
+function Squelettes({ n = 4, h = 76 }: { n?: number, h?: number }) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      {Array.from({ length: n }).map((_, i) => <Squelette key={i} h={h} />)}
+    </View>
+  )
+}
+
+// ─── état vide ────────────────────────────────────────────────
+function EtatVide({ message }: { message: string }) {
+  return (
+    <Animated.View entering={FadeIn.duration(300)} style={{ alignItems: 'center', paddingVertical: spacing['3xl'] }}>
+      <View style={{
+        width: 64, height: 64, borderRadius: 32, backgroundColor: '#e4ebf3',
+        alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md,
+      }}>
+        <IconSearch size={26} color="#9aa8b8" />
+      </View>
+      <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.base, color: colors.texteMuted, textAlign: 'center' }}>
+        {message}
+      </Text>
+    </Animated.View>
+  )
+}
+
+// ─── rangée de piste (conférences, khoutbahs) ─────────────────
+function RangéePiste({ index, titre, sousTitre, badge, badgeCouleur, episode, actif, enLecture, onPress }: {
+  index?: number
+  titre: string
+  sousTitre: string
+  badge?: string
+  badgeCouleur?: string
+  episode?: {
+    id: string
+    titre: string
+    sheikh: string
+    coursId: string
+    coursTitre: string
+    url: string
+    type?: 'cours' | 'conference' | 'khoutbah' | 'fatwa'
+    numero?: number
+  }
+  actif: boolean
+  enLecture: boolean
+  onPress: () => void
+}) {
+  return (
+    <PressableScale onPress={onPress} style={{
+      backgroundColor: actif ? '#f5f9fe' : colors.blanc,
+      borderRadius: 18,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      borderWidth: actif ? 1.5 : 0,
+      borderColor: colors.bleu,
+      shadowColor: '#3a4a5c',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+      elevation: 2,
+    }}>
+      <PastillePlay actif={actif} enLecture={enLecture} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <TextTicker
+          style={{
+            fontFamily: typography.fontFamily.semibold,
+            fontSize: typography.size.base,
+            color: actif ? colors.bleu : colors.texte,
+          }}
+          loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+        >
+          {titre}
+        </TextTicker>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+          <Text numberOfLines={1} style={{
+            fontFamily: typography.fontFamily.regular,
+            fontSize: typography.size.sm,
+            color: colors.texteMuted,
+            flexShrink: 1,
+          }}>
+            {sousTitre}
+          </Text>
+          {badge ? (
+            <View style={{ backgroundColor: '#faf3dc', borderRadius: 7, paddingHorizontal: 6, paddingVertical: 1.5 }}>
+              <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: 10.5, color: badgeCouleur ?? '#b8911f' }}>
+                {badge}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+      {episode ? <BoutonTelecharger episode={episode} /> : null}
+    </PressableScale>
+  )
+}
+
+// ─── chips de filtre horizontaux ──────────────────────────────
+function ChipsFiltres({ chips, actif, onSelect, prefixe }: {
+  chips: { key: string, label: string, bg?: string, txt?: string }[]
+  actif: string
+  onSelect: (key: string) => void
+  prefixe?: ReactNode
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: spacing.sm, paddingVertical: spacing.sm }}
+    >
+      {prefixe}
+      {chips.map(c => {
+        const estActif = actif === c.key
+        return (
+          <Pressable
+            key={c.key}
+            onPress={() => { Haptics.selectionAsync(); onSelect(c.key) }}
+            style={{
+              paddingHorizontal: 14, paddingVertical: 8,
+              borderRadius: radius.full,
+              backgroundColor: estActif ? (c.bg ?? colors.bleu) : colors.blanc,
+              borderWidth: 1,
+              borderColor: estActif ? (c.txt ?? colors.bleu) : '#e2e7ee',
+            }}
+          >
+            <Text style={{
+              fontFamily: estActif ? typography.fontFamily.semibold : typography.fontFamily.medium,
+              fontSize: typography.size.sm,
+              color: estActif ? (c.txt ?? '#fff') : '#6b7686',
+            }}>
+              {c.label}
+            </Text>
+          </Pressable>
+        )
+      })}
+    </ScrollView>
+  )
+}
+
+// ─── section Cours ────────────────────────────────────────────
 function SectionCours({ recherche }: { recherche: string }) {
   const [categories, setCategories] = useState<any[]>([])
   const [livres, setLivres] = useState<any[]>([])
@@ -165,36 +346,85 @@ function SectionCours({ recherche }: { recherche: string }) {
 
   return (
     <View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.xl, gap: spacing.sm, paddingVertical: spacing.sm, justifyContent: 'center' }}>
-        <Pressable onPress={() => setCatActive('toutes')}>
-          <View style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full, backgroundColor: catActive === 'toutes' ? colors.bleu : colors.blanc, borderWidth: 1, borderColor: catActive === 'toutes' ? colors.bleu : colors.bordure }}>
-            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: catActive === 'toutes' ? colors.blanc : '#666' }}>Tous</Text>
-          </View>
-        </Pressable>
-        {categories.map(cat => (
-          <Pressable key={cat.id} onPress={() => setCatActive(cat.slug)}>
-            <View style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full, backgroundColor: catActive === cat.slug ? (couleurBg[cat.nom] ?? '#eee') : colors.blanc, borderWidth: 1, borderColor: catActive === cat.slug ? (couleurTxt[cat.nom] ?? '#999') : colors.bordure }}>
-              <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: catActive === cat.slug ? (couleurTxt[cat.nom] ?? '#333') : '#666' }}>{cat.nom}</Text>
-            </View>
-          </Pressable>
-        ))}
-      </View>
-      <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.sm }}>
+      <ChipsFiltres
+        chips={[
+          { key: 'toutes', label: 'Tous' },
+          ...categories.map(c => ({ key: c.slug, label: c.nom, bg: couleurBg[c.nom], txt: couleurTxt[c.nom] })),
+        ]}
+        actif={catActive}
+        onSelect={setCatActive}
+      />
+      <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xs }}>
         {loading
-          ? [1, 2, 3].map(i => <View key={i} style={{ height: 100, borderRadius: radius.lg, backgroundColor: colors.bordure, opacity: 0.4, marginBottom: spacing.sm }} />)
+          ? <Squelettes n={4} h={96} />
           : livresFiltres.length === 0
-            ? <View style={{ alignItems: 'center', paddingVertical: spacing['3xl'] }}><Text style={{ fontSize: 36, marginBottom: spacing.md }}>🔍</Text><Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texteMuted }}>Aucun résultat trouvé</Text></View>
-            : livresFiltres.map(l => <LivreCard key={l.id} livre={l} categorie={categories.find(c => c.id === l.categorie_id)} onPress={() => naviguerVers(l)} />)
-        }
+            ? <EtatVide message="Aucun résultat trouvé" />
+            : (
+              <View style={{ gap: spacing.sm }}>
+                {livresFiltres.map((l, i) => {
+                  const cat = categories.find(c => c.id === l.categorie_id)
+                  const nomCat = cat?.nom ?? ''
+                  const accent = couleurTxt[nomCat] ?? colors.bleu
+                  return (
+                    <Animated.View key={l.id} entering={FadeInDown.duration(350).delay(Math.min(i, 8) * 45)}>
+                      <PressableScale onPress={() => naviguerVers(l)} style={{
+                        backgroundColor: colors.blanc,
+                        borderRadius: 18,
+                        paddingVertical: spacing.md,
+                        paddingLeft: spacing.lg + 4,
+                        paddingRight: spacing.lg,
+                        shadowColor: '#3a4a5c',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.06,
+                        shadowRadius: 10,
+                        elevation: 2,
+                        overflow: 'hidden',
+                        gap: 6,
+                      }}>
+                        {/* accent latéral couleur catégorie */}
+                        <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent, opacity: 0.85 }} />
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          {nomCat ? (
+                            <View style={{ backgroundColor: couleurBg[nomCat] ?? '#f0f0f0', borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+                              <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: accent }}>{nomCat}</Text>
+                            </View>
+                          ) : <View />}
+                          {l.titre_arabe ? (
+                            <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.arabic, fontSize: typography.size.sm, color: '#9aa4b2', maxWidth: '50%' }}>
+                              {l.titre_arabe}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        <TextTicker
+                          style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte, lineHeight: 22 }}
+                          loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                        >
+                          {l.titre}
+                        </TextTicker>
+
+                        {l.sheikh ? (
+                          <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted }}>
+                            {l.sheikh}
+                          </Text>
+                        ) : null}
+                      </PressableScale>
+                    </Animated.View>
+                  )
+                })}
+              </View>
+            )}
       </View>
     </View>
   )
 }
 
+// ─── section Conférences ──────────────────────────────────────
 function SectionConferences({ recherche }: { recherche: string }) {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const { jouer, piste, enLecture } = useAudio()
+  const { jouer, piste, enLecture, pause, reprendre } = useAudio()
 
   useEffect(() => {
     setLoading(true)
@@ -206,75 +436,51 @@ function SectionConferences({ recherche }: { recherche: string }) {
   }, [])
 
   const filtres = items.filter(c =>
-    c.titre.toLowerCase().includes(recherche.toLowerCase()) ||
-    c.sheikh.toLowerCase().includes(recherche.toLowerCase())
+    normaliser(c.titre).includes(normaliser(recherche)) ||
+    normaliser(c.sheikh).includes(normaliser(recherche))
   )
 
+  const onPiste = (c: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    if (piste?.id === c.id) { enLecture ? pause() : reprendre(); return }
+    jouer({ id: c.id, titre: c.titre, sheikh: c.sheikh, url: c.url_audio, duree: c.duree })
+  }
+
   return (
-    <View style={{ paddingHorizontal: spacing.xl }}>
+    <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.sm }}>
       {loading
-        ? [1, 2, 3].map(i => <View key={i} style={{ height: 68, borderRadius: radius.lg, backgroundColor: colors.bordure, opacity: 0.4, marginBottom: spacing.sm }} />)
+        ? <Squelettes n={5} h={72} />
         : filtres.length === 0
-          ? (
-            <View style={{ alignItems: 'center', paddingVertical: spacing['3xl'] }}>
-              <Text style={{ fontSize: 36, marginBottom: spacing.md }}>🔍</Text>
-              <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texteMuted }}>
-                {recherche ? `Aucune conférence pour "${recherche}"` : 'Les conférences arrivent bientôt'}
-              </Text>
-            </View>
-          )
+          ? <EtatVide message={recherche ? `Aucune conférence pour « ${recherche} »` : 'Les conférences arrivent bientôt'} />
           : (
             <View style={{ gap: spacing.sm }}>
-              {filtres.map((c, index) => {
-                const actif = piste?.id === c.id
-                return (
-                  <Pressable
-                    key={c.id}
-                    onPress={() => jouer({ id: c.id, titre: c.titre, sheikh: c.sheikh, url: c.url_audio, duree: c.duree })}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
-                  >
-                    {/* Numéro */}
-                    <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: '#bbb', width: 24, textAlign: 'right', flexShrink: 0 }}>
-                      {index + 1}
-                    </Text>
-
-                    {/* Carte */}
-                    <View style={{ flex: 1, backgroundColor: actif ? '#e8f0f8' : colors.blanc, borderRadius: radius.lg, borderWidth: 1, borderColor: actif ? colors.bleu : colors.bordure, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                      {/* Bouton play */}
-                      <View style={{ width: 40, height: 40, borderRadius: radius.full, backgroundColor: actif ? colors.bleu : '#f0f0f0', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {actif && enLecture
-                          ? <Pause size={14} color="white" fill="white" strokeWidth={0} />
-                          : <Play size={14} color={actif ? 'white' : '#aaa'} fill={actif ? 'white' : '#aaa'} strokeWidth={0} style={{ marginLeft: 2 }} />
-                        }
-                      </View>
-
-                      {/* Infos */}
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <TextTicker
-                          style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: actif ? colors.bleu : colors.texte, marginBottom: 4 }}
-                          loop bounce={false} repeatSpacer={50} marqueeDelay={2000} scrollSpeed={10}
-                        >
-                          {c.titre}
-                        </TextTicker>
-                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: '#999' }}>
-                          {c.sheikh}
-                        </Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                )
-              })}
+              {filtres.map((c, i) => (
+                <Animated.View key={c.id} entering={FadeInDown.duration(350).delay(Math.min(i, 8) * 45)}>
+                  <RangéePiste
+                    titre={c.titre}
+                    sousTitre={c.sheikh}
+                    episode={{
+                      id: c.id, titre: c.titre, sheikh: c.sheikh,
+                      coursId: 'conferences', coursTitre: 'Conférences',
+                      url: c.url_audio, type: 'conference',
+                    }}
+                    actif={piste?.id === c.id}
+                    enLecture={enLecture}
+                    onPress={() => onPiste(c)}
+                  />
+                </Animated.View>
+              ))}
             </View>
-          )
-      }
+          )}
     </View>
   )
 }
 
+// ─── section Khoutbah ─────────────────────────────────────────
 function SectionKhoutbah({ recherche }: { recherche: string }) {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const { jouer, piste, enLecture } = useAudio()
+  const { jouer, piste, enLecture, pause, reprendre } = useAudio()
 
   useEffect(() => {
     setLoading(true)
@@ -288,79 +494,50 @@ function SectionKhoutbah({ recherche }: { recherche: string }) {
   }, [])
 
   const filtres = items.filter(k =>
-    k.titre.toLowerCase().includes(recherche.toLowerCase()) ||
-    k.sheikh.toLowerCase().includes(recherche.toLowerCase()) ||
-    (k.serie && k.serie.toLowerCase().includes(recherche.toLowerCase()))
+    normaliser(k.titre).includes(normaliser(recherche)) ||
+    normaliser(k.sheikh).includes(normaliser(recherche)) ||
+    (k.serie && normaliser(k.serie).includes(normaliser(recherche)))
   )
 
+  const onPiste = (k: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    if (piste?.id === k.id) { enLecture ? pause() : reprendre(); return }
+    jouer({ id: k.id, titre: k.titre, sheikh: k.sheikh, url: k.url_audio, duree: k.duree })
+  }
+
   return (
-    <View style={{ paddingHorizontal: spacing.xl }}>
+    <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.sm }}>
       {loading
-        ? [1, 2, 3].map(i => <View key={i} style={{ height: 68, borderRadius: radius.lg, backgroundColor: colors.bordure, opacity: 0.4, marginBottom: spacing.sm }} />)
+        ? <Squelettes n={5} h={72} />
         : filtres.length === 0
-          ? (
-            <View style={{ alignItems: 'center', paddingVertical: spacing['3xl'] }}>
-              <Text style={{ fontSize: 36, marginBottom: spacing.md }}>🔍</Text>
-              <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texteMuted }}>
-                {recherche ? `Aucune khoutbah pour "${recherche}"` : 'Les khoutbahs arrivent bientôt'}
-              </Text>
-            </View>
-          )
+          ? <EtatVide message={recherche ? `Aucune khoutbah pour « ${recherche} »` : 'Les khoutbahs arrivent bientôt'} />
           : (
             <View style={{ gap: spacing.sm }}>
-              {filtres.map((k, index) => {
-                const actif = piste?.id === k.id
-                return (
-                  <Pressable
-                    key={k.id}
-                    onPress={() => jouer({ id: k.id, titre: k.titre, sheikh: k.sheikh, url: k.url_audio, duree: k.duree })}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
-                  >
-                    {/* Numéro */}
-                    <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: '#bbb', width: 24, textAlign: 'right', flexShrink: 0 }}>
-                      {index + 1}
-                    </Text>
-
-                    {/* Carte */}
-                    <View style={{ flex: 1, backgroundColor: actif ? '#e8f0f8' : colors.blanc, borderRadius: radius.lg, borderWidth: 1, borderColor: actif ? colors.bleu : colors.bordure, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                      {/* Bouton play */}
-                      <View style={{ width: 40, height: 40, borderRadius: radius.full, backgroundColor: actif ? colors.bleu : '#f0f0f0', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {actif && enLecture
-                          ? <Pause size={14} color="white" fill="white" strokeWidth={0} />
-                          : <Play size={14} color={actif ? 'white' : '#aaa'} fill={actif ? 'white' : '#aaa'} strokeWidth={0} style={{ marginLeft: 2 }} />
-                        }
-                      </View>
-
-                      {/* Infos */}
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <TextTicker
-                          style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: actif ? colors.bleu : colors.texte, marginBottom: 4 }}
-                          loop bounce={false} repeatSpacer={50} marqueeDelay={2000} scrollSpeed={10}
-                        >
-                          {k.titre}
-                        </TextTicker>
-                        {k.serie ? (
-                          <TextTicker
-                            style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: '#999' }}
-                            loop bounce={false} repeatSpacer={50} marqueeDelay={2000} scrollSpeed={10}
-                          >
-                            {k.sheikh}{'  '}<Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: '#b8911f', backgroundColor: '#faf3dc', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>{k.serie}{k.numero_serie ? ` · ${k.numero_serie}` : ''}</Text>
-                          </TextTicker>
-                        ) : (
-                          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: '#999' }}>{k.sheikh}</Text>
-                        )}
-                      </View>
-                    </View>
-                  </Pressable>
-                )
-              })}
+              {filtres.map((k, i) => (
+                <Animated.View key={k.id} entering={FadeInDown.duration(350).delay(Math.min(i, 8) * 45)}>
+                  <RangéePiste
+                    titre={k.titre}
+                    sousTitre={k.sheikh}
+                    badge={k.serie ? `${k.serie}${k.numero_serie ? ` · ${k.numero_serie}` : ''}` : undefined}
+                    episode={{
+                      id: k.id, titre: k.titre, sheikh: k.sheikh,
+                      coursId: 'khoutbahs', coursTitre: 'Khoutbahs',
+                      url: k.url_audio, type: 'khoutbah',
+                      numero: k.numero_serie ?? undefined,
+                    }}
+                    actif={piste?.id === k.id}
+                    enLecture={enLecture}
+                    onPress={() => onPiste(k)}
+                  />
+                </Animated.View>
+              ))}
             </View>
-          )
-      }
+          )}
     </View>
   )
 }
 
+// ─── section Fatwas ───────────────────────────────────────────
 function SectionFatwas({ recherche }: { recherche: string }) {
   const [items, setItems] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
@@ -369,7 +546,7 @@ function SectionFatwas({ recherche }: { recherche: string }) {
   const [sheikhsActifs, setSheikhsActifs] = useState<string[]>([])
   const [showSheikhPicker, setShowSheikhPicker] = useState(false)
   const [loading, setLoading] = useState(true)
-  const { jouer, piste, enLecture } = useAudio()
+  const { jouer, piste, enLecture, pause, reprendre } = useAudio()
 
   useEffect(() => {
     async function charger() {
@@ -397,12 +574,11 @@ function SectionFatwas({ recherche }: { recherche: string }) {
     const matchCat = catActive === 'toutes' || f.categorie === catActive
     const matchSheikh = sheikhsActifs.length === 0 || sheikhsActifs.includes(f.sheikh)
     const matchRecherche = recherche === '' ||
-      f.question.toLowerCase().includes(recherche.toLowerCase()) ||
-      f.sheikh.toLowerCase().includes(recherche.toLowerCase())
+      normaliser(f.question).includes(normaliser(recherche)) ||
+      normaliser(f.sheikh).includes(normaliser(recherche))
     return matchCat && matchSheikh && matchRecherche
   })
 
-  // Grouper par catégorie
   const groupes: Record<string, any[]> = {}
   filtres.forEach(f => {
     if (!groupes[f.categorie]) groupes[f.categorie] = []
@@ -417,131 +593,123 @@ function SectionFatwas({ recherche }: { recherche: string }) {
     return 0
   })
 
+  const onPiste = (f: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    if (piste?.id === f.id) { enLecture ? pause() : reprendre(); return }
+    jouer({ id: f.id, titre: f.question, sheikh: f.sheikh, url: f.url_audio, duree: f.duree })
+  }
+
   return (
-    <View style={{ paddingHorizontal: spacing.xl }}>
-
-      {/* Filtres */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingVertical: spacing.sm, justifyContent: 'center' }}>
-
-        {/* Bouton Sheikh picker */}
-        <Pressable
-          onPress={() => setShowSheikhPicker(true)}
-          style={{
-            flexDirection: 'row', alignItems: 'center', gap: 6,
-            paddingHorizontal: 14, paddingVertical: 7,
-            borderRadius: radius.full,
-            backgroundColor: sheikhsActifs.length > 0 ? colors.or : colors.blanc,
-            borderWidth: 1, borderColor: sheikhsActifs.length > 0 ? colors.or : colors.bordure,
-          }}
-        >
-          <Svg width={16} height={16} viewBox="0 -960 960 960">
-            <Path d="M280-600v-80h560v80H280Zm0 160v-80h560v80H280Zm0 160v-80h560v80H280ZM160-600q-17 0-28.5-11.5T120-640q0-17 11.5-28.5T160-680q17 0 28.5 11.5T200-640q0 17-11.5 28.5T160-600Zm0 160q-17 0-28.5-11.5T120-480q0-17 11.5-28.5T160-520q17 0 28.5 11.5T200-480q0 17-11.5 28.5T160-440Zm0 160q-17 0-28.5-11.5T120-320q0-17 11.5-28.5T160-360q17 0 28.5 11.5T200-320q0 17-11.5 28.5T160-280Z" fill={sheikhsActifs.length > 0 ? 'white' : '#666'} />
-          </Svg>
-          {sheikhsActifs.length > 0 && (
-            <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 10, fontFamily: typography.fontFamily.bold, color: colors.or }}>{sheikhsActifs.length}</Text>
-            </View>
-          )}
-        </Pressable>
-
-        {/* Toutes */}
-        <Pressable onPress={() => setCatActive('toutes')}>
-          <View style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full, backgroundColor: catActive === 'toutes' ? colors.bleu : colors.blanc, borderWidth: 1, borderColor: catActive === 'toutes' ? colors.bleu : colors.bordure }}>
-            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: catActive === 'toutes' ? 'white' : '#666' }}>Toutes</Text>
-          </View>
-        </Pressable>
-
-        {/* Catégories */}
-        {categories.map(cat => (
-          <Pressable key={cat.nom} onPress={() => setCatActive(cat.nom)}>
-            <View style={{
-              paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full,
-              backgroundColor: catActive === cat.nom ? cat.couleur + '22' : colors.blanc,
-              borderWidth: 1, borderColor: catActive === cat.nom ? cat.couleur : colors.bordure,
-            }}>
-              <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: catActive === cat.nom ? cat.couleur : '#666' }}>{cat.nom}</Text>
-            </View>
+    <View>
+      <ChipsFiltres
+        chips={[
+          { key: 'toutes', label: 'Toutes' },
+          ...categories.map(c => ({ key: c.nom, label: c.nom, bg: c.couleur + '22', txt: c.couleur })),
+        ]}
+        actif={catActive}
+        onSelect={setCatActive}
+        prefixe={
+          <Pressable
+            onPress={() => { Haptics.selectionAsync(); setShowSheikhPicker(true) }}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 6,
+              paddingHorizontal: 12, paddingVertical: 8,
+              borderRadius: radius.full,
+              backgroundColor: sheikhsActifs.length > 0 ? colors.or : colors.blanc,
+              borderWidth: 1, borderColor: sheikhsActifs.length > 0 ? colors.or : '#e2e7ee',
+            }}
+          >
+            <IconFiltre size={15} color={sheikhsActifs.length > 0 ? 'white' : '#6b7686'} />
+            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: sheikhsActifs.length > 0 ? 'white' : '#6b7686' }}>
+              Sheikh{sheikhsActifs.length > 0 ? ` · ${sheikhsActifs.length}` : ''}
+            </Text>
           </Pressable>
-        ))}
-      </View>
+        }
+      />
 
-      {/* Contenu */}
-      {loading ? (
-        [1, 2, 3].map(i => <View key={i} style={{ height: 68, borderRadius: radius.lg, backgroundColor: colors.bordure, opacity: 0.4, marginBottom: spacing.sm }} />)
-      ) : filtres.length === 0 ? (
-        <View style={{ alignItems: 'center', paddingVertical: spacing['3xl'] }}>
-          <Text style={{ fontSize: 36, marginBottom: spacing.md }}>🔍</Text>
-          <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texteMuted }}>Aucune fatwa trouvée</Text>
-        </View>
-      ) : (
-        <View style={{ gap: spacing.xl }}>
-          {groupesTries.map(([categorie, fatwas]) => {
-            const cat = categories.find(c => c.nom === categorie)
-            return (
-              <View key={categorie}>
-                {/* En-tête catégorie */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
-                  <View style={{ flex: 1, height: 1, backgroundColor: colors.bordure }} />
-                  <View style={{
-                    paddingHorizontal: spacing.md, paddingVertical: 4,
-                    borderRadius: radius.full,
-                    backgroundColor: (cat?.couleur ?? '#f0f0f0') + '22',
-                    borderWidth: 1, borderColor: (cat?.couleur ?? '#ccc') + '44',
-                  }}>
-                    <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1, textTransform: 'uppercase', color: cat?.couleur ?? '#666' }}>
+      <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xs }}>
+        {loading ? (
+          <Squelettes n={4} h={92} />
+        ) : filtres.length === 0 ? (
+          <EtatVide message="Aucune fatwa trouvée" />
+        ) : (
+          <View style={{ gap: spacing.lg }}>
+            {groupesTries.map(([categorie, fatwas]) => {
+              const cat = categories.find(c => c.nom === categorie)
+              const accent = cat?.couleur ?? '#6b7686'
+              return (
+                <View key={categorie}>
+                  {/* en-tête de groupe */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm, paddingLeft: 2 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: accent }} />
+                    <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.2, textTransform: 'uppercase', color: accent }}>
                       {categorie}
                     </Text>
+                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#aab4c0' }}>
+                      {fatwas.length}
+                    </Text>
+                    <View style={{ flex: 1, height: 1, backgroundColor: '#e6eaf0' }} />
                   </View>
-                  <View style={{ flex: 1, height: 1, backgroundColor: colors.bordure }} />
-                </View>
 
-                {/* Fatwas */}
-                <View style={{ gap: spacing.sm }}>
-                  {fatwas.map((f: any) => {
-                    const actif = piste?.id === f.id
-                    return (
-                      <Pressable
-                        key={f.id}
-                        onPress={() => jouer({ id: f.id, titre: f.question, sheikh: f.sheikh, url: f.url_audio, duree: f.duree })}
-                      >
-                        <View style={{
-                          backgroundColor: actif ? '#e8f0f8' : colors.blanc,
-                          borderRadius: radius.lg,
-                          borderWidth: 1,
-                          borderColor: actif ? colors.bleu : colors.bordure,
+                  <View style={{ gap: spacing.sm }}>
+                    {fatwas.map((f: any, i: number) => {
+                      const actif = piste?.id === f.id
+                      return (
+                        <Animated.View key={f.id} entering={FadeInDown.duration(350).delay(Math.min(i, 8) * 45)}>
+                        <PressableScale onPress={() => onPiste(f)} style={{
+                          backgroundColor: actif ? '#f5f9fe' : colors.blanc,
+                          borderRadius: 18,
                           padding: spacing.md,
+                          borderWidth: actif ? 1.5 : 0,
+                          borderColor: colors.bleu,
+                          shadowColor: '#3a4a5c',
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.06,
+                          shadowRadius: 10,
+                          elevation: 2,
                         }}>
-                          <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: actif ? colors.bleu : colors.texte, lineHeight: 22, marginBottom: spacing.sm }}>
+                          <Text style={{
+                            fontFamily: typography.fontFamily.semibold,
+                            fontSize: typography.size.base,
+                            color: actif ? colors.bleu : colors.texte,
+                            lineHeight: 22,
+                            marginBottom: spacing.sm,
+                          }}>
                             {f.question}
                           </Text>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                            <View style={{ width: 32, height: 32, borderRadius: radius.full, backgroundColor: actif ? colors.bleu : '#f0f0f0', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              {actif && enLecture
-                                ? <Pause size={12} color="white" fill="white" strokeWidth={0} />
-                                : <Play size={12} color={actif ? 'white' : '#aaa'} fill={actif ? 'white' : '#aaa'} strokeWidth={0} style={{ marginLeft: 2 }} />
-                              }
-                            </View>
-                            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: actif ? colors.bleu : '#888' }}>{f.sheikh}</Text>
-                            {null}
+                            <PastillePlay actif={actif} enLecture={enLecture} taille={34} />
+                            <Text style={{ flex: 1, fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: actif ? colors.bleu : '#8a94a2' }}>
+                              {f.sheikh}
+                            </Text>
+                            <BoutonTelecharger episode={{
+                              id: f.id, titre: f.question, sheikh: f.sheikh,
+                              coursId: 'fatwas', coursTitre: 'Fatwas',
+                              url: f.url_audio, type: 'fatwa',
+                            }} />
                           </View>
-                        </View>
-                      </Pressable>
-                    )
-                  })}
+                        </PressableScale>
+                        </Animated.View>
+                      )
+                    })}
+                  </View>
                 </View>
-              </View>
-            )
-          })}
-        </View>
-      )}
+              )
+            })}
+          </View>
+        )}
+      </View>
 
-      {/* Modal Sheikh picker */}
-      <Modal visible={showSheikhPicker} transparent animationType="fade">
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }} onPress={() => setShowSheikhPicker(false)}>
-          <Pressable style={{ backgroundColor: colors.blanc, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.xl, paddingBottom: 48 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#ddd', alignSelf: 'center', marginBottom: spacing.xl }} />
-            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 2, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.lg }}>
+      {/* modal filtre sheikh */}
+      <Modal visible={showSheikhPicker} transparent animationType="slide">
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(13,27,46,0.45)', justifyContent: 'flex-end' }} onPress={() => setShowSheikhPicker(false)}>
+          <Pressable style={{ backgroundColor: colors.blanc, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: spacing.xl, paddingBottom: 48 }}>
+            <View style={{ width: 40, height: 4.5, borderRadius: 3, backgroundColor: '#dde3ea', alignSelf: 'center', marginBottom: spacing.xl }} />
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: colors.texte, marginBottom: 2 }}>
               Filtrer par sheikh
+            </Text>
+            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginBottom: spacing.lg }}>
+              Sélectionnez un ou plusieurs intervenants
             </Text>
             <View style={{ gap: spacing.sm }}>
               {sheikhs.map(s => {
@@ -549,13 +717,28 @@ function SectionFatwas({ recherche }: { recherche: string }) {
                 return (
                   <Pressable
                     key={s}
-                    onPress={() => setSheikhsActifs(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: actif ? '#faf3dc' : colors.fondCreme }}
+                    onPress={() => {
+                      Haptics.selectionAsync()
+                      setSheikhsActifs(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
+                    }}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                      padding: spacing.md, borderRadius: 16,
+                      backgroundColor: actif ? '#faf3dc' : '#f5f6f8',
+                      borderWidth: 1, borderColor: actif ? colors.or : 'transparent',
+                    }}
                   >
-                    <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: actif ? colors.or : '#ccc', backgroundColor: actif ? colors.or : 'white', alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{
+                      width: 22, height: 22, borderRadius: 7,
+                      borderWidth: 2, borderColor: actif ? colors.or : '#c4ccd6',
+                      backgroundColor: actif ? colors.or : 'white',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
                       {actif && <Text style={{ color: 'white', fontSize: 12, fontFamily: typography.fontFamily.bold }}>✓</Text>}
                     </View>
-                    <Text style={{ flex: 1, fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texte }}>{s}</Text>
+                    <Text style={{ flex: 1, fontFamily: actif ? typography.fontFamily.semibold : typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texte }}>
+                      {s}
+                    </Text>
                   </Pressable>
                 )
               })}
@@ -563,128 +746,170 @@ function SectionFatwas({ recherche }: { recherche: string }) {
             {sheikhsActifs.length > 0 && (
               <Pressable
                 onPress={() => setSheikhsActifs([])}
-                style={{ marginTop: spacing.md, padding: spacing.sm, borderRadius: radius.md, backgroundColor: '#f0f0f0', alignItems: 'center' }}
+                style={{ marginTop: spacing.md, padding: spacing.sm + 2, borderRadius: 14, backgroundColor: '#f0f2f5', alignItems: 'center' }}
               >
-                <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: '#888' }}>Effacer la sélection</Text>
+                <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: '#6b7686' }}>
+                  Effacer la sélection
+                </Text>
               </Pressable>
             )}
           </Pressable>
         </Pressable>
       </Modal>
-
     </View>
   )
 }
 
-export default function Audio() {
-  const [sectionActive, setSectionActive] = useState('cours')
-  const [recherche, setRecherche] = useState('')
-  const [showPicker, setShowPicker] = useState(false)
-  const sectionCourante = SECTIONS.find(s => s.key === sectionActive)!
-  const { onScroll, cachéTabBar } = useScroll()
+// ─── sélecteur de section (pastille glissante) ────────────────
+function SegmentsSections({ actif, onSelect }: { actif: string, onSelect: (key: string) => void }) {
+  const [w, setW] = useState(0)
+  const segW = w > 0 ? (w - 8) / SECTIONS.length : 0
+  const index = SECTIONS.findIndex(s => s.key === actif)
+
+  const x = useSharedValue(0)
+  const init = useRef(false)
+  useEffect(() => {
+    if (segW <= 0) return
+    if (!init.current) { x.value = index * segW; init.current = true; return }
+    x.value = withSpring(index * segW, { damping: 19, stiffness: 220, mass: 0.7 })
+  }, [index, segW])
+
+  const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }))
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.fondCreme }} edges={[]}>
+    <View
+      onLayout={e => setW(e.nativeEvent.layout.width)}
+      style={{
+        flexDirection: 'row',
+        backgroundColor: W10,
+        borderRadius: radius.full,
+        padding: 4,
+        borderWidth: 1,
+        borderColor: W14,
+      }}
+    >
+      {segW > 0 && (
+        <Animated.View style={[{
+          position: 'absolute',
+          left: 4, top: 4, bottom: 4,
+          width: segW,
+          borderRadius: radius.full,
+          backgroundColor: '#fff',
+        }, pillStyle]} />
+      )}
+      {SECTIONS.map(s => {
+        const estActif = actif === s.key
+        return (
+          <Pressable
+            key={s.key}
+            onPress={() => {
+              if (estActif) return
+              Haptics.selectionAsync()
+              onSelect(s.key)
+            }}
+            style={{ flex: 1, alignItems: 'center', paddingVertical: 9, zIndex: 1 }}
+          >
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: estActif ? typography.fontFamily.bold : typography.fontFamily.medium,
+                fontSize: 12.5,
+                color: estActif ? colors.bleu : W70,
+              }}
+            >
+              {s.label}
+            </Text>
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+}
+
+// ─── page ─────────────────────────────────────────────────────
+export default function Audio() {
+  const insets = useSafeAreaInsets()
+  const [sectionActive, setSectionActive] = useState('cours')
+  const [recherche, setRecherche] = useState('')
+  const { onScroll, cachéTabBar } = useScroll()
+
+  const changerSection = (key: string) => {
+    setSectionActive(key)
+    setRecherche('')
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header bleu */}
-      <View style={{ backgroundColor: colors.bleu, paddingTop: 60, paddingBottom: spacing.xl, paddingHorizontal: spacing.xl, alignItems: 'center' }}>
-        <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 2, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.sm }}>
-          Bibliothèque audio
-        </Text>
+      {/* ── Héros ── */}
+      <View style={{ borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden' }}>
+        <LinearGradient
+          colors={[BG_TOP, BG_MID, BG_BOT]}
+          locations={[0, 0.6, 1]}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.12)', top: -140, right: -100 }} />
+        <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.06)', bottom: -80, left: -70 }} />
 
-        {/* Titre cliquable = picker */}
-        <Pressable
-          onPress={() => setShowPicker(true)}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.lg }}
-        >
-          <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['3xl'], color: 'white' }}>
-            {sectionCourante.label}
-          </Text>
-          <ChevronDown size={20} color="rgba(255,255,255,0.7)" strokeWidth={2} />
-        </Pressable>
+        <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.md }}>
+          <View>
+            <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 6 }}>
+              <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.8, color: colors.or, textTransform: 'uppercase' }}>
+                Médiathèque
+              </Text>
+            </View>
+            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size['2xl'], color: '#fff' }}>
+              Bibliothèque audio
+            </Text>
+          </View>
 
-        {/* Barre recherche */}
-        <View style={{
-          flexDirection: 'row', alignItems: 'center',
-          backgroundColor: 'rgba(255,255,255,0.15)',
-          borderRadius: radius.full,
-          paddingHorizontal: spacing.lg,
-          paddingVertical: spacing.sm,
-          width: '100%',
-          gap: spacing.sm,
-        }}>
-          <IconSearch size={16} color="rgba(255,255,255,0.6)" />
-          <TextInput
-            value={recherche}
-            onChangeText={setRecherche}
-            placeholder={`Rechercher...`}
-            placeholderTextColor="rgba(255,255,255,0.5)"
-            style={{ flex: 1, fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: 'white' }}
-          />
-          {recherche.length > 0 && (
-            <Pressable onPress={() => setRecherche('')}>
-              <X size={16} color="rgba(255,255,255,0.6)" />
-            </Pressable>
-          )}
+          {/* recherche */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'center',
+            backgroundColor: W10,
+            borderWidth: 1, borderColor: W14,
+            borderRadius: radius.full,
+            paddingHorizontal: spacing.lg,
+            paddingVertical: Platform.OS === 'ios' ? 11 : 7,
+            gap: spacing.sm,
+          }}>
+            <IconSearch size={17} color={W55} />
+            <TextInput
+              value={recherche}
+              onChangeText={setRecherche}
+              placeholder="Rechercher..."
+              placeholderTextColor={W55}
+              returnKeyType="search"
+              style={{ flex: 1, fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: '#fff', padding: 0 }}
+            />
+            {recherche.length > 0 && (
+              <Pressable onPress={() => setRecherche('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <IconX size={15} color={W70} />
+              </Pressable>
+            )}
+          </View>
+
+          {/* segments */}
+          <SegmentsSections actif={sectionActive} onSelect={changerSection} />
         </View>
       </View>
 
-      {/* Barre or dégradé */}
-      <LinearGradient
-        colors={['transparent', '#d9ac2a', '#d9ac2a', 'transparent']}
-        locations={[0, 0.3, 0.7, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={{ height: 3 }}
-      />
-
-      {/* Contenu */}
+      {/* ── Contenu ── */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: cachéTabBar ? 80 : 160 }}
+        contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: cachéTabBar ? 80 : 170 }}
         onScroll={e => onScroll(e.nativeEvent.contentOffset.y)}
         scrollEventThrottle={16}
+        keyboardShouldPersistTaps="handled"
       >
-        {sectionActive === 'cours' && <SectionCours recherche={recherche} />}
-        {sectionActive === 'conferences' && <SectionConferences recherche={recherche} />}
-        {sectionActive === 'khoutbah' && <SectionKhoutbah recherche={recherche} />}
-        {sectionActive === 'fatwas' && <SectionFatwas recherche={recherche} />}
+        <Animated.View key={sectionActive} entering={FadeIn.duration(220)}>
+          {sectionActive === 'cours' && <SectionCours recherche={recherche} />}
+          {sectionActive === 'conferences' && <SectionConferences recherche={recherche} />}
+          {sectionActive === 'khoutbah' && <SectionKhoutbah recherche={recherche} />}
+          {sectionActive === 'fatwas' && <SectionFatwas recherche={recherche} />}
+        </Animated.View>
       </ScrollView>
-
-      {/* Modal picker section */}
-      <Modal visible={showPicker} transparent animationType="fade">
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }} onPress={() => setShowPicker(false)}>
-          <Pressable style={{ backgroundColor: colors.blanc, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.xl, paddingBottom: 48 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#ddd', alignSelf: 'center', marginBottom: spacing.xl }} />
-            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 2, color: colors.or, textTransform: 'uppercase', marginBottom: spacing.lg }}>
-              Bibliothèque audio
-            </Text>
-            <View style={{ gap: spacing.sm }}>
-              {SECTIONS.map(s => {
-                const actif = sectionActive === s.key
-                const Icon = s.icon
-                return (
-                  <Pressable
-                    key={s.key}
-                    onPress={() => { setSectionActive(s.key); setShowPicker(false); setRecherche('') }}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: actif ? '#e8f0f8' : colors.fondCreme, borderWidth: 1, borderColor: actif ? colors.bleu : 'transparent' }}
-                  >
-                    <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: actif ? colors.bleu : colors.blanc, alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon size={20} color={actif ? 'white' : '#888'} />
-                    </View>
-                    <Text style={{ flex: 1, fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.medium, fontSize: typography.size.md, color: actif ? colors.bleu : colors.texte }}>
-                      {s.label}
-                    </Text>
-                    {actif && <Text style={{ color: colors.bleu, fontSize: 18 }}>✓</Text>}
-                  </Pressable>
-                )
-              })}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-    </SafeAreaView>
+    </View>
   )
 }

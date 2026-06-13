@@ -1,158 +1,258 @@
+import { MiniEgaliseur } from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
-import { useNotes } from '@/contexts/NotesContext'
-import { useState } from 'react'
-import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native'
+import * as Haptics from 'expo-haptics'
+import { LinearGradient } from 'expo-linear-gradient'
+import { ReactNode, useEffect } from 'react'
+import { Pressable, View, ViewStyle } from 'react-native'
+import Animated, {
+    cancelAnimation,
+    Easing,
+    FadeInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSequence,
+    withSpring,
+    withTiming,
+} from 'react-native-reanimated'
 import Svg, { Path } from 'react-native-svg'
 import TextTicker from 'react-native-text-ticker'
 
-function IconPlay({ size = 20, color = colors.texte }: { size?: number, color?: string }) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M320-200v-560l440 280-440 280Zm80-280Zm0 134 210-134-210-134v268Z" fill={color} /></Svg>
-}
+// ─── palette (identique aux héros de l'app) ───────────────────
+const BG_L = '#3d6ba3'
+const BG_R = '#1c3d66'
+const W70 = 'rgba(255,255,255,0.70)'
 
-function IconPause({ size = 20, color = colors.texte }: { size?: number, color?: string }) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M520-200v-560h240v560H520Zm-320 0v-560h240v560H200Zm400-80h80v-400h-80v400Zm-320 0h80v-400h-80v400Zm0-400v400-400Zm320 0v400-400Z" fill={color} /></Svg>
-}
+const W12 = 'rgba(255,255,255,0.12)'
 
-function IconFastForward({ size = 20, color = colors.texte }: { size?: number, color?: string }) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M100-240v-480l360 240-360 240Zm400 0v-480l360 240-360 240ZM180-480Zm400 0Zm-400 90 136-90-136-90v180Zm400 0 136-90-136-90v180Z" fill={color} /></Svg>
+// ─── icônes ───────────────────────────────────────────────────
+function IconPlay({ size = 20, color = 'white' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M320-200v-560l440 280-440 280Z" fill={color} />
+        </Svg>
+    )
+}
+function IconPause({ size = 20, color = 'white' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M560-200v-560h160v560H560Zm-320 0v-560h160v560H240Z" fill={color} />
+        </Svg>
+    )
+}
+function IconSuivant({ size = 20, color = 'white' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M660-240v-480h80v480h-80Zm-440 0v-480l360 240-360 240Zm80-240Zm0 90 136-90-136-90v180Z" fill={color} />
+        </Svg>
+    )
 }
 
 function formaterTemps(s: number) {
-  if (!s || isNaN(s)) return '0:00'
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = Math.floor(s % 60)
-  if (h > 0) return h + ':' + m.toString().padStart(2, '0') + ':' + sec.toString().padStart(2, '0')
-  return m + ':' + sec.toString().padStart(2, '0')
+    if (!s || isNaN(s)) return '0:00'
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const sec = Math.floor(s % 60)
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
+    return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
+// ─── égaliseur au repos (5 points dorés statiques) ────────────
+function BarresRepos() {
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2.5 }}>
+            {[6, 11, 16, 11, 6].map((h, i) => (
+                <View key={i} style={{ width: 2.5, height: h, borderRadius: 1.5, backgroundColor: colors.or, opacity: 0.85 }} />
+            ))}
+        </View>
+    )
+}
+
+// ─── bouton scale ressort ─────────────────────────────────────
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+
+function Tap({ onPress, style, children, hitSlop = 12 }: {
+    onPress: () => void
+    style?: ViewStyle
+    children: ReactNode
+    hitSlop?: number
+}) {
+    const s = useSharedValue(1)
+    const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }))
+    return (
+        <AnimatedPressable
+            onPressIn={() => { s.value = withSpring(0.82, { damping: 16, stiffness: 500 }) }}
+            onPressOut={() => { s.value = withSpring(1, { damping: 14, stiffness: 340 }) }}
+            onPress={onPress}
+            hitSlop={{ top: hitSlop, bottom: hitSlop, left: hitSlop, right: hitSlop }}
+            style={[style, a]}
+        >
+            {children}
+        </AnimatedPressable>
+    )
+}
+
+// ─── mini lecteur persistant ──────────────────────────────────
 export default function LecteurPersistant() {
-  const { piste, enLecture, progression, tempsActuel, dureeTotal, pause, reprendre, pisterSuivante } = useAudio()
-  const { ajouterNote } = useNotes()
-  const [noteVisible, setNoteVisible] = useState(false)
-  const [texteNote, setTexteNote] = useState('')
-  const [pleinEcran, setPleinEcran] = useState(false)
+    const { piste, enLecture, progression, tempsActuel, dureeTotal, pause, reprendre, pisterSuivante, setLecteurOuvert } = useAudio()
 
-  if (!piste) return null
+    // Pulsation subtile du bouton play
+    const playScale = useSharedValue(1)
+    useEffect(() => {
+        if (enLecture) {
+            playScale.value = withRepeat(
+                withSequence(
+                    withTiming(1.06, { duration: 900, easing: Easing.inOut(Easing.ease) }),
+                    withTiming(1,    { duration: 900, easing: Easing.inOut(Easing.ease) }),
+                ),
+                -1, true
+            )
+        } else {
+            cancelAnimation(playScale)
+            playScale.value = withTiming(1, { duration: 220 })
+        }
+    }, [enLecture])
+    const playPulse = useAnimatedStyle(() => ({ transform: [{ scale: playScale.value }] }))
 
-  const onPressPlay = () => enLecture ? pause() : reprendre()
+    // Rebond de la vignette au changement de piste
+    const artScale = useSharedValue(1)
+    useEffect(() => {
+        artScale.value = withSequence(
+            withSpring(0.86, { damping: 14, stiffness: 320 }),
+            withSpring(1,    { damping: 12, stiffness: 260 }),
+        )
+    }, [piste?.id])
+    const artStyle = useAnimatedStyle(() => ({ transform: [{ scale: artScale.value }] }))
 
-  const sauvegarderNote = async () => {
-    if (!texteNote.trim() || !piste) return
-    await ajouterNote({
-      episode_id: piste.id,
-      episode_titre: piste.titre,
-      sheikh: piste.sheikh,
-      timestamp: tempsActuel,
-      texte: texteNote.trim(),
-    })
-    setTexteNote('')
-    setNoteVisible(false)
-  }
+    if (!piste) return null
 
-  return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'position' : undefined}>
+    const sousTitreArabe = /[؀-ۿ]/.test(piste.sheikh)
 
-      {/* Panel note */}
-      {noteVisible && (
-        <View style={{
-          backgroundColor: colors.blanc,
-          borderRadius: radius.xl,
-          borderWidth: 1, borderColor: colors.bordure,
-          padding: spacing.md,
-          marginBottom: spacing.sm,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-          elevation: 8,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-            <Text style={{ flex: 1, fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.bleu }}>
-              📝 Note à {formaterTemps(tempsActuel)}
-            </Text>
-            <Pressable onPress={() => { setNoteVisible(false); setTexteNote('') }}>
-              <Text style={{ color: '#aaa', fontSize: 18 }}>✕</Text>
-            </Pressable>
-          </View>
-          <TextInput
-            value={texteNote} onChangeText={setTexteNote}
-            placeholder="Écris ta note ici..." placeholderTextColor="#bbb"
-            multiline autoFocus
-            style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texte, minHeight: 60, maxHeight: 120, textAlignVertical: 'top' }}
-          />
-          <Pressable onPress={sauvegarderNote} style={{ marginTop: spacing.sm, backgroundColor: colors.bleu, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' }}>
-            <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.blanc }}>Sauvegarder</Text>
-          </Pressable>
-        </View>
-      )}
+    const ouvrir = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        setLecteurOuvert(true)
+    }
+    const onPressPlay = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        enLecture ? pause() : reprendre()
+    }
+    const onPressSuivant = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        pisterSuivante()
+    }
 
-      {/* Lecteur pill */}
-      <Pressable onPress={() => setPleinEcran(true)}>
-        <View style={{
-          backgroundColor: '#d0e4f7',
-          borderRadius: 24,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-          elevation: 8,
-          overflow: 'hidden',
-        }}>
-          {/* Barre progression */}
-          <View style={{ height: 3, backgroundColor: 'rgba(0,0,0,0.08)' }}>
-            <View style={{ width: `${progression}%`, height: '100%', backgroundColor: colors.bleu, borderRadius: 2 }} />
-          </View>
-
-          {/* Contenu */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
-
-            {/* Infos */}
-            <View style={{ flex: 1, minWidth: 0, marginRight: spacing.sm }}>
-              <TextTicker
-                style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.texte }}
-                loop bounce={false} repeatSpacer={50} marqueeDelay={2000} scrollSpeed={10}
-              >
-                {piste.titre}
-              </TextTicker>
-              <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.texteMuted, marginTop: 2 }}>
-                {piste.sheikh} · {formaterTemps(tempsActuel)} / {formaterTemps(dureeTotal)}
-              </Text>
-            </View>
-
-            {/* Fast forward */}
-            <Pressable onPress={pisterSuivante} style={{ padding: spacing.xs, marginRight: spacing.md }}>
-              <IconFastForward size={22} color={colors.texte} />
-            </Pressable>
-
-            {/* Play/Pause */}
-            <Pressable
-              onPress={onPressPlay}
-              style={{
-                width: 40, height: 40, borderRadius: radius.full,
-                backgroundColor: colors.bleu,
-                alignItems: 'center', justifyContent: 'center',
-              }}
+    return (
+        <Animated.View
+            entering={FadeInDown.springify().damping(18).stiffness(160)}
+            style={{
+                borderRadius: 26,
+                overflow: 'hidden',
+                shadowColor: '#08162a',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.26,
+                shadowRadius: 24,
+                elevation: 14,
+            }}
+        >
+            <LinearGradient
+                colors={[BG_L, BG_R]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
             >
-              {enLecture
-                ? <IconPause size={18} color="white" />
-                : <IconPlay size={18} color="white" />
-              }
-            </Pressable>
+                {/* Barre de progression dorée */}
+                <View style={{ height: 3, backgroundColor: W12 }}>
+                    <View style={{
+                        width: `${progression}%` as any,
+                        height: '100%',
+                        backgroundColor: colors.or,
+                        borderTopRightRadius: 2,
+                        borderBottomRightRadius: 2,
+                    }} />
+                </View>
 
-          </View>
-        </View>
-      </Pressable>
+                {/* Corps : [Pressable ouvrir] | [Boutons] */}
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingLeft: 10,
+                    paddingRight: 12,
+                    paddingVertical: 10,
+                    gap: 10,
+                }}>
+                    {/* Zone pressable ouvrir le lecteur (logo + info) */}
+                    <Pressable
+                        onPress={ouvrir}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0 }}
+                    >
+                        {/* Vignette égaliseur */}
+                        <Animated.View style={[{
+                            width: 46, height: 46,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }, artStyle]}>
+                            {enLecture
+                                ? <MiniEgaliseur color={colors.or} hauteur={18} />
+                                : <BarresRepos />}
+                        </Animated.View>
 
-      {/* Lecteur plein écran */}
-      {pleinEcran && (
-        (() => {
-          const LecteurPleinEcran = require('./LecteurPleinEcran').default
-          return <LecteurPleinEcran visible={pleinEcran} onClose={() => setPleinEcran(false)} />
-        })()
-      )}
+                        {/* Titre + sheikh + temps */}
+                        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                            <TextTicker
+                                style={{
+                                    fontFamily: typography.fontFamily.semibold,
+                                    fontSize: typography.size.base,
+                                    color: '#fff',
+                                }}
+                                loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                            >
+                                {piste.titre}
+                            </TextTicker>
+                            <TextTicker
+                                style={{
+                                    fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
+                                    fontSize: typography.size.xs,
+                                    color: W70,
+                                    fontVariant: ['tabular-nums'],
+                                } as any}
+                                loop bounce={false} repeatSpacer={50} marqueeDelay={3500} scrollSpeed={18}
+                            >
+                                {piste.sheikh}{dureeTotal > 0 ? ` · ${formaterTemps(tempsActuel)} / ${formaterTemps(dureeTotal)}` : ''}
+                            </TextTicker>
+                        </View>
+                    </Pressable>
 
-    </KeyboardAvoidingView>
-  )
+                    {/* Boutons de contrôle (indépendants du Pressable ouvrir) */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {/* Skip suivant */}
+                        <Tap onPress={onPressSuivant} style={{
+                            width: 36, height: 36, borderRadius: 18,
+                            backgroundColor: W12,
+                            alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <IconSuivant size={19} color="rgba(255,255,255,0.80)" />
+                        </Tap>
+
+                        {/* Play / Pause : fond doré, icône bleue */}
+                        <Animated.View style={playPulse}>
+                            <Tap onPress={onPressPlay} style={{
+                                width: 46, height: 46, borderRadius: 23,
+                                backgroundColor: colors.or,
+                                alignItems: 'center', justifyContent: 'center',
+                                shadowColor: colors.or,
+                                shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: 0.50,
+                                shadowRadius: 10,
+                                elevation: 7,
+                            }}>
+                                {enLecture
+                                    ? <IconPause size={19} color={colors.bleu} />
+                                    : <IconPlay size={19} color={colors.bleu} />}
+                            </Tap>
+                        </Animated.View>
+                    </View>
+                </View>
+            </LinearGradient>
+        </Animated.View>
+    )
 }
