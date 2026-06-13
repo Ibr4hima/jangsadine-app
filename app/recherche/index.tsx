@@ -9,6 +9,7 @@ import { Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-n
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
+import TextTicker from 'react-native-text-ticker'
 
 // ─── icônes ───────────────────────────────────────────────────
 function IcoBack({ size = 18, color = '#5b6675' }: { size?: number; color?: string }) {
@@ -153,7 +154,7 @@ export default function Recherche() {
             autoFocus
             value={q}
             onChangeText={setQ}
-            placeholder="Cours, conférence, sheikh…"
+            placeholder="Rechercher…"
             placeholderTextColor="#9aa3ad"
             returnKeyType="search"
             style={{
@@ -199,7 +200,7 @@ export default function Recherche() {
               <IcoSearch size={32} color={colors.bleu} />
             </View>
             <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.base, color: colors.texteMuted, textAlign: 'center', lineHeight: 22, maxWidth: 280 }}>
-              Cherche un cours, un livre, une conférence, un khoutbah, une fatwa ou un sheikh
+              Aucun résultat
             </Text>
           </Animated.View>
         ) : aCherche && resultats.length === 0 ? (
@@ -245,9 +246,12 @@ export default function Recherche() {
                             <Icone size={18} color={colors.bleu} />
                           </View>
                           <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}>
+                            <TextTicker
+                              style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}
+                              loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                            >
                               {r.titre}
-                            </Text>
+                            </TextTicker>
                             {r.sheikh ? (
                               <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.texteMuted, marginTop: 2 }}>
                                 {r.sheikh}
