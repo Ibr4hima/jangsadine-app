@@ -306,28 +306,44 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
 function CarteReprendre() {
   const { piste, enLecture, jouer, pause, reprendre, setLecteurOuvert } = useAudio()
   const [derniere, setDerniere] = useState<Piste | null>(null)
+  const [dernierePlaylist, setDernierePlaylist] = useState<Piste[] | null>(null)
 
   useEffect(() => {
     AsyncStorage.getItem('jsd_derniere_piste')
       .then(raw => { if (raw) setDerniere(JSON.parse(raw)) })
+      .catch(() => { })
+    AsyncStorage.getItem('jsd_derniere_playlist')
+      .then(raw => { if (raw) setDernierePlaylist(JSON.parse(raw)) })
       .catch(() => { })
   }, [])
 
   const affichee = piste ?? derniere
   if (!affichee) return null
 
+  // Relance la dernière piste en restaurant sa playlist complète (pour la File du lecteur)
+  const reprendreDerniere = (options?: { ouvrirLecteur?: boolean }) => {
+    if (!derniere) return
+    const liste = dernierePlaylist?.some(t => t.id === derniere.id) ? dernierePlaylist : null
+    if (liste) {
+      const idx = liste.findIndex(t => t.id === derniere.id)
+      jouer(liste[idx], liste.slice(idx + 1), options, liste)
+    } else {
+      jouer(derniere, [], options)
+    }
+  }
+
   // Le rond or : lecture / pause, sans ouvrir le lecteur
   const basculer = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     if (piste) { enLecture ? pause() : reprendre() }
-    else if (derniere) jouer(derniere, [], { ouvrirLecteur: false })
+    else reprendreDerniere({ ouvrirLecteur: false })
   }
 
   // Le reste de la carte : ouvre le lecteur plein écran
   const ouvrirLecteur = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     if (piste) setLecteurOuvert(true)
-    else if (derniere) jouer(derniere)
+    else reprendreDerniere()
   }
 
   return (

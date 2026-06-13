@@ -216,16 +216,22 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const playlistRef = useRef<Piste[]>([])
 
+  const definirPlaylist = (liste: Piste[]) => {
+    playlistRef.current = liste
+    setPlaylist(liste)
+    AsyncStorage.setItem('jsd_derniere_playlist', JSON.stringify(liste)).catch(() => {})
+  }
+
   const jouer = useCallback((p: Piste, suivantes: Piste[] = [], options?: OptionsLecture, playlistComplete?: Piste[]) => {
     if (playlistComplete) {
-      playlistRef.current = playlistComplete
-      setPlaylist(playlistComplete)
+      definirPlaylist(playlistComplete)
     } else if (suivantes.length === 0 && playlistRef.current.some(t => t.id === p.id)) {
-      // Resuming a track that's already in the current playlist — keep the full playlist intact
+      // Resuming a track that's already in the current playlist — keep the full playlist intact.
+      // On recale juste la file (suivantes) à partir de la piste reprise.
+      const idx = playlistRef.current.findIndex(t => t.id === p.id)
+      suivantes = idx >= 0 ? playlistRef.current.slice(idx + 1) : suivantes
     } else {
-      const liste = [p, ...suivantes]
-      playlistRef.current = liste
-      setPlaylist(liste)
+      definirPlaylist([p, ...suivantes])
     }
     chargerEtJouer(p, suivantes, options)
   }, [onUpdate])
