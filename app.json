@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "jang-sa-dine",
+    "name": "Jàng sa Diné",
     "slug": "jang-sa-dine",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,9 +14,17 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jangsadine.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Jàng sa Diné utilise votre position pour calculer les heures de prière et la direction de la Qibla.",
+        "UIBackgroundModes": ["audio"],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.jangsadine.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
