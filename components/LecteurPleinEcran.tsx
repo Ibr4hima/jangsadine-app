@@ -999,21 +999,24 @@ export default function LecteurPleinEcran() {
                                                             borderBottomColor: 'rgba(255,255,255,0.05)',
                                                         })}
                                                     >
-                                                        {/* Numéro */}
+                                                        {/* Numéro / égaliseur */}
                                                         <View style={{
-                                                            width: 28, height: 28, borderRadius: 14,
-                                                            backgroundColor: actif ? colors.or : passe ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.10)',
+                                                            width: 30, height: 30, borderRadius: 15,
+                                                            backgroundColor: actif ? colors.or : passe ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.12)',
                                                             alignItems: 'center', justifyContent: 'center',
                                                             marginRight: 14, flexShrink: 0,
                                                         }}>
-                                                            <Text style={{
-                                                                fontFamily: typography.fontFamily.bold,
-                                                                fontSize: 11,
-                                                                color: actif ? BG_BOT : passe ? W35 : W60,
-                                                                fontVariant: ['tabular-nums'],
-                                                            }}>
-                                                                {i + 1}
-                                                            </Text>
+                                                            {actif && enLecture
+                                                                ? <MiniEgaliseur color={BG_BOT} hauteur={13} epaisseur={2.5} />
+                                                                : <Text style={{
+                                                                    fontFamily: typography.fontFamily.bold,
+                                                                    fontSize: 11,
+                                                                    color: actif ? BG_BOT : passe ? W60 : W85,
+                                                                    fontVariant: ['tabular-nums'],
+                                                                }}>
+                                                                    {i + 1}
+                                                                </Text>
+                                                            }
                                                         </View>
 
                                                         {/* Titre */}
@@ -1022,9 +1025,9 @@ export default function LecteurPleinEcran() {
                                                             style={{
                                                                 flex: 1,
                                                                 fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.medium,
-                                                                fontSize: typography.size.sm,
-                                                                color: actif ? colors.or : passe ? W60 : W85,
-                                                                lineHeight: 18,
+                                                                fontSize: typography.size.base,
+                                                                color: actif ? colors.or : passe ? W85 : W85,
+                                                                lineHeight: 20,
                                                             }}
                                                         >
                                                             {m.titre}
@@ -1035,7 +1038,7 @@ export default function LecteurPleinEcran() {
                                                             <Text style={{
                                                                 fontFamily: typography.fontFamily.medium,
                                                                 fontSize: typography.size.xs,
-                                                                color: actif ? 'rgba(214,173,58,0.75)' : W35,
+                                                                color: actif ? 'rgba(214,173,58,0.85)' : W60,
                                                                 marginLeft: 10,
                                                                 fontVariant: ['tabular-nums'],
                                                                 minWidth: 44, textAlign: 'right',
@@ -1051,7 +1054,7 @@ export default function LecteurPleinEcran() {
                                 </View>
 
                                 {/* Title + Sheikh */}
-                                <View style={{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 10 : 14 }}>
+                                <View style={{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 6 : spacing.md }}>
                                     <TextTicker
                                         style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: '#fff', lineHeight: 28 }}
                                         loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
@@ -1072,26 +1075,26 @@ export default function LecteurPleinEcran() {
                                         onPress={() => { Haptics.selectionAsync(); setPanel('chapters') }}
                                         style={{
                                             alignSelf: 'center',
-                                            flexDirection: 'row', alignItems: 'center', gap: 6,
                                             backgroundColor: 'rgba(255,255,255,0.06)',
                                             borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
                                             borderRadius: radius.full,
                                             paddingHorizontal: 13, paddingVertical: 5,
-                                            marginBottom: 10,
+                                            marginBottom: spacing.md,
                                             maxWidth: W - spacing.xl * 2 - 20,
+                                            overflow: 'hidden',
                                         }}
                                     >
-                                        <Text
-                                            numberOfLines={1}
+                                        <TextTicker
                                             style={{
                                                 fontFamily: typography.fontFamily.semibold,
                                                 fontSize: typography.size.xs,
                                                 color: W85,
                                                 letterSpacing: 0.2,
                                             }}
+                                            loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
                                         >
                                             {chapitreActuel.titre}
-                                        </Text>
+                                        </TextTicker>
                                     </Pressable>
                                 )}
 
@@ -1289,7 +1292,7 @@ export default function LecteurPleinEcran() {
                                 {[
                                     { label: 'Notes',    active: noteVisible,         icon: <IcoAddNotes  size={21} color={noteVisible          ? colors.or : W60} />, onPress: ouvrirNote },
                                     { label: 'Chapitres',active: panel === 'chapters', icon: <IcoChapters size={21} color={panel === 'chapters'  ? colors.or : W60} />, onPress: () => { Haptics.selectionAsync(); setPanel(p => p === 'chapters' ? 'none' : 'chapters') } },
-                                    { label: 'File',     active: isQueue,             icon: <IcoQueue     size={21} color={isQueue               ? colors.or : W60} />, onPress: () => { Haptics.selectionAsync(); setPanel(p => p === 'queue' ? 'none' : 'queue') } },
+                                    { label: 'Playlist', active: isQueue,             icon: <IcoQueue     size={21} color={isQueue               ? colors.or : W60} />, onPress: () => { Haptics.selectionAsync(); setPanel(p => p === 'queue' ? 'none' : 'queue') } },
                                 ].map(tab => (
                                     <Pressable
                                         key={tab.label}
