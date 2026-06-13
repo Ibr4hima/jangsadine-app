@@ -3,6 +3,7 @@ import { colors, radius, spacing, typography } from '@/constants/theme'
 import { Piste, useAudio } from '@/contexts/AudioContext'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { geocoderInverse } from '@/lib/geo'
+import { getMethode } from '@/lib/prieres'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as adhan from 'adhan'
 import * as Haptics from 'expo-haptics'
@@ -173,9 +174,7 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
       if (geo.city) setVille(geo.city)
       const countryCode = geo.isoCountryCode ?? 'FR'
       const coords = new adhan.Coordinates(latitude, longitude)
-      let params = adhan.CalculationMethod.MoonsightingCommittee()
-      if (['US', 'CA', 'MX'].includes(countryCode)) params = adhan.CalculationMethod.NorthAmerica()
-      if (['SA', 'AE', 'KW'].includes(countryCode)) params = adhan.CalculationMethod.UmmAlQura()
+      const params = getMethode(countryCode)
       const times = new adhan.PrayerTimes(coords, new Date(), params)
       setPrieres([
         { nom: 'Fajr', heure: fmtH(times.fajr) },

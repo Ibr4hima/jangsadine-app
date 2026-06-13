@@ -1,5 +1,6 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { geocoderInverse } from '@/lib/geo'
+import { getMethode, getNomMethode } from '@/lib/prieres'
 import * as adhan from 'adhan'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -94,29 +95,6 @@ function calculerDernierTiers(maghrib: string, fajr: string): string {
   if (fajrMin < maghribMin) fajrMin += 1440
   const debut = maghribMin + Math.floor(((fajrMin - maghribMin) * 2) / 3)
   return (Math.floor(debut / 60) % 24).toString().padStart(2, '0') + ':' + (debut % 60).toString().padStart(2, '0')
-}
-
-function getMethode(countryCode: string): adhan.CalculationParameters {
-  const amerique = ['US', 'CA', 'MX', 'BR', 'AR', 'CO', 'CL', 'PE', 'VE']
-  const moyen_orient = ['SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'YE', 'IQ', 'SY', 'JO', 'LB', 'PS']
-  const asie_sud = ['PK', 'IN', 'BD', 'AF', 'LK', 'NP']
-  const egypte = ['EG', 'LY', 'SD']
-  if (amerique.includes(countryCode)) return adhan.CalculationMethod.NorthAmerica()
-  if (moyen_orient.includes(countryCode)) return adhan.CalculationMethod.UmmAlQura()
-  if (asie_sud.includes(countryCode)) return adhan.CalculationMethod.Karachi()
-  if (egypte.includes(countryCode)) return adhan.CalculationMethod.Egyptian()
-  return adhan.CalculationMethod.MuslimWorldLeague()
-}
-function getNomMethode(countryCode: string): string {
-  const amerique = ['US', 'CA', 'MX']
-  const moyen_orient = ['SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'YE', 'IQ', 'SY', 'JO', 'LB', 'PS']
-  const asie_sud = ['PK', 'IN', 'BD', 'AF', 'LK', 'NP']
-  const egypte = ['EG', 'LY', 'SD']
-  if (amerique.includes(countryCode)) return 'ISNA'
-  if (moyen_orient.includes(countryCode)) return 'Umm al-Qura'
-  if (asie_sud.includes(countryCode)) return 'Karachi'
-  if (egypte.includes(countryCode)) return 'Egyptian'
-  return 'Muslim World League'
 }
 
 // ─── icônes par prière ────────────────────────────────────────
