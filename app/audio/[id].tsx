@@ -23,6 +23,7 @@ import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import TextTicker from 'react-native-text-ticker'
 
 type Episode = {
     id: string
@@ -197,13 +198,16 @@ export default function DetailCours() {
                                                     </View>
 
                                                     <View style={{ flex: 1, minWidth: 0 }}>
-                                                        <Text numberOfLines={1} style={{
-                                                            fontFamily: typography.fontFamily.semibold,
-                                                            fontSize: typography.size.base,
-                                                            color: actif ? colors.bleu : colors.texte,
-                                                        }}>
+                                                        <TextTicker
+                                                            style={{
+                                                                fontFamily: typography.fontFamily.semibold,
+                                                                fontSize: typography.size.base,
+                                                                color: actif ? colors.bleu : colors.texte,
+                                                            }}
+                                                            loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                                                        >
                                                             {ep.titre}
-                                                        </Text>
+                                                        </TextTicker>
                                                         {ep.duree ? (
                                                             <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#aab4c0', marginTop: 2, fontVariant: ['tabular-nums'] }}>
                                                                 {ep.duree}
