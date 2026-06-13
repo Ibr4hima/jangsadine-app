@@ -1079,7 +1079,10 @@ export default function LecteurPleinEcran() {
                                             borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
                                             borderRadius: radius.full,
                                             paddingHorizontal: 13, paddingVertical: 5,
-                                            marginBottom: spacing.md,
+                                            // Pas de marge : la réserve de la bulle flottante (34px dans
+                                            // Progress) équilibre exactement l'espace sous la barre
+                                            // (libellés temps + marge contrôles + inset du cercle play)
+                                            marginBottom: 0,
                                             maxWidth: W - spacing.xl * 2 - 20,
                                             overflow: 'hidden',
                                         }}
