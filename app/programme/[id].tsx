@@ -276,14 +276,17 @@ export default function DetailProgramme() {
                       </Pressable>
 
                       <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text numberOfLines={1} style={{
-                          fontFamily: typography.fontFamily.semibold,
-                          fontSize: typography.size.base,
-                          color: fait ? '#9aa6b4' : colors.texte,
-                          textDecorationLine: fait ? 'line-through' : 'none',
-                        }}>
+                        <TextTicker
+                          style={{
+                            fontFamily: typography.fontFamily.semibold,
+                            fontSize: typography.size.base,
+                            color: fait ? '#9aa6b4' : colors.texte,
+                            textDecorationLine: fait ? 'line-through' : 'none',
+                          }}
+                          loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                        >
                           {c.titre}
-                        </Text>
+                        </TextTicker>
                         <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: fait ? '#b3bdc9' : colors.texteMuted, marginTop: 2 }}>
                           {c.sheikh}{c.nb_episodes ? ` · ${c.nb_episodes} épisode${c.nb_episodes > 1 ? 's' : ''}` : ''}
                         </Text>
