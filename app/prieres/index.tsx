@@ -11,7 +11,6 @@ import {
   CloudMoon,
   CloudSun,
   Hourglass,
-  MapPin,
   Moon,
   MoonStar,
   Sun,
@@ -237,7 +236,7 @@ export default function Prieres() {
           <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl }}>
 
             {/* nav */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Pressable
                 onPress={() => {
                   Haptics.selectionAsync()
@@ -269,12 +268,10 @@ export default function Prieres() {
             <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
               {ville ? (
                 <View style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: spacing.sm,
                   backgroundColor: W10, borderRadius: radius.full,
-                  paddingHorizontal: 12, paddingVertical: 5,
+                  paddingHorizontal: 14, paddingVertical: 5,
                   borderWidth: 1, borderColor: W18,
                 }}>
-                  <MapPin size={12} color={W55} strokeWidth={2} />
                   <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W70 }}>
                     {ville}
                   </Text>
