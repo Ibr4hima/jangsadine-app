@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createDownloadResumable, deleteAsync, documentDirectory, DownloadProgressData, DownloadResumable, getInfoAsync, makeDirectoryAsync } from 'expo-file-system/legacy'
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 const DOSSIER = documentDirectory + 'audio/'
 
@@ -216,13 +216,19 @@ export function TelechargementProvider({ children }: { children: React.ReactNode
 
     const tailleTotal = telechargements.reduce((acc, t) => acc + t.taille, 0)
 
+    const value = useMemo(() => ({
+        telechargements, progressions,
+        telecharger, supprimer, supprimerPlusieurs, annuler,
+        estTelecharge, estEnCours, getCheminLocal,
+        tailleTotal,
+    }), [
+        telechargements, progressions, tailleTotal,
+        telecharger, supprimer, supprimerPlusieurs, annuler,
+        estTelecharge, estEnCours, getCheminLocal,
+    ])
+
     return (
-        <TelechargementCtx.Provider value={{
-            telechargements, progressions,
-            telecharger, supprimer, supprimerPlusieurs, annuler,
-            estTelecharge, estEnCours, getCheminLocal,
-            tailleTotal,
-        }}>
+        <TelechargementCtx.Provider value={value}>
             {children}
         </TelechargementCtx.Provider>
     )

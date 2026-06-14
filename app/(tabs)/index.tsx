@@ -160,7 +160,9 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
   const progress = useSharedValue(0)
 
   useEffect(() => {
-    const iv = setInterval(() => setTick(t => t + 1), 1000)
+    // Le compte à rebours est au format minute : 30 s suffisent (au lieu d'un
+    // re-render par seconde). La barre s'anime de toute façon via withTiming.
+    const iv = setInterval(() => setTick(t => t + 1), 30000)
     return () => clearInterval(iv)
   }, [])
 
