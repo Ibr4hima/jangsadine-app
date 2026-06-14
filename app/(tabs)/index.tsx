@@ -385,12 +385,12 @@ function CarteReprendre() {
               {piste && enLecture ? 'En cours d\'écoute' : 'Reprendre l\'écoute'}
             </Text>
             <TextTicker
-              style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: '#fff' }}
+              style={{ fontFamily: /[؀-ۿ]/.test(affichee.titre) ? typography.fontFamily.arabic : typography.fontFamily.semibold, fontSize: typography.size.md, color: '#fff' }}
               loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
             >
               {affichee.titre}
             </TextTicker>
-            <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>
+            <Text numberOfLines={1} style={{ fontFamily: /[؀-ۿ]/.test(affichee.sheikh) ? typography.fontFamily.arabic : typography.fontFamily.regular, fontSize: typography.size.sm, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>
               {affichee.sheikh}
             </Text>
           </View>
