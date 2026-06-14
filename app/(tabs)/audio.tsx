@@ -3,6 +3,7 @@ import BoutonTelecharger from '@/components/BoutonTelecharger'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import { useScroll } from '@/contexts/ScrollContext'
+import { normaliser } from '@/lib/recherche'
 import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -100,10 +101,6 @@ const couleurTxt: Record<string, string> = {
   'Tafsir & Sciences du Coran': '#a02060', Seerah: '#c05c2e',
   Invocations: '#06402B', 'Éthique & Bons comportements': '#6b3db5',
   'Séries de cours': '#654321',
-}
-
-function normaliser(texte: string): string {
-  return texte.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
 // ─── pressable avec scale ressort ─────────────────────────────

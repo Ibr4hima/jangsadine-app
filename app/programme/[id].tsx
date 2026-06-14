@@ -11,6 +11,7 @@ import {
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
 import { chargerProgrammes, CoursProgramme, Programme, sauvegarderProgrammes } from '@/lib/programmes'
+import { correspond } from '@/lib/recherche'
 import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
@@ -159,8 +160,7 @@ export default function DetailProgramme() {
   }
 
   const coursFiltres = coursDispo.filter(c =>
-    c.titre.toLowerCase().includes(recherche.toLowerCase()) ||
-    c.sheikh.toLowerCase().includes(recherche.toLowerCase())
+    correspond(c.titre, recherche) || correspond(c.sheikh, recherche)
   )
 
   return (

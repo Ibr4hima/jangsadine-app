@@ -1,6 +1,7 @@
 import { EnTeteSection, PressableScale, Squelettes } from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
+import { correspond } from '@/lib/recherche'
 import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
@@ -70,6 +71,7 @@ export default function Recherche() {
   const [aCherche, setACherche] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requeteRef = useRef(0)
+  const donneesRef = useRef<Resultat[] | null>(null)
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -83,21 +85,17 @@ export default function Recherche() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [q])
 
-  const chercher = async (terme: string) => {
-    const id = ++requeteRef.current
-    // ilike : on neutralise les caractères spéciaux de la syntaxe .or()
-    const motif = `%${terme.replace(/[%,()]/g, '')}%`
-    const filtre = `titre.ilike.${motif},sheikh.ilike.${motif}`
-
+  // Charge (une seule fois) tout le catalogue léger pour filtrer côté client :
+  // c'est ce qui permet d'ignorer accents et variantes "Dr/Docteur".
+  const chargerDonnees = async (): Promise<Resultat[]> => {
+    if (donneesRef.current) return donneesRef.current
     const [cours, livres, conferences, khoutbahs, fatwas] = await Promise.all([
-      supabase.from('cours').select('id, titre, sheikh').or(filtre).limit(8),
-      supabase.from('livres').select('id, titre, sheikh').or(filtre).limit(8),
-      supabase.from('conferences').select('id, titre, sheikh, url_audio, duree').or(filtre).limit(8),
-      supabase.from('khoutbahs').select('id, titre, sheikh, url_audio, duree').or(filtre).limit(8),
-      supabase.from('fatwas').select('id, question, sheikh, url_audio, duree').or(`question.ilike.${motif},sheikh.ilike.${motif}`).limit(8),
+      supabase.from('cours').select('id, titre, sheikh').limit(1000),
+      supabase.from('livres').select('id, titre, sheikh').limit(1000),
+      supabase.from('conferences').select('id, titre, sheikh, url_audio, duree').limit(1000),
+      supabase.from('khoutbahs').select('id, titre, sheikh, url_audio, duree').limit(1000),
+      supabase.from('fatwas').select('id, question, sheikh, url_audio, duree').limit(1000),
     ])
-    if (id !== requeteRef.current) return
-
     const tous: Resultat[] = [
       ...(cours.data ?? []).map((c: any) => ({ ...c, type: 'cours' as const })),
       ...(livres.data ?? []).map((l: any) => ({ ...l, type: 'livre' as const })),
@@ -105,6 +103,24 @@ export default function Recherche() {
       ...(khoutbahs.data ?? []).map((k: any) => ({ ...k, type: 'khoutbah' as const })),
       ...(fatwas.data ?? []).map((f: any) => ({ id: f.id, titre: f.question, sheikh: f.sheikh, url_audio: f.url_audio, duree: f.duree, type: 'fatwa' as const })),
     ]
+    donneesRef.current = tous
+    return tous
+  }
+
+  const chercher = async (terme: string) => {
+    const id = ++requeteRef.current
+    const donnees = await chargerDonnees()
+    if (id !== requeteRef.current) return
+
+    // 8 résultats max par type, comme avant
+    const compteurs: Record<string, number> = {}
+    const tous = donnees
+      .filter(r => correspond(r.titre, terme) || correspond(r.sheikh, terme))
+      .filter(r => {
+        compteurs[r.type] = (compteurs[r.type] ?? 0) + 1
+        return compteurs[r.type] <= 8
+      })
+
     setResultats(tous)
     setLoading(false)
     setACherche(true)
