@@ -427,7 +427,9 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
                 width: CARD_W,
                 backgroundColor: colors.blanc,
                 borderRadius: 26,
-                padding: spacing.lg,
+                paddingVertical: spacing.xl,
+                paddingHorizontal: spacing.md,
+                alignItems: 'center',
                 overflow: 'hidden',
                 shadowColor: '#2a3b52',
                 shadowOffset: { width: 0, height: 10 },
@@ -461,7 +463,7 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
                   <Icon size={29} color="#fff" />
                 </View>
 
-                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte }}>
+                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte, textAlign: 'center' }}>
                   {s.label}
                 </Text>
               </PressableScale>
@@ -470,21 +472,49 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
         })}
       </View>
 
-      {/* raccourcis secondaires */}
+      {/* raccourcis secondaires — même style, format compact */}
       <Animated.View entering={FadeInDown.duration(500).delay(420)}>
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.lg }}>
+        <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.md }}>
           {RACCOURCIS.map(r => {
             const Icon = r.icon
             return (
               <PressableScale key={r.label} onPress={() => onNav(r.href)} style={{
-                flexDirection: 'row', alignItems: 'center', gap: 7,
+                flex: 1,
                 backgroundColor: colors.blanc,
-                borderWidth: 1, borderColor: colors.bordure,
-                borderRadius: radius.full,
-                paddingHorizontal: spacing.md, paddingVertical: 9,
+                borderRadius: 22,
+                paddingVertical: spacing.lg,
+                paddingHorizontal: spacing.sm,
+                alignItems: 'center',
+                overflow: 'hidden',
+                shadowColor: '#2a3b52',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.10,
+                shadowRadius: 22,
+                elevation: 6,
               }}>
-                <Icon size={16} color={colors.bleu} />
-                <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.texte }}>
+                {/* halo décoratif teinté */}
+                <View style={{
+                  position: 'absolute', width: 100, height: 100, borderRadius: 50,
+                  backgroundColor: TUILE_G1, opacity: 0.06, top: -34, right: -24,
+                }} />
+
+                {/* tuile icône en dégradé + halo coloré */}
+                <View style={{
+                  width: 48, height: 48, borderRadius: 16, overflow: 'hidden',
+                  alignItems: 'center', justifyContent: 'center',
+                  marginBottom: spacing.sm,
+                  shadowColor: TUILE_G2, shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.32, shadowRadius: 10, elevation: 5,
+                }}>
+                  <LinearGradient
+                    colors={[TUILE_G1, TUILE_G2]}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                  />
+                  <Icon size={23} color="#fff" />
+                </View>
+
+                <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.texte, textAlign: 'center' }}>
                   {r.label}
                 </Text>
               </PressableScale>
