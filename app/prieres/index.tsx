@@ -38,7 +38,6 @@ const BG_TOP = '#3d6ba3'
 const BG_MID = '#2d578c'
 const BG_BOT = '#234a7a'
 const NUIT_TOP = '#1c3d66'
-const NUIT_BOT = '#13294a'
 const W90 = 'rgba(255,255,255,0.90)'
 const W70 = 'rgba(255,255,255,0.70)'
 const W55 = 'rgba(255,255,255,0.55)'
@@ -365,7 +364,7 @@ export default function Prieres() {
                   <Animated.View key={p.cle} entering={FadeInDown.duration(400).delay(60 * i)}
                     style={{ borderRadius: radius.xl, overflow: 'hidden' }}>
                     <LinearGradient
-                      colors={[NUIT_TOP, NUIT_BOT]}
+                      colors={[colors.bleu, '#1c3d66']}
                       start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                       style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 14, gap: spacing.md }}
                     >
