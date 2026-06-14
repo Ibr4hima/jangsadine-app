@@ -1,8 +1,8 @@
 import { colors, radius } from '@/constants/theme'
 import { useTelechargement } from '@/contexts/TelechargementContext'
 import * as Haptics from 'expo-haptics'
-import { Pressable, Text, View } from 'react-native'
-import Svg, { Path } from 'react-native-svg'
+import { Pressable, View } from 'react-native'
+import Svg, { Circle, Path } from 'react-native-svg'
 
 function IconTelecharger({ size = 16, color = '#999' }: { size?: number, color?: string }) {
     return (
@@ -34,7 +34,7 @@ type Props = {
 }
 
 export default function BoutonTelecharger({ episode, size = 18 }: Props) {
-    const { telecharger, supprimer, estTelecharge, estEnCours, progressions } = useTelechargement()
+    const { telecharger, supprimer, annuler, estTelecharge, estEnCours, progressions } = useTelechargement()
 
     const telecharge = estTelecharge(episode.id)
     const enCours = estEnCours(episode.id)
@@ -57,15 +57,27 @@ export default function BoutonTelecharger({ episode, size = 18 }: Props) {
 
     if (enCours) {
         return (
-            <View style={{
-                width: 30, height: 30, borderRadius: radius.full,
-                backgroundColor: '#e8f0f8',
-                alignItems: 'center', justifyContent: 'center',
-            }}>
-                <Text style={{ fontSize: 9, color: colors.bleu, fontWeight: '700', includeFontPadding: false }}>
-                    {progression}%
-                </Text>
-            </View>
+            <Pressable
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); annuler(episode.id) }}
+                hitSlop={6}
+                style={{
+                    width: 30, height: 30, borderRadius: radius.full,
+                    backgroundColor: '#e8f0f8',
+                    alignItems: 'center', justifyContent: 'center',
+                }}
+            >
+                {/* Anneau de progression + carré "stop" au centre pour annuler */}
+                <Svg width={30} height={30} viewBox="0 0 30 30" style={{ position: 'absolute' }}>
+                    <Circle cx={15} cy={15} r={12} stroke="#d3e0ef" strokeWidth={2.5} fill="none" />
+                    <Circle
+                        cx={15} cy={15} r={12} stroke={colors.bleu} strokeWidth={2.5} fill="none"
+                        strokeLinecap="round" transform="rotate(-90 15 15)"
+                        strokeDasharray={2 * Math.PI * 12}
+                        strokeDashoffset={2 * Math.PI * 12 * (1 - progression / 100)}
+                    />
+                </Svg>
+                <View style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: colors.bleu }} />
+            </Pressable>
         )
     }
 

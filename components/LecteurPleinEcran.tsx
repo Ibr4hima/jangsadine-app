@@ -680,7 +680,7 @@ const RING_RADIUS = 17
 const RING_CIRC = 2 * Math.PI * RING_RADIUS
 
 function BoutonTelechargement({ piste }: { piste: Piste }) {
-    const { estTelecharge, estEnCours, progressions, telecharger } = useTelechargement()
+    const { estTelecharge, estEnCours, progressions, telecharger, annuler } = useTelechargement()
 
     const telecharge = estTelecharge(piste.id)
     const enCours    = estEnCours(piste.id)
@@ -729,7 +729,8 @@ function BoutonTelechargement({ piste }: { piste: Piste }) {
     }))
 
     const onPress = () => {
-        if (telecharge || enCours) return
+        if (telecharge) return
+        if (enCours) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); annuler(piste.id); return }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
         telecharger({
             id:          piste.id,

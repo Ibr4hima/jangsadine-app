@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createDownloadResumable, deleteAsync, documentDirectory, DownloadProgressData, getInfoAsync, makeDirectoryAsync } from 'expo-file-system/legacy'
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createDownloadResumable, deleteAsync, documentDirectory, DownloadProgressData, DownloadResumable, getInfoAsync, makeDirectoryAsync } from 'expo-file-system/legacy'
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 
 const DOSSIER = documentDirectory + 'audio/'
 
@@ -38,6 +38,7 @@ type TelechargementContextType = {
         numero?: number
     }) => Promise<void>
     supprimer: (id: string) => Promise<void>
+    annuler: (id: string) => Promise<void>
     estTelecharge: (id: string) => boolean
     estEnCours: (id: string) => boolean
     getCheminLocal: (id: string) => string | null
@@ -50,6 +51,9 @@ const STORAGE_KEY = 'jsd_telechargements'
 export function TelechargementProvider({ children }: { children: React.ReactNode }) {
     const [telechargements, setTelechargements] = useState<Telechargement[]>([])
     const [progressions, setProgressions] = useState<Record<string, ProgressionTelecharge>>({})
+    // Téléchargements en cours, pour pouvoir les annuler
+    const resumablesRef = useRef<Record<string, DownloadResumable>>({})
+    const annulesRef = useRef<Set<string>>(new Set())
 
     useEffect(() => {
         async function init() {
@@ -114,8 +118,11 @@ export function TelechargementProvider({ children }: { children: React.ReactNode
             const downloadResumable = createDownloadResumable(
                 episode.url, chemin, {}, callback
             )
+            resumablesRef.current[episode.id] = downloadResumable
 
             const result = await downloadResumable.downloadAsync()
+            // Annulé pendant le téléchargement : on ne finalise pas
+            if (annulesRef.current.has(episode.id)) { annulesRef.current.delete(episode.id); return }
             if (!result) throw new Error('Téléchargement échoué')
 
             const fileInfo = await getInfoAsync(chemin)
@@ -144,14 +151,32 @@ export function TelechargementProvider({ children }: { children: React.ReactNode
                 [episode.id]: { id: episode.id, progression: 100, enCours: false }
             }))
         } catch (e) {
-            console.error('Erreur téléchargement:', e)
+            // Pas une erreur si l'utilisateur a annulé
+            if (annulesRef.current.has(episode.id)) annulesRef.current.delete(episode.id)
+            else console.error('Erreur téléchargement:', e)
             setProgressions(prev => {
                 const next = { ...prev }
                 delete next[episode.id]
                 return next
             })
+        } finally {
+            delete resumablesRef.current[episode.id]
         }
     }, [telechargements, progressions])
+
+    const annuler = useCallback(async (id: string) => {
+        const r = resumablesRef.current[id]
+        if (!r) return
+        annulesRef.current.add(id)
+        try { await r.cancelAsync() } catch { }
+        delete resumablesRef.current[id]
+        try { await deleteAsync(DOSSIER + id + '.mp3', { idempotent: true }) } catch { }
+        setProgressions(prev => {
+            const next = { ...prev }
+            delete next[id]
+            return next
+        })
+    }, [])
 
     const supprimer = useCallback(async (id: string) => {
         const t = telechargements.find(t => t.id === id)
@@ -181,7 +206,7 @@ export function TelechargementProvider({ children }: { children: React.ReactNode
     return (
         <TelechargementCtx.Provider value={{
             telechargements, progressions,
-            telecharger, supprimer,
+            telecharger, supprimer, annuler,
             estTelecharge, estEnCours, getCheminLocal,
             tailleTotal,
         }}>
