@@ -58,7 +58,7 @@ function IcoProgramme({ size = 24, color = colors.bleu }: IcoProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M640-120q-33 0-56.5-23.5T560-200v-160q0-33 23.5-56.5T640-440h160q33 0 56.5 23.5T880-360v160q0 33-23.5 56.5T800-120H640Zm0-80h160v-160H640v160ZM80-240v-80h360v80H80Zm560-280q-33 0-56.5-23.5T560-600v-160q0-33 23.5-56.5T640-840h160q33 0 56.5 23.5T880-760v160q0 33-23.5 56.5T800-520H640Zm0-80h160v-160H640v160ZM80-640v-80h360v80H80Zm640 360Zm0-400Z" fill={color} /></Svg>
 }
 function IcoCompass({ size = 24, color = colors.bleu }: IcoProps) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="m300-300 280-80 80-280-280 80-80 280Zm180-120q-25 0-42.5-17.5T420-480q0-25 17.5-42.5T480-540q25 0 42.5 17.5T540-480q0 25-17.5 42.5T480-420Zm0 340q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q133 0 226.5-93.5T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160Z" fill={color} /></Svg>
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M516-120 402-402 120-516v-56l720-268-268 720h-56Zm26-148 162-436-436 162 196 78 78 196Zm-78-196Z" fill={color} /></Svg>
 }
 function IcoPlay({ size = 18, color = '#fff' }: IcoProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M320-200v-560l440 280-440 280Z" fill={color} /></Svg>
@@ -400,7 +400,7 @@ const TUILE_G2 = '#234a7a'
 
 const SECTIONS = [
   { label: 'Cours audio',   icon: IcoHeadphones, href: '/audio'          },
-  { label: 'Prières',       icon: IcoMosque,     href: '/(tabs)/prieres' },
+  { label: 'Heures de prières', icon: IcoMosque, href: '/(tabs)/prieres' },
   { label: 'Mon programme', icon: IcoProgramme,  href: '/programme'      },
   { label: 'Qibla',         icon: IcoCompass,    href: '/qibla'          },
 ]
