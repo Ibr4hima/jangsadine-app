@@ -212,15 +212,6 @@ export default function Prieres() {
   const prog = prochaine && precedente ? progressEntre(precedente.heure, prochaine.heure) : 0
   const dashOffset = CIRCONF - prog * CIRCONF
 
-  const dateFr = (() => {
-    const s = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    return s.charAt(0).toUpperCase() + s.slice(1)
-  })()
-  let dateHijri = ''
-  try {
-    dateHijri = new Intl.DateTimeFormat('fr-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())
-  } catch { }
-
   const IconeProchaine = prochaine ? (ICONES[prochaine.cle] ?? Sun) : Sun
 
   return (
@@ -265,23 +256,17 @@ export default function Prieres() {
                 <ArrowLeft size={20} color="#fff" strokeWidth={2.2} />
               </Pressable>
               <View style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.lg, color: '#fff' }}>
-                  Heures de prières
-                </Text>
+                <View style={{ backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4 }}>
+                  <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, letterSpacing: 1.8, color: colors.or, textTransform: 'uppercase' }}>
+                    Heures de prières
+                  </Text>
+                </View>
               </View>
               <View style={{ width: 40 }} />
             </View>
 
-            {/* dates + ville */}
+            {/* ville */}
             <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
-              <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: W90 }}>
-                {dateFr}
-              </Text>
-              {dateHijri ? (
-                <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.or, marginTop: 3 }}>
-                  {dateHijri}
-                </Text>
-              ) : null}
               {ville ? (
                 <View style={{
                   flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: spacing.sm,
