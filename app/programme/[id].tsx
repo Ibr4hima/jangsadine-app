@@ -22,6 +22,7 @@ import {
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
+import TextTicker from 'react-native-text-ticker'
 
 const VERT = '#2d7a4f'
 const VERT_BG = '#eaf4ee'
@@ -403,9 +404,12 @@ export default function DetailProgramme() {
                     <IconCasqueBleu size={19} color={ajoute ? VERT : colors.bleu} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}>
+                    <TextTicker
+                      style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}
+                      loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                    >
                       {item.titre}
-                    </Text>
+                    </TextTicker>
                     <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>
                       {item.sheikh}{item.nb_episodes ? ` · ${item.nb_episodes} épisode${item.nb_episodes > 1 ? 's' : ''}` : ''}
                     </Text>
