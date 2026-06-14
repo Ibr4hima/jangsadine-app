@@ -1,6 +1,6 @@
 import { MiniEgaliseur } from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
-import { useAudio } from '@/contexts/AudioContext'
+import { useAudio, useAudioProgress } from '@/contexts/AudioContext'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode, useEffect } from 'react'
@@ -95,7 +95,8 @@ function Tap({ onPress, style, children, hitSlop = 12 }: {
 
 // ─── mini lecteur persistant ──────────────────────────────────
 export default function LecteurPersistant() {
-    const { piste, enLecture, progression, tempsActuel, dureeTotal, pause, reprendre, pisterSuivante, setLecteurOuvert } = useAudio()
+    const { piste, enLecture, pause, reprendre, pisterSuivante, setLecteurOuvert } = useAudio()
+    const { progression, tempsActuel, dureeTotal } = useAudioProgress()
 
     // Pulsation subtile du bouton play
     const playScale = useSharedValue(1)

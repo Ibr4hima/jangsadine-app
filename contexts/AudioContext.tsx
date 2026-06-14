@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Audio, AVPlaybackStatus } from 'expo-av'
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert } from 'react-native'
 
 export type Piste = {
@@ -21,12 +21,18 @@ export type OptionsLecture = {
   ouvrirLecteur?: boolean
 }
 
-type AudioContextType = {
-  piste: Piste | null
-  enLecture: boolean
+// Progression : mise à jour ~2×/s pendant la lecture. Volontairement isolée
+// dans son propre contexte pour que seul le lecteur (mini + plein écran) se
+// re-render à cette fréquence — les listes/accueil restent immobiles.
+type AudioProgressType = {
   progression: number
   tempsActuel: number
   dureeTotal: number
+}
+
+type AudioContextType = {
+  piste: Piste | null
+  enLecture: boolean
   vitesse: number
   volume: number
   lecteurOuvert: boolean
@@ -47,6 +53,7 @@ type AudioContextType = {
 }
 
 const AudioCtx = createContext<AudioContextType | null>(null)
+const AudioProgressCtx = createContext<AudioProgressType | null>(null)
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const soundRef = useRef<Audio.Sound | null>(null)
@@ -288,15 +295,31 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     setFile(prev => [...prev, ...pistes])
   }, [])
 
+  // Valeur « contrôle » : ne change que sur de vrais événements (piste, lecture,
+  // vitesse…). Toutes les fonctions sont useCallback-stables, donc cette valeur
+  // garde la même identité pendant les mises à jour de progression.
+  const controlValue = useMemo<AudioContextType>(() => ({
+    piste, enLecture, vitesse, volume,
+    lecteurOuvert, setLecteurOuvert,
+    jouer, pause, reprendre, seeker, avancer, reculer,
+    changerVitesse, changerVolume, pisterSuivante, pistePrecedente,
+    file, playlist, ajouterAFile,
+  }), [
+    piste, enLecture, vitesse, volume, lecteurOuvert, file, playlist,
+    jouer, pause, reprendre, seeker, avancer, reculer,
+    changerVitesse, changerVolume, pisterSuivante, pistePrecedente, ajouterAFile,
+  ])
+
+  const progressValue = useMemo<AudioProgressType>(
+    () => ({ progression, tempsActuel, dureeTotal }),
+    [progression, tempsActuel, dureeTotal],
+  )
+
   return (
-    <AudioCtx.Provider value={{
-      piste, enLecture, progression, tempsActuel, dureeTotal, vitesse, volume,
-      lecteurOuvert, setLecteurOuvert,
-      jouer, pause, reprendre, seeker, avancer, reculer,
-      changerVitesse, changerVolume, pisterSuivante, pistePrecedente,
-      file, playlist, ajouterAFile,
-    }}>
-      {children}
+    <AudioCtx.Provider value={controlValue}>
+      <AudioProgressCtx.Provider value={progressValue}>
+        {children}
+      </AudioProgressCtx.Provider>
     </AudioCtx.Provider>
   )
 }
@@ -304,5 +327,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 export function useAudio() {
   const ctx = useContext(AudioCtx)
   if (!ctx) throw new Error('useAudio doit être dans AudioProvider')
+  return ctx
+}
+
+export function useAudioProgress() {
+  const ctx = useContext(AudioProgressCtx)
+  if (!ctx) throw new Error('useAudioProgress doit être dans AudioProvider')
   return ctx
 }

@@ -1,7 +1,7 @@
 import { MiniEgaliseur } from '@/components/AudioUI'
 import { segmenterInline, SURLIGNAGE_BG } from '@/components/NoteRiche'
 import { colors, radius, spacing, typography } from '@/constants/theme'
-import { useAudio } from '@/contexts/AudioContext'
+import { useAudio, useAudioProgress } from '@/contexts/AudioContext'
 import { Note, useNotes } from '@/contexts/NotesContext'
 import { useTelechargement } from '@/contexts/TelechargementContext'
 import { supabase } from '@/lib/supabase'
@@ -304,7 +304,8 @@ function BarreEcoute({ tempsActuel, dureeTotal, onSeek }: {
 const RETOUR_PASSAGE = 45
 
 function LecteurPassage({ note }: { note: Note }) {
-    const { jouer, piste, enLecture, pause, reprendre, seeker, avancer, reculer, tempsActuel, dureeTotal } = useAudio()
+    const { jouer, piste, enLecture, pause, reprendre, seeker, avancer, reculer } = useAudio()
+    const { tempsActuel, dureeTotal } = useAudioProgress()
     const { getCheminLocal } = useTelechargement()
     const [chargement, setChargement] = useState(false)
 

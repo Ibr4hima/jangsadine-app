@@ -1,7 +1,7 @@
 import { MiniEgaliseur } from '@/components/AudioUI'
 import EditeurNote from '@/components/EditeurNote'
 import { colors, radius, spacing, typography } from '@/constants/theme'
-import { useAudio } from '@/contexts/AudioContext'
+import { useAudio, useAudioProgress } from '@/contexts/AudioContext'
 import type { Piste } from '@/contexts/AudioContext'
 import { useTelechargement } from '@/contexts/TelechargementContext'
 import { supabase } from '@/lib/supabase'
@@ -809,10 +809,11 @@ function BoutonTelechargement({ piste }: { piste: Piste }) {
 // ─── Main ─────────────────────────────────────────────────────
 export default function LecteurPleinEcran() {
     const {
-        piste, enLecture, tempsActuel, dureeTotal,
+        piste, enLecture,
         vitesse, volume, pause, reprendre, seeker, avancer, reculer,
         changerVitesse, changerVolume, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
+    const { tempsActuel, dureeTotal } = useAudioProgress()
 
     const [panel, setPanel]     = useState<'none' | 'chapters' | 'queue'>('none')
     const [markers, setMarkers] = useState<{ id: string; titre: string; temps_secondes: number }[]>([])
