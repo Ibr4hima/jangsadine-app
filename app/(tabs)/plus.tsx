@@ -1,15 +1,20 @@
 import { HerosDetail, PressableScale } from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import * as Haptics from 'expo-haptics'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { ScrollView, StatusBar, Text, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
+// Teinte unique, cohérente avec le bleu du logo / des héros
+const TUILE_G1 = '#3d6ba3'
+const TUILE_G2 = '#234a7a'
+
 // ─── icônes (Material Symbols) ────────────────────────────────
 function IconChecklist({ size = 19, color = colors.bleu }: { size?: number, color?: string }) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M222-200 80-342l56-56 85 85 170-170 56 57-225 226Zm0-320L80-662l56-56 85 85 170-170 56 57-225 226Zm298 240v-80h360v80H520Zm0-320v-80h360v80H520Z" fill={color} /></Svg>
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M640-120q-33 0-56.5-23.5T560-200v-160q0-33 23.5-56.5T640-440h160q33 0 56.5 23.5T880-360v160q0 33-23.5 56.5T800-120H640Zm0-80h160v-160H640v160ZM80-240v-80h360v80H80Zm560-280q-33 0-56.5-23.5T560-600v-160q0-33 23.5-56.5T640-840h160q33 0 56.5 23.5T880-760v160q0 33-23.5 56.5T800-520H640Zm0-80h160v-160H640v160ZM80-640v-80h360v80H80Zm640 360Zm0-400Z" fill={color} /></Svg>
 }
 
 function IconAddNotes({ size = 19, color = colors.bleu }: { size?: number, color?: string }) {
@@ -21,7 +26,7 @@ function IconDownloadDone({ size = 19, color = colors.bleu }: { size?: number, c
 }
 
 function IconExplore({ size = 19, color = colors.bleu }: { size?: number, color?: string }) {
-  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="m300-300 280-80 80-280-280 80-80 280Zm180-120q-25 0-42.5-17.5T420-480q0-25 17.5-42.5T480-540q25 0 42.5 17.5T540-480q0 25-17.5 42.5T480-420Zm0 340q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q133 0 226.5-93.5T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160Zm0-320Z" fill={color} /></Svg>
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M516-120 402-402 120-516v-56l720-268-268 720h-56Zm26-148 162-436-436 162 196 78 78 196Zm-78-196Z" fill={color} /></Svg>
 }
 
 function IconNotifications({ size = 19, color = colors.bleu }: { size?: number, color?: string }) {
@@ -78,24 +83,38 @@ export default function Plus() {
                   }}
                   style={{
                     backgroundColor: colors.blanc,
-                    borderRadius: 18,
+                    borderRadius: 20,
                     padding: spacing.md,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: spacing.md,
-                    shadowColor: '#3a4a5c',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.06,
-                    shadowRadius: 10,
-                    elevation: 2,
+                    overflow: 'hidden',
+                    shadowColor: '#2a3b52',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 16,
+                    elevation: 4,
                   }}
                 >
+                  {/* halo décoratif teinté */}
                   <View style={{
-                    width: 40, height: 40, borderRadius: 20,
-                    backgroundColor: '#e8f0f8',
+                    position: 'absolute', width: 110, height: 110, borderRadius: 55,
+                    backgroundColor: TUILE_G1, opacity: 0.05, top: -50, left: -20,
+                  }} />
+
+                  {/* tuile icône en dégradé + halo coloré */}
+                  <View style={{
+                    width: 46, height: 46, borderRadius: 15, overflow: 'hidden',
                     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    shadowColor: TUILE_G2, shadowOffset: { width: 0, height: 5 },
+                    shadowOpacity: 0.32, shadowRadius: 9, elevation: 5,
                   }}>
-                    <Icon size={19} color={colors.bleu} />
+                    <LinearGradient
+                      colors={[TUILE_G1, TUILE_G2]}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                    />
+                    <Icon size={22} color="#fff" />
                   </View>
                   <Text style={{
                     flex: 1,
