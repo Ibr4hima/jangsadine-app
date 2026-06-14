@@ -353,7 +353,7 @@ export default function DetailProgramme() {
             <TextInput
               value={recherche}
               onChangeText={setRecherche}
-              placeholder="Rechercher un cours ou un sheikh…"
+              placeholder="Rechercher…"
               placeholderTextColor="#aab4c0"
               style={{
                 flex: 1, fontFamily: typography.fontFamily.medium,
