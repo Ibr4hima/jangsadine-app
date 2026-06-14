@@ -17,7 +17,7 @@ export type Piste = {
 export type OptionsLecture = {
   // Démarre à cette position (secondes) au lieu de la reprise sauvegardée
   position?: number
-  // false : ne pas ouvrir le lecteur plein écran au lancement
+  // true : ouvrir le lecteur plein écran au lancement (sinon on garde le mini lecteur)
   ouvrirLecteur?: boolean
 }
 
@@ -161,7 +161,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       setPiste(p)
       pisteIdRef.current = p.id
-      if (options?.ouvrirLecteur !== false) setLecteurOuvert(true)
+      if (options?.ouvrirLecteur === true) setLecteurOuvert(true)
       setFile(suivantes)
       AsyncStorage.setItem('jsd_derniere_piste', JSON.stringify(p)).catch(() => {})
 
