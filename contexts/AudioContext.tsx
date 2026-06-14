@@ -68,8 +68,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // son son — sinon deux audios peuvent se lire en même temps quand on
   // lance une piste pendant que la précédente charge encore
   const chargementRef = useRef(0)
-  // Positions de lecture sauvegardées par piste (reprise où on s'était arrêté)
-  const positionsRef = useRef<Record<string, number>>({})
   const pisteIdRef = useRef<string | null>(null)
   const derniereSauvegardeRef = useRef(0)
 
@@ -100,24 +98,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { tempsRef.current = tempsActuel }, [tempsActuel])
   useEffect(() => { dureeRef.current = dureeTotal }, [dureeTotal])
 
-  // Charge les positions sauvegardées au démarrage
-  useEffect(() => {
-    AsyncStorage.getItem('jsd_positions')
-      .then(v => { if (v) positionsRef.current = JSON.parse(v) })
-      .catch(() => {})
-  }, [])
-
-  const persisterPositions = () => {
-    AsyncStorage.setItem('jsd_positions', JSON.stringify(positionsRef.current)).catch(() => {})
-  }
-
-  const sauverPosition = (id: string, temps: number, duree: number) => {
-    // À moins de 20s de la fin on considère l'épisode terminé :
-    // la prochaine écoute reprendra du début
-    if (duree > 0 && duree - temps < 20) delete positionsRef.current[id]
-    else if (temps > 5) positionsRef.current[id] = temps
-    else return
-    persisterPositions()
+  // On ne mémorise QUE la position du dernier audio écouté (pour « Reprendre
+  // l'écoute » de l'accueil). Rejouer un autre audio repart toujours du début.
+  const sauverDernierePosition = (temps: number, duree: number) => {
+    // À moins de 20s de la fin on considère l'épisode terminé → on repart de 0.
+    const pos = (duree > 0 && duree - temps < 20) ? 0 : Math.max(0, temps)
+    AsyncStorage.setItem('jsd_derniere_position', String(pos)).catch(() => {})
   }
 
   const pisterSuivante = useCallback(async () => {
@@ -138,15 +124,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setTempsActuel(t)
       setProgression(d > 0 ? (t / d) * 100 : 0)
     }
-    // Sauvegarde régulière de la position (toutes les 5s de lecture)
+    // Sauvegarde régulière de la position du dernier audio (toutes les 5s)
     const id = pisteIdRef.current
     if (id && status.isPlaying && Date.now() - derniereSauvegardeRef.current > 5000) {
       derniereSauvegardeRef.current = Date.now()
-      sauverPosition(id, t, d)
+      sauverDernierePosition(t, d)
     }
     if (status.didJustFinish) {
       // Épisode terminé : on oublie la position pour repartir du début
-      if (id) { delete positionsRef.current[id]; persisterPositions() }
+      AsyncStorage.setItem('jsd_derniere_position', '0').catch(() => {})
       pisterSuivante()
     }
   }, [pisterSuivante])
@@ -154,11 +140,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const chargerEtJouer = async (p: Piste, suivantes: Piste[] = [], options?: OptionsLecture) => {
     const generation = ++chargementRef.current
     try {
-      // Mémorise où on en était sur la piste précédente avant de zapper
-      if (pisteIdRef.current && tempsRef.current > 0) {
-        sauverPosition(pisteIdRef.current, tempsRef.current, dureeRef.current)
-      }
-
       if (soundRef.current) {
         const ancien = soundRef.current
         soundRef.current = null
@@ -172,8 +153,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setFile(suivantes)
       AsyncStorage.setItem('jsd_derniere_piste', JSON.stringify(p)).catch(() => {})
 
-      // Position explicite, sinon reprise là où on s'était arrêté
-      const reprise = options?.position ?? positionsRef.current[p.id] ?? 0
+      // Reprise uniquement si une position est explicitement demandée
+      // (ex. « Reprendre l'écoute »). Sinon on repart toujours du début.
+      const reprise = options?.position ?? 0
+      AsyncStorage.setItem('jsd_derniere_position', String(reprise)).catch(() => {})
       setProgression(0)
       setTempsActuel(reprise)
       setDureeTotal(0)
@@ -245,7 +228,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const pause = useCallback(async () => {
     await soundRef.current?.pauseAsync()
-    if (pisteIdRef.current) sauverPosition(pisteIdRef.current, tempsRef.current, dureeRef.current)
+    if (pisteIdRef.current) sauverDernierePosition(tempsRef.current, dureeRef.current)
   }, [])
 
   const reprendre = useCallback(async () => {

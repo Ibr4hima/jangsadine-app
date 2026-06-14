@@ -10,7 +10,7 @@ import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import * as Location from 'expo-location'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { ReactNode, useCallback, useEffect, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import {
   Dimensions,
   Pressable,
@@ -308,6 +308,7 @@ function CarteReprendre() {
   const { piste, enLecture, jouer, pause, reprendre, setLecteurOuvert } = useAudio()
   const [derniere, setDerniere] = useState<Piste | null>(null)
   const [dernierePlaylist, setDernierePlaylist] = useState<Piste[] | null>(null)
+  const dernierePositionRef = useRef(0)
 
   useEffect(() => {
     AsyncStorage.getItem('jsd_derniere_piste')
@@ -315,6 +316,9 @@ function CarteReprendre() {
       .catch(() => { })
     AsyncStorage.getItem('jsd_derniere_playlist')
       .then(raw => { if (raw) setDernierePlaylist(JSON.parse(raw)) })
+      .catch(() => { })
+    AsyncStorage.getItem('jsd_derniere_position')
+      .then(raw => { dernierePositionRef.current = raw ? Number(raw) || 0 : 0 })
       .catch(() => { })
   }, [])
 
@@ -324,12 +328,14 @@ function CarteReprendre() {
   // Relance la dernière piste en restaurant sa playlist complète (pour la File du lecteur)
   const reprendreDerniere = (options?: { ouvrirLecteur?: boolean }) => {
     if (!derniere) return
+    // Reprend le dernier audio exactement là où on l'avait laissé
+    const opts = { ...options, position: dernierePositionRef.current }
     const liste = dernierePlaylist?.some(t => t.id === derniere.id) ? dernierePlaylist : null
     if (liste) {
       const idx = liste.findIndex(t => t.id === derniere.id)
-      jouer(liste[idx], liste.slice(idx + 1), options, liste)
+      jouer(liste[idx], liste.slice(idx + 1), opts, liste)
     } else {
-      jouer(derniere, [], options)
+      jouer(derniere, [], opts)
     }
   }
 
