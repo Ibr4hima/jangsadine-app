@@ -16,6 +16,7 @@ import { Alert, Pressable, ScrollView, StatusBar, Text, View } from 'react-nativ
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
+import TextTicker from 'react-native-text-ticker'
 
 // ─── icônes ───────────────────────────────────────────────────
 function IconDownloadDone({ size = 20, color = 'white' }: { size?: number, color?: string }) {
@@ -133,9 +134,12 @@ function GroupeContenu({
         </Pressable>
 
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}>
+          <TextTicker
+            style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.base, color: colors.texte }}
+            loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+          >
             {titre}
-          </Text>
+          </TextTicker>
           <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: 2 }}>
             {(() => {
               const sheikhs = [...new Set(episodes.map(e => e.sheikh).filter(Boolean))]
@@ -213,13 +217,16 @@ function GroupeContenu({
                 </View>
 
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text numberOfLines={1} style={{
-                    fontFamily: typography.fontFamily.semibold,
-                    fontSize: typography.size.base,
-                    color: epActif ? colors.bleu : colors.texte,
-                  }}>
+                  <TextTicker
+                    style={{
+                      fontFamily: typography.fontFamily.semibold,
+                      fontSize: typography.size.base,
+                      color: epActif ? colors.bleu : colors.texte,
+                    }}
+                    loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                  >
                     {ep.titre}
-                  </Text>
+                  </TextTicker>
                   {ep.sheikh ? (
                     <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#aab4c0', marginTop: 2 }}>
                       {ep.sheikh}
