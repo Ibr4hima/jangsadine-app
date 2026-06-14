@@ -1,13 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { Asset } from 'expo-asset'
 import {
   AudioPlayer,
+  AudioMetadata,
   AudioStatus,
   createAudioPlayer,
   setAudioModeAsync,
   setIsAudioActiveAsync,
 } from 'expo-audio'
+import { readAsStringAsync } from 'expo-file-system/legacy'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert } from 'react-native'
+
+// Logo de l'app affiché par défaut comme jaquette sur l'écran verrouillé
+const LOGO_APP = require('../assets/images/logo.png')
 
 export type Piste = {
   id: string
@@ -79,7 +85,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // encore pourrait se positionner ou s'interrompre à tort.
   const generationRef = useRef(0)
   const pisteIdRef = useRef<string | null>(null)
+  const pisteRef = useRef<Piste | null>(null)
   const derniereSauvegardeRef = useRef(0)
+  // Jaquette par défaut (logo de l'app) en data-URL base64, prête une fois
+  // le logo embarqué lu au démarrage. URLSession charge les data: de façon fiable.
+  const pochetteDefautRef = useRef<string | undefined>(undefined)
   // Position à appliquer dès que la nouvelle source est chargée (reprise)
   const repriseEnAttenteRef = useRef<number | null>(null)
   // Watchdog de chargement : alerte si la piste ne charge jamais
@@ -110,6 +120,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     const pos = (duree > 0 && duree - temps < 20) ? 0 : Math.max(0, temps)
     AsyncStorage.setItem('jsd_derniere_position', String(pos)).catch(() => {})
   }, [])
+
+  // Métadonnées de l'écran verrouillé : jaquette propre à la piste si fournie,
+  // sinon le logo de l'app (dès qu'il est prêt).
+  const construireMetadata = useCallback((p: Piste): AudioMetadata => ({
+    title: p.titre,
+    artist: p.sheikh,
+    artworkUrl: p.pochette ?? pochetteDefautRef.current,
+  }), [])
 
   const annulerWatchdog = useCallback(() => {
     if (watchdogRef.current) {
@@ -164,6 +182,27 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [annulerWatchdog, sauverDernierePosition, pisterSuivante])
 
+  // Lit le logo embarqué une fois et le convertit en data-URL pour servir de
+  // jaquette par défaut sur l'écran verrouillé.
+  useEffect(() => {
+    let annule = false
+    ;(async () => {
+      try {
+        const asset = Asset.fromModule(LOGO_APP)
+        await asset.downloadAsync()
+        if (annule || !asset.localUri) return
+        const b64 = await readAsStringAsync(asset.localUri, { encoding: 'base64' })
+        if (annule) return
+        pochetteDefautRef.current = `data:image/jpeg;base64,${b64}`
+        // Une piste joue déjà : on pousse la jaquette tout de suite
+        if (pisteRef.current && playerRef.current) {
+          playerRef.current.updateLockScreenMetadata(construireMetadata(pisteRef.current))
+        }
+      } catch {}
+    })()
+    return () => { annule = true }
+  }, [construireMetadata])
+
   // Création du lecteur persistant + configuration de la session audio (une fois)
   useEffect(() => {
     setAudioModeAsync({
@@ -195,6 +234,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     setPiste(p)
     pisteIdRef.current = p.id
+    pisteRef.current = p
     if (options?.ouvrirLecteur === true) setLecteurOuvert(true)
     setFile(suivantes)
     AsyncStorage.setItem('jsd_derniere_piste', JSON.stringify(p)).catch(() => {})
@@ -216,7 +256,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       // Affiche les contrôles sur l'écran verrouillé / centre de contrôle
       player.setActiveForLockScreen(
         true,
-        { title: p.titre, artist: p.sheikh, artworkUrl: p.pochette },
+        construireMetadata(p),
         { showSeekForward: true, showSeekBackward: true },
       )
       setEnLecture(true)
@@ -241,7 +281,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         'Le fichier audio n\'a pas pu être chargé. Vérifiez votre connexion internet puis réessayez.',
       )
     }
-  }, [annulerWatchdog])
+  }, [annulerWatchdog, construireMetadata])
 
   useEffect(() => { chargerEtJouerRef.current = chargerEtJouer }, [chargerEtJouer])
 
