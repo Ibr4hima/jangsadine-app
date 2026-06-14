@@ -394,11 +394,15 @@ function CarteReprendre() {
 }
 
 // ─── accès rapide ─────────────────────────────────────────────
+// Teinte unique, cohérente avec le bleu du logo / des héros
+const TUILE_G1 = '#3d6ba3'
+const TUILE_G2 = '#234a7a'
+
 const SECTIONS = [
-  { label: 'Cours audio',   sous: 'Écouter & apprendre', icon: IcoHeadphones, href: '/audio',          g1: '#3d6ba3', g2: '#234a7a' },
-  { label: 'Prières',       sous: 'Horaires du jour',    icon: IcoMosque,     href: '/(tabs)/prieres', g1: '#e3c155', g2: '#b8911f' },
-  { label: 'Mon programme', sous: 'Votre parcours',      icon: IcoBook,       href: '/programme',      g1: '#36a06a', g2: '#1f6b46' },
-  { label: 'Qibla',         sous: 'Trouver la direction', icon: IcoCompass,   href: '/qibla',          g1: '#7d64c6', g2: '#5a3db0' },
+  { label: 'Cours audio',   icon: IcoHeadphones, href: '/audio'          },
+  { label: 'Prières',       icon: IcoMosque,     href: '/(tabs)/prieres' },
+  { label: 'Mon programme', icon: IcoBook,       href: '/programme'      },
+  { label: 'Qibla',         icon: IcoCompass,    href: '/qibla'          },
 ]
 
 const RACCOURCIS = [
@@ -434,11 +438,11 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
                 {/* halo décoratif teinté */}
                 <View style={{
                   position: 'absolute', width: 140, height: 140, borderRadius: 70,
-                  backgroundColor: s.g1, opacity: 0.07, top: -46, right: -34,
+                  backgroundColor: TUILE_G1, opacity: 0.06, top: -46, right: -34,
                 }} />
                 <View style={{
                   position: 'absolute', width: 70, height: 70, borderRadius: 35,
-                  backgroundColor: s.g2, opacity: 0.05, bottom: -24, left: -16,
+                  backgroundColor: TUILE_G2, opacity: 0.04, bottom: -24, left: -16,
                 }} />
 
                 {/* tuile icône en dégradé + halo coloré */}
@@ -446,11 +450,11 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
                   width: 60, height: 60, borderRadius: 20, overflow: 'hidden',
                   alignItems: 'center', justifyContent: 'center',
                   marginBottom: spacing.md,
-                  shadowColor: s.g2, shadowOffset: { width: 0, height: 7 },
-                  shadowOpacity: 0.38, shadowRadius: 12, elevation: 6,
+                  shadowColor: TUILE_G2, shadowOffset: { width: 0, height: 7 },
+                  shadowOpacity: 0.34, shadowRadius: 12, elevation: 6,
                 }}>
                   <LinearGradient
-                    colors={[s.g1, s.g2]}
+                    colors={[TUILE_G1, TUILE_G2]}
                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                     style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                   />
@@ -459,9 +463,6 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
 
                 <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte }}>
                   {s.label}
-                </Text>
-                <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: colors.texteMuted, marginTop: 3 }}>
-                  {s.sous}
                 </Text>
               </PressableScale>
             </Animated.View>
