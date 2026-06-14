@@ -20,7 +20,7 @@ import * as Haptics from 'expo-haptics'
 import { useLocalSearchParams } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native'
+import { FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import TextTicker from 'react-native-text-ticker'
@@ -139,130 +139,135 @@ export default function PageChapitre() {
             </HerosDetail>
 
             {/* ── Épisodes ── */}
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: 170 }}>
-                {loading ? (
+            {loading ? (
+                <View style={{ padding: spacing.xl }}>
                     <Squelettes n={6} h={66} />
-                ) : (
-                    <Animated.View entering={FadeIn.duration(220)}>
+                </View>
+            ) : (
+                <FlatList
+                    data={episodes}
+                    keyExtractor={e => e.id}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ padding: spacing.xl, paddingBottom: 170 }}
+                    ListHeaderComponent={
                         <EnTeteSection
                             eyebrow="Épisodes"
                             titre={`${episodes.length} épisode${episodes.length > 1 ? 's' : ''}`}
                         />
-                        {episodes.length === 0 ? (
-                            <EtatVideDetail message="Les épisodes arrivent bientôt" />
-                        ) : (
-                            <View style={{ gap: spacing.sm }}>
-                                {episodes.map((ep, index) => {
-                                    const actif = piste?.id === ep.id
-                                    const descVisible = descOuverte === ep.id
-                                    return (
-                                        <Animated.View key={ep.id} entering={FadeInDown.duration(350).delay(Math.min(index, 8) * 45)}>
-                                            <PressableScale
-                                                onPress={() => {
-                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                                                    if (actif) { enLecture ? pause() : reprendre() }
-                                                    else jouerEpisode(ep, index)
-                                                }}
+                    }
+                    ListEmptyComponent={<EtatVideDetail message="Les épisodes arrivent bientôt" />}
+                    ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+                    initialNumToRender={8}
+                    maxToRenderPerBatch={8}
+                    windowSize={11}
+                    renderItem={({ item: ep, index }) => {
+                        const actif = piste?.id === ep.id
+                        const descVisible = descOuverte === ep.id
+                        return (
+                            <Animated.View entering={FadeInDown.duration(350).delay(Math.min(index, 8) * 45)}>
+                                <PressableScale
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                                        if (actif) { enLecture ? pause() : reprendre() }
+                                        else jouerEpisode(ep, index)
+                                    }}
+                                    style={{
+                                        backgroundColor: colors.blanc,
+                                        borderRadius: 18,
+                                        padding: spacing.md,
+                                        borderWidth: actif ? 1.5 : 0,
+                                        borderColor: colors.bleu,
+                                        shadowColor: '#3a4a5c',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.06,
+                                        shadowRadius: 10,
+                                        elevation: 2,
+                                    }}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                                        <View style={{
+                                            width: 38, height: 38, borderRadius: 19,
+                                            backgroundColor: actif ? colors.bleu : '#edf2f8',
+                                            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                            ...(actif ? {
+                                                shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
+                                                shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+                                            } : {}),
+                                        }}>
+                                            {actif && enLecture
+                                                ? <MiniEgaliseur color="white" hauteur={15} />
+                                                : actif
+                                                    ? <IconPlay size={15} color="white" />
+                                                    : <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>{ep.numero}</Text>}
+                                        </View>
+
+                                        <View style={{ flex: 1, minWidth: 0 }}>
+                                            <TextTicker
                                                 style={{
-                                                    backgroundColor: colors.blanc,
-                                                    borderRadius: 18,
-                                                    padding: spacing.md,
-                                                    borderWidth: actif ? 1.5 : 0,
-                                                    borderColor: colors.bleu,
-                                                    shadowColor: '#3a4a5c',
-                                                    shadowOffset: { width: 0, height: 4 },
-                                                    shadowOpacity: 0.06,
-                                                    shadowRadius: 10,
-                                                    elevation: 2,
+                                                    fontFamily: typography.fontFamily.semibold,
+                                                    fontSize: typography.size.base,
+                                                    color: actif ? colors.bleu : colors.texte,
+                                                }}
+                                                loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                                            >
+                                                {ep.titre}
+                                            </TextTicker>
+                                            {ep.duree ? (
+                                                <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#aab4c0', marginTop: 2, fontVariant: ['tabular-nums'] }}>
+                                                    {ep.duree}
+                                                </Text>
+                                            ) : null}
+                                        </View>
+
+                                        <BoutonTelecharger
+                                            episode={{
+                                                id: ep.id,
+                                                titre: ep.titre,
+                                                sheikh,
+                                                coursId: chapitreId as string,
+                                                coursTitre: chapitre?.titre ?? '',
+                                                url: ep.url_audio,
+                                                type: 'cours',
+                                                numero: ep.numero,
+                                            }}
+                                        />
+
+                                        {ep.description ? (
+                                            <Pressable
+                                                onPress={() => {
+                                                    Haptics.selectionAsync()
+                                                    setDescOuverte(descVisible ? null : ep.id)
+                                                }}
+                                                hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                                                style={{
+                                                    width: 30, height: 30, borderRadius: 15,
+                                                    backgroundColor: descVisible ? colors.bleu : '#edf2f8',
+                                                    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                                                 }}
                                             >
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                                                    <View style={{
-                                                        width: 38, height: 38, borderRadius: 19,
-                                                        backgroundColor: actif ? colors.bleu : '#edf2f8',
-                                                        alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                                        ...(actif ? {
-                                                            shadowColor: colors.bleu, shadowOffset: { width: 0, height: 3 },
-                                                            shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
-                                                        } : {}),
-                                                    }}>
-                                                        {actif && enLecture
-                                                            ? <MiniEgaliseur color="white" hauteur={15} />
-                                                            : actif
-                                                                ? <IconPlay size={15} color="white" />
-                                                                : <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: colors.bleu }}>{ep.numero}</Text>}
-                                                    </View>
+                                                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 13, color: descVisible ? 'white' : colors.bleu, fontStyle: 'italic' }}>i</Text>
+                                            </Pressable>
+                                        ) : null}
+                                    </View>
 
-                                                    <View style={{ flex: 1, minWidth: 0 }}>
-                                                        <TextTicker
-                                                            style={{
-                                                                fontFamily: typography.fontFamily.semibold,
-                                                                fontSize: typography.size.base,
-                                                                color: actif ? colors.bleu : colors.texte,
-                                                            }}
-                                                            loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
-                                                        >
-                                                            {ep.titre}
-                                                        </TextTicker>
-                                                        {ep.duree ? (
-                                                            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: '#aab4c0', marginTop: 2, fontVariant: ['tabular-nums'] }}>
-                                                                {ep.duree}
-                                                            </Text>
-                                                        ) : null}
-                                                    </View>
-
-                                                    <BoutonTelecharger
-                                                        episode={{
-                                                            id: ep.id,
-                                                            titre: ep.titre,
-                                                            sheikh,
-                                                            coursId: chapitreId as string,
-                                                            coursTitre: chapitre?.titre ?? '',
-                                                            url: ep.url_audio,
-                                                            type: 'cours',
-                                                            numero: ep.numero,
-                                                        }}
-                                                    />
-
-                                                    {ep.description ? (
-                                                        <Pressable
-                                                            onPress={() => {
-                                                                Haptics.selectionAsync()
-                                                                setDescOuverte(descVisible ? null : ep.id)
-                                                            }}
-                                                            hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
-                                                            style={{
-                                                                width: 30, height: 30, borderRadius: 15,
-                                                                backgroundColor: descVisible ? colors.bleu : '#edf2f8',
-                                                                alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                                            }}
-                                                        >
-                                                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 13, color: descVisible ? 'white' : colors.bleu, fontStyle: 'italic' }}>i</Text>
-                                                        </Pressable>
-                                                    ) : null}
-                                                </View>
-
-                                                {descVisible && ep.description ? (
-                                                    <Animated.View entering={FadeIn.duration(200)} style={{
-                                                        marginTop: spacing.md,
-                                                        paddingTop: spacing.md,
-                                                        borderTopWidth: 1,
-                                                        borderTopColor: '#eef1f6',
-                                                    }}>
-                                                        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: '#5b6675', lineHeight: 21 }}>
-                                                            {ep.description}
-                                                        </Text>
-                                                    </Animated.View>
-                                                ) : null}
-                                            </PressableScale>
+                                    {descVisible && ep.description ? (
+                                        <Animated.View entering={FadeIn.duration(200)} style={{
+                                            marginTop: spacing.md,
+                                            paddingTop: spacing.md,
+                                            borderTopWidth: 1,
+                                            borderTopColor: '#eef1f6',
+                                        }}>
+                                            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: '#5b6675', lineHeight: 21 }}>
+                                                {ep.description}
+                                            </Text>
                                         </Animated.View>
-                                    )
-                                })}
-                            </View>
-                        )}
-                    </Animated.View>
-                )}
-            </ScrollView>
+                                    ) : null}
+                                </PressableScale>
+                            </Animated.View>
+                        )
+                    }}
+                />
+            )}
         </View>
     )
 }
