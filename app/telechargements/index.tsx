@@ -69,7 +69,7 @@ function GroupeContenu({
   groupId: string, titre: string, episodes: Telechargement[], index: number, avecSheikh: boolean,
 }) {
   const [ouvert, setOuvert] = useState(true)
-  const { supprimer } = useTelechargement()
+  const { supprimer, supprimerPlusieurs } = useTelechargement()
   const { jouer, piste, enLecture, pause, reprendre } = useAudio()
 
   const groupeActif = episodes.some(e => e.id === piste?.id)
@@ -92,7 +92,7 @@ function GroupeContenu({
       `Supprimer les ${episodes.length} épisode${episodes.length > 1 ? 's' : ''} de « ${titre} » ?`,
       [
         { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: () => episodes.forEach(e => supprimer(e.id)) },
+        { text: 'Supprimer', style: 'destructive', onPress: () => supprimerPlusieurs(episodes.map(e => e.id)) },
       ]
     )
   }
@@ -252,7 +252,7 @@ function GroupeContenu({
 // ─── page principale ─────────────────────────────────────────
 export default function Telechargements() {
   const insets = useSafeAreaInsets()
-  const { telechargements, supprimer, tailleTotal } = useTelechargement()
+  const { telechargements, supprimerPlusieurs, tailleTotal } = useTelechargement()
 
   const toutSupprimer = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
@@ -261,7 +261,7 @@ export default function Telechargements() {
       `${telechargements.length} épisode${telechargements.length > 1 ? 's' : ''} · ${formaterTaille(tailleTotal)}`,
       [
         { text: 'Annuler', style: 'cancel' },
-        { text: 'Tout supprimer', style: 'destructive', onPress: () => telechargements.forEach(t => supprimer(t.id)) },
+        { text: 'Tout supprimer', style: 'destructive', onPress: () => supprimerPlusieurs(telechargements.map(t => t.id)) },
       ]
     )
   }

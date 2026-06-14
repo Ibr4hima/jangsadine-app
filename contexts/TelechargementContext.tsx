@@ -38,6 +38,7 @@ type TelechargementContextType = {
         numero?: number
     }) => Promise<void>
     supprimer: (id: string) => Promise<void>
+    supprimerPlusieurs: (ids: string[]) => Promise<void>
     annuler: (id: string) => Promise<void>
     estTelecharge: (id: string) => boolean
     estEnCours: (id: string) => boolean
@@ -189,6 +190,18 @@ export function TelechargementProvider({ children }: { children: React.ReactNode
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filtres))
     }, [telechargements])
 
+    // Suppression groupée : un seul setState, sinon les appels successifs
+    // partent tous du même snapshot et un seul élément finit par disparaître.
+    const supprimerPlusieurs = useCallback(async (ids: string[]) => {
+        if (ids.length === 0) return
+        const set = new Set(ids)
+        const cibles = telechargements.filter(t => set.has(t.id))
+        await Promise.all(cibles.map(t => deleteAsync(t.cheminLocal, { idempotent: true }).catch(() => { })))
+        const filtres = telechargements.filter(t => !set.has(t.id))
+        setTelechargements(filtres)
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filtres))
+    }, [telechargements])
+
     const estTelecharge = useCallback((id: string) => {
         return telechargements.some(t => t.id === id)
     }, [telechargements])
@@ -206,7 +219,7 @@ export function TelechargementProvider({ children }: { children: React.ReactNode
     return (
         <TelechargementCtx.Provider value={{
             telechargements, progressions,
-            telecharger, supprimer, annuler,
+            telecharger, supprimer, supprimerPlusieurs, annuler,
             estTelecharge, estEnCours, getCheminLocal,
             tailleTotal,
         }}>
