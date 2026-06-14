@@ -1,5 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { Audio, AVPlaybackStatus } from 'expo-av'
+import {
+  AudioPlayer,
+  AudioStatus,
+  createAudioPlayer,
+  setAudioModeAsync,
+  setIsAudioActiveAsync,
+} from 'expo-audio'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert } from 'react-native'
 
@@ -12,6 +18,8 @@ export type Piste = {
   href?: string
   programmeId?: string
   episodeIndex?: number
+  // URL de jaquette affichée sur l'écran verrouillé (optionnel)
+  pochette?: string
 }
 
 export type OptionsLecture = {
@@ -56,20 +64,29 @@ const AudioCtx = createContext<AudioContextType | null>(null)
 const AudioProgressCtx = createContext<AudioProgressType | null>(null)
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
-  const soundRef = useRef<Audio.Sound | null>(null)
+  // Lecteur persistant unique : on change de piste via replace(), ce qui garde
+  // les contrôles de l'écran verrouillé attachés en permanence.
+  const playerRef = useRef<AudioPlayer | null>(null)
   const fileRef = useRef<Piste[]>([])
   const tempsRef = useRef(0)
   const dureeRef = useRef(0)
   const vitesseRef = useRef(1)
   // Ignore stale status updates briefly after a seek so the progress
-  // bar never jumps backwards while expo-av catches up
+  // bar never jumps backwards while expo-audio catches up
   const ignoreJusquaRef = useRef(0)
-  // Compteur de génération : seul le chargement le plus récent garde
-  // son son — sinon deux audios peuvent se lire en même temps quand on
-  // lance une piste pendant que la précédente charge encore
-  const chargementRef = useRef(0)
+  // Compteur de génération : seul le chargement le plus récent applique sa
+  // reprise / son watchdog — sinon une piste lancée pendant qu'une autre charge
+  // encore pourrait se positionner ou s'interrompre à tort.
+  const generationRef = useRef(0)
   const pisteIdRef = useRef<string | null>(null)
   const derniereSauvegardeRef = useRef(0)
+  // Position à appliquer dès que la nouvelle source est chargée (reprise)
+  const repriseEnAttenteRef = useRef<number | null>(null)
+  // Watchdog de chargement : alerte si la piste ne charge jamais
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Permet à pisterSuivante (mémorisé) d'appeler la dernière version de
+  // chargerEtJouer sans créer de dépendance circulaire entre les useCallback.
+  const chargerEtJouerRef = useRef<(p: Piste, suivantes?: Piste[], options?: OptionsLecture) => void>(() => {})
 
   const [piste, setPiste] = useState<Piste | null>(null)
   const [file, setFile] = useState<Piste[]>([])
@@ -82,119 +99,141 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [volume, setVolume] = useState(1)
   const [lecteurOuvert, setLecteurOuvert] = useState(false)
 
-  useEffect(() => {
-    Audio.setAudioModeAsync({
-      staysActiveInBackground: true,
-      playsInSilentModeIOS: true,
-      shouldDuckAndroid: true,
-      allowsRecordingIOS: false,
-      interruptionModeIOS: 1,
-      interruptionModeAndroid: 1,
-      playThroughEarpieceAndroid: false,
-    })
-  }, [])
-
   useEffect(() => { fileRef.current = file }, [file])
   useEffect(() => { tempsRef.current = tempsActuel }, [tempsActuel])
   useEffect(() => { dureeRef.current = dureeTotal }, [dureeTotal])
 
   // On ne mémorise QUE la position du dernier audio écouté (pour « Reprendre
   // l'écoute » de l'accueil). Rejouer un autre audio repart toujours du début.
-  const sauverDernierePosition = (temps: number, duree: number) => {
+  const sauverDernierePosition = useCallback((temps: number, duree: number) => {
     // À moins de 20s de la fin on considère l'épisode terminé → on repart de 0.
     const pos = (duree > 0 && duree - temps < 20) ? 0 : Math.max(0, temps)
     AsyncStorage.setItem('jsd_derniere_position', String(pos)).catch(() => {})
-  }
+  }, [])
+
+  const annulerWatchdog = useCallback(() => {
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current)
+      watchdogRef.current = null
+    }
+  }, [])
 
   const pisterSuivante = useCallback(async () => {
     const f = fileRef.current
     if (f.length > 0) {
       const [prochaine, ...reste] = f
-      await chargerEtJouer(prochaine, reste)
+      chargerEtJouerRef.current(prochaine, reste)
     }
   }, [])
 
-  const onUpdate = useCallback((status: AVPlaybackStatus) => {
+  // Reçoit les mises à jour du lecteur (~2×/s). Stable : ne lit que des refs.
+  const onUpdate = useCallback((status: AudioStatus) => {
     if (!status.isLoaded) return
-    const t = (status.positionMillis ?? 0) / 1000
-    const d = (status.durationMillis ?? 0) / 1000
-    setEnLecture(status.isPlaying)
-    setDureeTotal(d)
+    annulerWatchdog()
+
+    const t = status.currentTime ?? 0
+    const d = status.duration ?? 0
+    setEnLecture(status.playing)
+    if (d > 0) setDureeTotal(d)
+
+    // Reprise : on attend que la durée soit connue puis on se positionne une fois
+    if (repriseEnAttenteRef.current != null && d > 0) {
+      const pos = repriseEnAttenteRef.current
+      repriseEnAttenteRef.current = null
+      if (pos > 1 && pos < d - 1) {
+        ignoreJusquaRef.current = Date.now() + 900
+        playerRef.current?.seekTo(pos).catch(() => {})
+      }
+    }
+
     if (Date.now() >= ignoreJusquaRef.current) {
       setTempsActuel(t)
       setProgression(d > 0 ? (t / d) * 100 : 0)
     }
+
     // Sauvegarde régulière de la position du dernier audio (toutes les 5s)
-    const id = pisteIdRef.current
-    if (id && status.isPlaying && Date.now() - derniereSauvegardeRef.current > 5000) {
+    if (pisteIdRef.current && status.playing && Date.now() - derniereSauvegardeRef.current > 5000) {
       derniereSauvegardeRef.current = Date.now()
       sauverDernierePosition(t, d)
     }
+
     if (status.didJustFinish) {
       // Épisode terminé : on oublie la position pour repartir du début
       AsyncStorage.setItem('jsd_derniere_position', '0').catch(() => {})
       pisterSuivante()
     }
-  }, [pisterSuivante])
+  }, [annulerWatchdog, sauverDernierePosition, pisterSuivante])
 
-  const chargerEtJouer = async (p: Piste, suivantes: Piste[] = [], options?: OptionsLecture) => {
-    const generation = ++chargementRef.current
+  // Création du lecteur persistant + configuration de la session audio (une fois)
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      allowsRecording: false,
+    }).catch(() => {})
+
+    const p = createAudioPlayer(null, { updateInterval: 500 })
+    playerRef.current = p
+    const sub = p.addListener('playbackStatusUpdate', onUpdate)
+    setIsAudioActiveAsync(true).catch(() => {})
+
+    return () => {
+      annulerWatchdog()
+      sub?.remove?.()
+      try { p.clearLockScreenControls() } catch {}
+      try { p.remove() } catch {}
+      playerRef.current = null
+    }
+    // onUpdate est stable (useCallback) — abonnement unique
+  }, [onUpdate, annulerWatchdog])
+
+  const chargerEtJouer = useCallback((p: Piste, suivantes: Piste[] = [], options?: OptionsLecture) => {
+    const player = playerRef.current
+    if (!player) return
+    const generation = ++generationRef.current
+
+    setPiste(p)
+    pisteIdRef.current = p.id
+    if (options?.ouvrirLecteur === true) setLecteurOuvert(true)
+    setFile(suivantes)
+    AsyncStorage.setItem('jsd_derniere_piste', JSON.stringify(p)).catch(() => {})
+
+    // Reprise uniquement si une position est explicitement demandée
+    // (ex. « Reprendre l'écoute »). Sinon on repart toujours du début.
+    const reprise = options?.position ?? 0
+    AsyncStorage.setItem('jsd_derniere_position', String(reprise)).catch(() => {})
+    setProgression(0)
+    setTempsActuel(reprise)
+    setDureeTotal(0)
+    repriseEnAttenteRef.current = reprise > 1 ? reprise : null
+
     try {
-      if (soundRef.current) {
-        const ancien = soundRef.current
-        soundRef.current = null
-        await ancien.unloadAsync().catch(() => {})
-      }
-      if (generation !== chargementRef.current) return
+      player.replace({ uri: p.url })
+      player.setPlaybackRate(vitesseRef.current, 'high')
+      player.play()
 
-      setPiste(p)
-      pisteIdRef.current = p.id
-      if (options?.ouvrirLecteur === true) setLecteurOuvert(true)
-      setFile(suivantes)
-      AsyncStorage.setItem('jsd_derniere_piste', JSON.stringify(p)).catch(() => {})
+      // Affiche les contrôles sur l'écran verrouillé / centre de contrôle
+      player.setActiveForLockScreen(
+        true,
+        { title: p.titre, artist: p.sheikh, artworkUrl: p.pochette },
+        { showSeekForward: true, showSeekBackward: true },
+      )
+      setEnLecture(true)
 
-      // Reprise uniquement si une position est explicitement demandée
-      // (ex. « Reprendre l'écoute »). Sinon on repart toujours du début.
-      const reprise = options?.position ?? 0
-      AsyncStorage.setItem('jsd_derniere_position', String(reprise)).catch(() => {})
-      setProgression(0)
-      setTempsActuel(reprise)
-      setDureeTotal(0)
-
-      // Les connexions mobiles (3G…) font parfois échouer le handshake
-      // SSL (NSURLError -1200) : on retente avant d'abandonner
-      let derniereErreur: unknown = null
-      for (let essai = 0; essai < 3; essai++) {
-        try {
-          if (essai > 0) await new Promise(r => setTimeout(r, 800 * essai))
-          if (generation !== chargementRef.current) return
-          const { sound } = await Audio.Sound.createAsync(
-            { uri: p.url },
-            {
-              shouldPlay: true,
-              rate: vitesseRef.current,
-              progressUpdateIntervalMillis: 500,
-              volume: 1.0,
-              positionMillis: (options?.position != null ? reprise > 0 : reprise > 5) ? Math.round(reprise * 1000) : 0,
-            },
-            onUpdate
-          )
-          // Une piste plus récente a été lancée pendant le chargement :
-          // on jette ce son pour ne pas avoir deux lectures en parallèle
-          if (generation !== chargementRef.current) {
-            sound.unloadAsync().catch(() => {})
-            return
-          }
-          soundRef.current = sound
-          setEnLecture(true)
-          return
-        } catch (e) {
-          derniereErreur = e
-        }
-      }
-      throw derniereErreur
+      // Watchdog : si rien n'a chargé au bout de 20s, on prévient l'utilisateur
+      annulerWatchdog()
+      watchdogRef.current = setTimeout(() => {
+        if (generation !== generationRef.current) return
+        if (dureeRef.current > 0) return
+        setEnLecture(false)
+        Alert.alert(
+          'Lecture impossible',
+          'Le fichier audio n\'a pas pu être chargé. Vérifiez votre connexion internet puis réessayez.',
+        )
+      }, 20000)
     } catch (e) {
-      if (generation !== chargementRef.current) return
+      if (generation !== generationRef.current) return
       console.error('Erreur audio:', e)
       setEnLecture(false)
       Alert.alert(
@@ -202,15 +241,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         'Le fichier audio n\'a pas pu être chargé. Vérifiez votre connexion internet puis réessayez.',
       )
     }
-  }
+  }, [annulerWatchdog])
+
+  useEffect(() => { chargerEtJouerRef.current = chargerEtJouer }, [chargerEtJouer])
 
   const playlistRef = useRef<Piste[]>([])
 
-  const definirPlaylist = (liste: Piste[]) => {
+  const definirPlaylist = useCallback((liste: Piste[]) => {
     playlistRef.current = liste
     setPlaylist(liste)
     AsyncStorage.setItem('jsd_derniere_playlist', JSON.stringify(liste)).catch(() => {})
-  }
+  }, [])
 
   const jouer = useCallback((p: Piste, suivantes: Piste[] = [], options?: OptionsLecture, playlistComplete?: Piste[]) => {
     if (playlistComplete) {
@@ -224,53 +265,53 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       definirPlaylist([p, ...suivantes])
     }
     chargerEtJouer(p, suivantes, options)
-  }, [onUpdate])
+  }, [definirPlaylist, chargerEtJouer])
 
   const pause = useCallback(async () => {
-    await soundRef.current?.pauseAsync()
+    playerRef.current?.pause()
     if (pisteIdRef.current) sauverDernierePosition(tempsRef.current, dureeRef.current)
-  }, [])
+  }, [sauverDernierePosition])
 
   const reprendre = useCallback(async () => {
-    await soundRef.current?.playAsync()
+    playerRef.current?.play()
   }, [])
 
-  const seekOptimiste = async (newTime: number) => {
+  const seekOptimiste = useCallback(async (newTime: number) => {
     setTempsActuel(newTime)
     if (dureeRef.current > 0) setProgression((newTime / dureeRef.current) * 100)
     ignoreJusquaRef.current = Date.now() + 900
-    await soundRef.current?.setPositionAsync(newTime * 1000)
-  }
+    await playerRef.current?.seekTo(newTime).catch(() => {})
+  }, [])
 
   const seeker = useCallback(async (pct: number) => {
-    if (!soundRef.current || dureeRef.current === 0) return
+    if (!playerRef.current || dureeRef.current === 0) return
     await seekOptimiste((pct / 100) * dureeRef.current)
-  }, [])
+  }, [seekOptimiste])
 
   const avancer = useCallback(async (sec: number) => {
-    if (!soundRef.current) return
+    if (!playerRef.current) return
     await seekOptimiste(Math.min(tempsRef.current + sec, dureeRef.current))
-  }, [])
+  }, [seekOptimiste])
 
   const reculer = useCallback(async (sec: number) => {
-    if (!soundRef.current) return
+    if (!playerRef.current) return
     await seekOptimiste(Math.max(tempsRef.current - sec, 0))
-  }, [])
+  }, [seekOptimiste])
 
   const changerVolume = useCallback(async (v: number) => {
     setVolume(v)
-    await soundRef.current?.setVolumeAsync(v)
+    if (playerRef.current) playerRef.current.volume = v
   }, [])
 
   const changerVitesse = useCallback(async (v: number) => {
     vitesseRef.current = v
     setVitesse(v)
-    await soundRef.current?.setRateAsync(v, true)
+    playerRef.current?.setPlaybackRate(v, 'high')
   }, [])
 
   const pistePrecedente = useCallback(async () => {
     if (tempsRef.current > 3) {
-      await soundRef.current?.setPositionAsync(0)
+      await playerRef.current?.seekTo(0).catch(() => {})
     }
   }, [])
 
