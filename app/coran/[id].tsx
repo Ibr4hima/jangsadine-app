@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FlatList, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -37,6 +37,14 @@ function clamp(v: number, min: number, max: number) {
     return Math.min(max, Math.max(min, v))
 }
 
+// Ligature calligraphique « Bismillah ar-Rahman ar-Rahim » (U+FDFD) : un seul
+// glyphe qui dessine toute la basmala en naskh fluide via la police Amiri.
+const BISMILLAH = '﷽'
+// Le glyphe U+FDFD fait ~11.4 cadratins de large → on calcule la taille pour
+// qu'il occupe ~88% de la largeur d'écran (en-tête XXL pleine largeur).
+const LARGEUR_ECRAN = Dimensions.get('window').width
+const TAILLE_BISMILLAH = Math.round(((LARGEUR_ECRAN - 44) * 0.92) / 11.4)
+
 // Chiffres arabes (٠١٢…) pour les marqueurs de fin de verset, comme dans le Mushaf
 function chiffresArabes(n: number) {
     return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)])
@@ -60,53 +68,30 @@ function construireBlocs(versets: Verset[]): Bloc[] {
     return blocs
 }
 
-// Composant séparé pour pouvoir utiliser useState (hooks interdits dans useCallback)
-// Pas de padding vertical : la grille de lignes reste continue d'un bloc à l'autre,
-// chaque ligne de texte est ainsi parfaitement centrée entre deux lignes réglées.
+// Bloc de texte continu (un flux de versets). Le marqueur de fin de verset
+// (chiffre arabe doré) est dimensionné à 100% de la taille de lecture.
 function BlocTexte({ item, taille, lineHeight }: { item: Bloc; taille: number; lineHeight: number }) {
-    const [hauteur, setHauteur] = useState(0)
-    const nbLignes = hauteur > 0 ? Math.round(hauteur / lineHeight) : 0
-
     return (
-        <View onLayout={e => setHauteur(e.nativeEvent.layout.height)}>
-            <Text
-                style={{
-                    fontFamily: typography.fontFamily.coran,
-                    fontSize: taille,
-                    lineHeight,
-                    color: TEXTE,
-                    textAlign: 'center',
-                    writingDirection: 'rtl',
-                }}
-            >
-                {item.versets.map(v => (
-                    <Text key={v.numero}>
-                        {v.texte}{' '}
-                        <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.85, color: OR }}>
-                            {chiffresArabes(v.numero)}
-                        </Text>
-                        {'  '}
+        <Text
+            style={{
+                fontFamily: typography.fontFamily.coran,
+                fontSize: taille,
+                lineHeight,
+                color: TEXTE,
+                textAlign: 'center',
+                writingDirection: 'rtl',
+            }}
+        >
+            {item.versets.map(v => (
+                <Text key={v.numero}>
+                    {v.texte}{' '}
+                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille, color: OR }}>
+                        {chiffresArabes(v.numero)}
                     </Text>
-                ))}
-            </Text>
-
-            {/* Lignes réglées : une ligne fine à chaque fin de ligne de texte.
-                Comme le texte est centré dans sa boîte (lineHeight) et qu'il n'y a
-                aucun padding entre les blocs, la grille est régulière → texte centré. */}
-            {Array.from({ length: nbLignes }).map((_, i) => (
-                <View
-                    key={i}
-                    style={{
-                        position: 'absolute',
-                        top: (i + 1) * lineHeight,
-                        left: 0, right: 0,
-                        height: StyleSheet.hairlineWidth,
-                        backgroundColor: TEXTE,
-                        opacity: 0.15,
-                    }}
-                />
+                    {'  '}
+                </Text>
             ))}
-        </View>
+        </Text>
     )
 }
 
@@ -152,9 +137,12 @@ export default function LectureSourate() {
             let basm: string | null = null
             for (const [cle, texte] of Object.entries(data.verse)) {
                 const num = parseInt(cle.replace('verse_', ''))
-                // verse_0 = basmala séparée (sourates ≠ 1 et ≠ 9) → affichée en en-tête,
-                // pas dans le flux numéroté.
+                // verse_0 = basmala séparée (sourates ≠ 1 et ≠ 9) → affichée en
+                // en-tête (calligraphie), pas dans le flux numéroté.
                 if (num === 0) { basm = texte as string; continue }
+                // al-Fatiha : la basmala EST le verset 1 → on la sort aussi du flux
+                // pour l'afficher en calligraphie d'en-tête ; les versets 2→7 restent.
+                if (index === 1 && num === 1) { basm = texte as string; continue }
                 versets.push({ numero: num, texte: texte as string })
             }
             setBasmala(basm)
@@ -229,25 +217,25 @@ export default function LectureSourate() {
             <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: MUTED, marginTop: 4 }}>
                 {nomSourate} · {nombreVersets} versets · Hafs
             </Text>
+            {/* Calligraphie XXL de la basmala (ligature naskh Amiri) */}
             {basmala && (
-                <Text style={{
-                    fontFamily: typography.fontFamily.coran,
-                    fontSize: Math.min(taille, 30),
-                    lineHeight: Math.min(taille, 30) * 1.9,
-                    color: TEXTE,
-                    marginTop: 26,
-                    textAlign: 'center',
-                    writingDirection: 'rtl',
-                }}>
-                    {basmala}
+                <Text
+                    allowFontScaling={false}
+                    numberOfLines={1}
+                    style={{
+                        fontFamily: 'Bismillah',
+                        fontSize: TAILLE_BISMILLAH,
+                        lineHeight: TAILLE_BISMILLAH * 1.9,
+                        color: TEXTE,
+                        marginTop: 30,
+                        textAlign: 'center',
+                        writingDirection: 'rtl',
+                        includeFontPadding: false,
+                    }}
+                >
+                    {BISMILLAH}
                 </Text>
             )}
-            {/* fine séparation dorée */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, width: 120 }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: OR, opacity: 0.4 }} />
-                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: OR, marginHorizontal: 6 }} />
-                <View style={{ flex: 1, height: 1, backgroundColor: OR, opacity: 0.4 }} />
-            </View>
         </View>
     )
 
@@ -327,5 +315,3 @@ export default function LectureSourate() {
         </View>
     )
 }
-
-const styles = StyleSheet.create({})
