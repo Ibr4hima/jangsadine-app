@@ -1,7 +1,8 @@
 import { colors, typography } from '@/constants/theme'
+import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft, ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FlatList, Pressable, StatusBar, Text, View } from 'react-native'
@@ -70,6 +71,13 @@ export default function LectureSourate() {
     const [taille, setTaille] = useState(TAILLE_DEFAUT)
     const [nuit, setNuit] = useState(true)
     const [chromeVisible, setChromeVisible] = useState(true)
+
+    // Masque la barre d'onglets du bas pendant la lecture (immersif), la restaure en sortant
+    const { hideTabBar, showTabBar } = useTabBar()
+    useFocusEffect(useCallback(() => {
+        hideTabBar()
+        return () => showTabBar()
+    }, []))
 
     // Valeurs partagées pour le geste (lues/écrites sur le thread UI)
     const tailleSV = useSharedValue(TAILLE_DEFAUT)
@@ -172,7 +180,7 @@ export default function LectureSourate() {
                 fontSize: taille,
                 lineHeight,
                 color: t.texte,
-                textAlign: 'justify',
+                textAlign: 'center',
                 writingDirection: 'rtl',
             }}
         >
