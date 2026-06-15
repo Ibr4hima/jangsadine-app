@@ -17,7 +17,7 @@ import {
   Sunrise,
   Sunset,
 } from 'lucide-react-native'
-import { ComponentType, useEffect, useState } from 'react'
+import { ComponentType, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -128,16 +128,18 @@ export default function Prieres() {
   const [ville, setVille] = useState('')
   const [loading, setLoading] = useState(true)
   const [erreur, setErreur] = useState('')
-  const [, setTick] = useState(0)
+  const [, setTickTexte] = useState(0)
+  const [tickProg, setTickProg] = useState(0)
   const [methodeNom, setMethodeNom] = useState('')
   const [fajrDemain, setFajrDemain] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    // Avancement volontairement lent : 5 min suffisent (l'anneau bouge de façon
-    // imperceptible). Bien moins de re-renders de toute la liste = batterie.
-    const iv = setInterval(() => setTick(t => t + 1), 5 * 60 * 1000)
-    return () => clearInterval(iv)
+    // Découplé : le texte « dans X » se rafraîchit chaque minute (lisible), mais
+    // l'anneau ne se recalcule que toutes les 5 min via tickProg (cf. useMemo).
+    const ivTexte = setInterval(() => setTickTexte(t => t + 1), 60 * 1000)
+    const ivProg = setInterval(() => setTickProg(t => t + 1), 5 * 60 * 1000)
+    return () => { clearInterval(ivTexte); clearInterval(ivProg) }
   }, [])
 
   async function charger() {
@@ -209,7 +211,12 @@ export default function Prieres() {
     ? (idx <= 0 ? principales[principales.length - 1] : principales[idx - 1])
     : null
 
-  const prog = prochaine && precedente ? progressEntre(precedente.heure, prochaine.heure) : 0
+  // Calé sur tickProg (5 min) : la valeur ne change qu'à ce rythme, même si le
+  // composant se re-rend chaque minute pour le texte du compte à rebours.
+  const prog = useMemo(
+    () => prochaine && precedente ? progressEntre(precedente.heure, prochaine.heure) : 0,
+    [prochaine, precedente, tickProg],
+  )
   const dashOffset = CIRCONF - prog * CIRCONF
 
   const IconeProchaine = prochaine ? (ICONES[prochaine.cle] ?? Sun) : Sun

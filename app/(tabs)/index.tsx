@@ -156,15 +156,17 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
   const insets = useSafeAreaInsets()
   const [prieres, setPrieres] = useState<Priere[]>([])
   const [ville, setVille] = useState<string | null>(null)
-  const [tick, setTick] = useState(0)
+  const [, setTickTexte] = useState(0)
+  const [tickProg, setTickProg] = useState(0)
   const progress = useSharedValue(0)
 
   useEffect(() => {
-    // Avancement volontairement lent : 5 min suffisent largement (l'évolution
-    // réelle sur un créneau de prière est imperceptible à l'œil). Moins de
-    // re-renders = moins de batterie.
-    const iv = setInterval(() => setTick(t => t + 1), 5 * 60 * 1000)
-    return () => clearInterval(iv)
+    // Découplé : le texte du compte à rebours se rafraîchit chaque minute (reste
+    // lisible, pas de saut), la barre n'avance que toutes les 5 min (évolution
+    // réelle imperceptible → on économise des re-renders animés).
+    const ivTexte = setInterval(() => setTickTexte(t => t + 1), 60 * 1000)
+    const ivProg = setInterval(() => setTickProg(t => t + 1), 5 * 60 * 1000)
+    return () => { clearInterval(ivTexte); clearInterval(ivProg) }
   }, [])
 
   useEffect(() => {
@@ -200,9 +202,10 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
     if (prochaine && precedente) {
       progress.value = withTiming(progressEntre(precedente, prochaine), { duration: 600 })
     }
-    // `tick` (palier de 5 min) dans les deps : sans lui la barre resterait figée
-    // entre deux prières, car prochaine/precedente sont des références stables.
-  }, [prochaine, precedente, tick])
+    // `tickProg` (palier de 5 min) dans les deps : sans lui la barre resterait
+    // figée entre deux prières, car prochaine/precedente sont des références
+    // stables. Le tick texte (1 min) ne la touche pas.
+  }, [prochaine, precedente, tickProg])
 
   const barStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }))
 
