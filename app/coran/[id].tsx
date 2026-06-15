@@ -1,8 +1,9 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { getSourate } from '@/lib/quran'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useTabBar } from '@/contexts/TabBarContext'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft, ChevronLeft, ChevronRight, Moon, Sun, Type } from 'lucide-react-native'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
     Dimensions,
     Pressable,
@@ -18,9 +19,13 @@ type Verset = {
     texte: string
 }
 
-const BISMILLAH = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ'
+const BISMILLAH = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ'
 const TAILLES = [24, 28, 32, 38]
 const sourates = require('../../assets/quran/sourates.json')
+
+function chiffresArabes(n: number) {
+    return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)])
+}
 
 export default function LectureSourate() {
     const { id, riwaya } = useLocalSearchParams<{ id: string, riwaya: string }>()
@@ -37,6 +42,13 @@ export default function LectureSourate() {
 
     const taille = TAILLES[tailleIdx]
 
+    // Hide bottom tab bar while reader is open
+    const { hideTabBar, showTabBar } = useTabBar()
+    useFocusEffect(useCallback(() => {
+        hideTabBar()
+        return () => showTabBar()
+    }, []))
+
     // Thème
     const bg = modeNuit ? '#1a2a1a' : colors.fondCreme
     const bgCard = modeNuit ? '#1e301e' : colors.blanc
@@ -45,8 +57,7 @@ export default function LectureSourate() {
     const txtMuted = modeNuit ? 'rgba(240,237,228,0.5)' : colors.texteMuted
     const borderCol = modeNuit ? 'rgba(212,175,55,0.25)' : colors.bordure
     const orColor = modeNuit ? '#d4af37' : colors.or
-    const numerosBg = modeNuit ? 'rgba(212,175,55,0.15)' : '#f0f0f0'
-    const numerosTxt = modeNuit ? '#d4af37' : colors.bleu
+    const barreStyle = modeNuit ? 'light-content' as const : 'dark-content' as const
 
     useEffect(() => {
         try {
@@ -55,10 +66,18 @@ export default function LectureSourate() {
             setNomSourate(data.name)
             const info = sourates.find((s: any) => s.index === index)
             if (info) { setNomAr(info.nomAr); setNombreVersets(info.versets) }
-            const vs: Verset[] = Object.entries(data.verse).map(([key, texte]) => ({
-                numero: parseInt(key.replace('verse_', '')),
-                texte: texte as string,
-            }))
+
+            // verse_0 = Basmala header for surahs 2-114 (except 9)
+            // verse_1 = Basmala for surah 1 (it IS the first numbered verse)
+            // Either way, the Basmala box is rendered separately — filter it from the flow.
+            const basmalaKey = index === 1 ? 'verse_1' : 'verse_0'
+            const vs: Verset[] = Object.entries(data.verse)
+                .filter(([key]) => index === 9 ? true : key !== basmalaKey)
+                .map(([key, texte]) => ({
+                    numero: parseInt(key.replace('verse_', '')),
+                    texte: texte as string,
+                }))
+                .sort((a, b) => a.numero - b.numero)
             setVersets(vs)
         } catch (e) {
             console.error(e)
@@ -71,7 +90,7 @@ export default function LectureSourate() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['top']}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle={barreStyle} />
 
             {/* ── Header ── */}
             <View style={{
@@ -138,7 +157,7 @@ export default function LectureSourate() {
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: 120 }}
                 >
-                    {/* Bismillah */}
+                    {/* Bismillah — shown for all surahs except At-Tawbah (9) */}
                     {index !== 9 && (
                         <View style={{
                             marginHorizontal: spacing.xl,
@@ -152,7 +171,6 @@ export default function LectureSourate() {
                             borderColor: borderCol,
                             alignItems: 'center',
                         }}>
-                            {/* Ornement haut */}
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, width: '100%' }}>
                                 <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
                                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: orColor, marginHorizontal: spacing.sm }} />
@@ -170,7 +188,6 @@ export default function LectureSourate() {
                                 {BISMILLAH}
                             </Text>
 
-                            {/* Ornement bas */}
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, width: '100%' }}>
                                 <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
                                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: orColor, marginHorizontal: spacing.sm }} />
@@ -179,7 +196,7 @@ export default function LectureSourate() {
                         </View>
                     )}
 
-                    {/* Versets — texte continu */}
+                    {/* Versets — texte continu centré */}
                     <View style={{
                         marginHorizontal: spacing.xl,
                         backgroundColor: bgCard,
@@ -189,7 +206,6 @@ export default function LectureSourate() {
                         padding: spacing.xl,
                         marginBottom: spacing.xl,
                     }}>
-                        {/* Ornement haut */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl }}>
                             <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
                             <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: 16, color: orColor, marginHorizontal: spacing.md }}>
@@ -198,16 +214,15 @@ export default function LectureSourate() {
                             <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
                         </View>
 
-                        {/* Texte continu avec numéros intégrés */}
                         <Text style={{
                             fontFamily: typography.fontFamily.coran,
                             fontSize: taille,
                             color: txtColor,
-                            textAlign: 'justify',
+                            textAlign: 'center',
                             lineHeight: taille * 2.2,
                             writingDirection: 'rtl',
                         }}>
-                            {versets.map((v, i) => (
+                            {versets.map((v) => (
                                 <Text key={v.numero}>
                                     {v.texte}
                                     {'  '}
@@ -215,14 +230,13 @@ export default function LectureSourate() {
                                         fontSize: taille * 0.65,
                                         color: orColor,
                                     }}>
-                                        {'﴿'}{v.numero}{'﴾'}
+                                        {'﴿'}{chiffresArabes(v.numero)}{'﴾'}
                                     </Text>
                                     {'  '}
                                 </Text>
                             ))}
                         </Text>
 
-                        {/* Ornement bas */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xl }}>
                             <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
                             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: orColor, marginHorizontal: spacing.sm }} />
