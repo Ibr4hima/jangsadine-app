@@ -208,24 +208,14 @@ export default function QiblaPage() {
     }
   }, [aligne])
 
-  // GPS + cap compensé (référencé au haut du téléphone, vrai nord)
+  // GPS + permission (une seule fois à l'initialisation)
   useEffect(() => {
-    let headingSub: Location.LocationSubscription | null = null
     let actif = true
-
-    async function init() {
+    async function getPos() {
       const { status } = await Location.requestForegroundPermissionsAsync()
       if (status !== 'granted') { setPerm('denied'); return }
       if (!actif) return
       setPerm('granted')
-
-      headingSub = await Location.watchHeadingAsync(h => {
-        // trueHeading = vrai nord (corrige la déclinaison magnétique),
-        // déjà compensé en inclinaison et référencé au haut de l'appareil
-        const cap = h.trueHeading >= 0 ? h.trueHeading : h.magHeading
-        setBoussole(norm(cap))
-      })
-
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
       if (!actif) return
       const { latitude: lat, longitude: lng } = loc.coords
@@ -233,9 +223,23 @@ export default function QiblaPage() {
       setQiblaAngle(qiblaFrom(lat, lng))
       setDistance(distanceTo(lat, lng))
     }
-    init().catch(e => console.warn('qibla init:', e))
-    return () => { actif = false; headingSub?.remove() }
+    getPos().catch(e => console.warn('qibla GPS:', e))
+    return () => { actif = false }
   }, [])
+
+  // Magnétomètre uniquement quand l'écran est visible — s'arrête dès
+  // qu'on passe à un autre onglet (les tabs restent montés en mémoire),
+  // ce qui évitait l'arrêt du capteur et faisait chauffer l'appareil.
+  useFocusEffect(useCallback(() => {
+    let headingSub: Location.LocationSubscription | null = null
+    Location.watchHeadingAsync(h => {
+      // trueHeading = vrai nord (corrige la déclinaison magnétique),
+      // déjà compensé en inclinaison et référencé au haut de l'appareil
+      const cap = h.trueHeading >= 0 ? h.trueHeading : h.magHeading
+      setBoussole(norm(cap))
+    }).then(sub => { headingSub = sub }).catch(() => {})
+    return () => { headingSub?.remove() }
+  }, []))
 
   // Rotation du cadran
   useEffect(() => {

@@ -4,7 +4,7 @@ import { useAudio, useAudioProgress } from '@/contexts/AudioContext'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode, useEffect } from 'react'
-import { Pressable, View, ViewStyle } from 'react-native'
+import { Pressable, Text, View, ViewStyle } from 'react-native'
 import Animated, {
     cancelAnimation,
     Easing,
@@ -93,10 +93,46 @@ function Tap({ onPress, style, children, hitSlop = 12 }: {
     )
 }
 
+// ─── sous-composants isolant les mises à jour ~2×/s ──────────
+// Eux seuls s'abonnent à useAudioProgress. Le corps du lecteur ne
+// dépend que de useAudio (piste/lecture, valeurs stables), donc il
+// ne se re-render plus à chaque tick : seuls ces deux petits noeuds
+// se rafraîchissent, ce qui évite la surchauffe sur longue écoute.
+
+function BarreProgression() {
+    const { progression } = useAudioProgress()
+    return (
+        <View style={{ height: 3, backgroundColor: W12 }}>
+            <View style={{
+                width: `${progression}%` as any,
+                height: '100%',
+                backgroundColor: colors.or,
+                borderTopRightRadius: 2,
+                borderBottomRightRadius: 2,
+            }} />
+        </View>
+    )
+}
+
+function TempsLecture() {
+    const { tempsActuel, dureeTotal } = useAudioProgress()
+    if (dureeTotal <= 0) return null
+    return (
+        <Text style={{
+            fontFamily: typography.fontFamily.regular,
+            fontSize: typography.size.xs,
+            color: W70,
+            fontVariant: ['tabular-nums'],
+            flexShrink: 0,
+        }}>
+            {formaterTemps(tempsActuel)} / {formaterTemps(dureeTotal)}
+        </Text>
+    )
+}
+
 // ─── mini lecteur persistant ──────────────────────────────────
 export default function LecteurPersistant() {
     const { piste, enLecture, pause, reprendre, pisterSuivante, setLecteurOuvert } = useAudio()
-    const { progression, tempsActuel, dureeTotal } = useAudioProgress()
 
     // Pulsation subtile du bouton play
     const playScale = useSharedValue(1)
@@ -162,15 +198,7 @@ export default function LecteurPersistant() {
                 end={{ x: 1, y: 0 }}
             >
                 {/* Barre de progression dorée */}
-                <View style={{ height: 3, backgroundColor: W12 }}>
-                    <View style={{
-                        width: `${progression}%` as any,
-                        height: '100%',
-                        backgroundColor: colors.or,
-                        borderTopRightRadius: 2,
-                        borderBottomRightRadius: 2,
-                    }} />
-                </View>
+                <BarreProgression />
 
                 {/* Corps : [Pressable ouvrir] | [Boutons] */}
                 <View style={{
@@ -209,17 +237,19 @@ export default function LecteurPersistant() {
                             >
                                 {piste.titre}
                             </TextTicker>
-                            <TextTicker
-                                style={{
-                                    fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
-                                    fontSize: typography.size.xs,
-                                    color: W70,
-                                    fontVariant: ['tabular-nums'],
-                                } as any}
-                                loop bounce={false} repeatSpacer={50} marqueeDelay={3500} scrollSpeed={18}
-                            >
-                                {piste.sheikh}{dureeTotal > 0 ? ` · ${formaterTemps(tempsActuel)} / ${formaterTemps(dureeTotal)}` : ''}
-                            </TextTicker>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                                <TextTicker
+                                    style={{
+                                        fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
+                                        fontSize: typography.size.xs,
+                                        color: W70,
+                                    } as any}
+                                    loop bounce={false} repeatSpacer={50} marqueeDelay={3500} scrollSpeed={18}
+                                >
+                                    {piste.sheikh}
+                                </TextTicker>
+                                <TempsLecture />
+                            </View>
                         </View>
                     </Pressable>
 
