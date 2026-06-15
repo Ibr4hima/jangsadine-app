@@ -40,7 +40,7 @@ function getJuz(index: number): number {
   return juz
 }
 
-function SourateCard({ sourate, riwaya }: { sourate: Sourate, riwaya: 'hafs' | 'warsh' }) {
+function SourateCard({ sourate }: { sourate: Sourate }) {
   const scale = useRef(new Animated.Value(1)).current
   const router = useRouter()
 
@@ -48,7 +48,7 @@ function SourateCard({ sourate, riwaya }: { sourate: Sourate, riwaya: 'hafs' | '
     <Pressable
       onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start()}
       onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()}
-      onPress={() => router.push(`/coran/${sourate.index}?riwaya=${riwaya}` as any)}
+      onPress={() => router.push(`/coran/${sourate.index}?riwaya=hafs` as any)}
     >
       <Animated.View style={{
         transform: [{ scale }],
@@ -115,7 +115,6 @@ function SourateCard({ sourate, riwaya }: { sourate: Sourate, riwaya: 'hafs' | '
 }
 
 export default function Coran() {
-  const [riwaya, setRiwaya] = useState<'hafs' | 'warsh'>('hafs')
   const [recherche, setRecherche] = useState('')
   const [filtrees, setFiltrees] = useState<Sourate[]>(sourates)
 
@@ -154,35 +153,6 @@ export default function Coran() {
           Coran
         </Text>
 
-        {/* Choix riwaya */}
-        <View style={{
-          flexDirection: 'row',
-          backgroundColor: colors.blanc,
-          borderRadius: radius.lg,
-          borderWidth: 1, borderColor: colors.bordure,
-          padding: 4, marginBottom: spacing.md,
-        }}>
-          {(['hafs', 'warsh'] as const).map(r => (
-            <Pressable
-              key={r}
-              onPress={() => setRiwaya(r)}
-              style={{
-                flex: 1, paddingVertical: 9, borderRadius: radius.md,
-                backgroundColor: riwaya === r ? colors.bleu : 'transparent',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{
-                fontFamily: typography.fontFamily.semibold,
-                fontSize: typography.size.base,
-                color: riwaya === r ? colors.blanc : colors.texteMuted,
-              }}>
-                {r === 'hafs' ? 'Hafs' : 'Warsh'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
         {/* Recherche */}
         <View style={{
           flexDirection: 'row', alignItems: 'center',
@@ -209,7 +179,7 @@ export default function Coran() {
       <FlatList
         data={filtrees}
         keyExtractor={item => String(item.index)}
-        renderItem={({ item }) => <SourateCard sourate={item} riwaya={riwaya} />}
+        renderItem={({ item }) => <SourateCard sourate={item} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: 120 }}
       />

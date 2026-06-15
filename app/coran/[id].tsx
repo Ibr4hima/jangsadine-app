@@ -1,14 +1,20 @@
-import { colors, typography } from '@/constants/theme'
+import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { ArrowLeft, ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react-native'
+import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FlatList, Pressable, StatusBar, Text, View } from 'react-native'
+import { FlatList, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+
+// Couleurs fixes — pas de mode nuit/jour
+const BG = '#F2F0EF'
+const TEXTE = '#23201A'
+const OR = '#b8932a'
+const MUTED = 'rgba(35,32,26,0.45)'
 
 const sourates = require('../../assets/quran/sourates.json')
 
@@ -22,7 +28,6 @@ const TAILLE_DEFAUT = 30
 const BLOC_CARACTERES = 480
 
 const CLE_TAILLE = 'jsd_coran_taille'
-const CLE_NUIT = 'jsd_coran_nuit'
 
 type Verset = { numero: number; texte: string }
 type Bloc = { cle: string; versets: Verset[] }
@@ -69,7 +74,6 @@ export default function LectureSourate() {
     const [loading, setLoading] = useState(true)
 
     const [taille, setTaille] = useState(TAILLE_DEFAUT)
-    const [nuit, setNuit] = useState(true)
     const [chromeVisible, setChromeVisible] = useState(true)
 
     // Masque la barre d'onglets du bas pendant la lecture (immersif), la restaure en sortant
@@ -84,11 +88,6 @@ export default function LectureSourate() {
     const tailleDebutSV = useSharedValue(TAILLE_DEFAUT)
     const dernierePousseeRef = useRef(TAILLE_DEFAUT)
     useEffect(() => { tailleSV.value = taille }, [taille])
-
-    // ── Thème (immersif : juste le fond + le texte) ──
-    const t = nuit
-        ? { bg: '#13140F', texte: '#ECE7D8', muted: 'rgba(236,231,216,0.45)', or: '#d8b84a', barre: 'light-content' as const }
-        : { bg: '#F6F3EC', texte: '#23201A', muted: 'rgba(35,32,26,0.45)', or: colors.orFonce, barre: 'dark-content' as const }
 
     // ── Chargement des données ──
     useEffect(() => {
@@ -118,16 +117,10 @@ export default function LectureSourate() {
 
     // ── Préférences persistées ──
     useEffect(() => {
-        AsyncStorage.multiGet([CLE_TAILLE, CLE_NUIT]).then(entries => {
-            for (const [cle, val] of entries) {
-                if (val == null) continue
-                if (cle === CLE_TAILLE) {
-                    const n = parseFloat(val)
-                    if (!isNaN(n)) { setTaille(n); tailleSV.value = n }
-                } else if (cle === CLE_NUIT) {
-                    setNuit(val === '1')
-                }
-            }
+        AsyncStorage.getItem(CLE_TAILLE).then(val => {
+            if (val == null) return
+            const n = parseFloat(val)
+            if (!isNaN(n)) { setTaille(n); tailleSV.value = n }
         }).catch(() => {})
     }, [])
 
@@ -179,7 +172,7 @@ export default function LectureSourate() {
                 fontFamily: typography.fontFamily.coran,
                 fontSize: taille,
                 lineHeight,
-                color: t.texte,
+                color: TEXTE,
                 textAlign: 'center',
                 writingDirection: 'rtl',
             }}
@@ -187,30 +180,30 @@ export default function LectureSourate() {
             {item.versets.map(v => (
                 <Text key={v.numero}>
                     {v.texte}{' '}
-                    <Text style={{ fontSize: taille * 0.62, color: t.or }}>
+                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.78, color: OR }}>
                         {'﴿'}{chiffresArabes(v.numero)}{'﴾'}
                     </Text>
                     {'  '}
                 </Text>
             ))}
         </Text>
-    ), [taille, lineHeight, t.texte, t.or])
+    ), [taille, lineHeight])
 
     // ── En-tête de liste : nom de sourate + basmala ──
     const entete = (
         <View style={{ paddingTop: insets.top + 64, paddingBottom: 28, alignItems: 'center' }}>
-            <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: 34, color: t.or, lineHeight: 52 }}>
+            <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: 34, color: OR, lineHeight: 52 }}>
                 {nomAr}
             </Text>
-            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: t.muted, marginTop: 4 }}>
-                {nomSourate} · {nombreVersets} versets · {riwaya === 'warsh' ? 'Warsh' : 'Hafs'}
+            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: MUTED, marginTop: 4 }}>
+                {nomSourate} · {nombreVersets} versets · Hafs
             </Text>
             {basmala && (
                 <Text style={{
                     fontFamily: typography.fontFamily.coran,
                     fontSize: Math.min(taille, 30),
                     lineHeight: Math.min(taille, 30) * 1.9,
-                    color: t.texte,
+                    color: TEXTE,
                     marginTop: 26,
                     textAlign: 'center',
                     writingDirection: 'rtl',
@@ -220,9 +213,9 @@ export default function LectureSourate() {
             )}
             {/* fine séparation dorée */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, width: 120 }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: t.or, opacity: 0.4 }} />
-                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: t.or, marginHorizontal: 6 }} />
-                <View style={{ flex: 1, height: 1, backgroundColor: t.or, opacity: 0.4 }} />
+                <View style={{ flex: 1, height: 1, backgroundColor: OR, opacity: 0.4 }} />
+                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: OR, marginHorizontal: 6 }} />
+                <View style={{ flex: 1, height: 1, backgroundColor: OR, opacity: 0.4 }} />
             </View>
         </View>
     )
@@ -232,40 +225,43 @@ export default function LectureSourate() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 36, marginBottom: insets.bottom + 48 }}>
             {souratePrecedente ? (
                 <Pressable
-                    onPress={() => router.replace(`/coran/${souratePrecedente}?riwaya=${riwaya}` as any)}
+                    onPress={() => router.replace(`/coran/${souratePrecedente}?riwaya=hafs` as any)}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
                 >
-                    <ChevronLeft size={18} color={t.or} />
-                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: t.muted }}>
+                    <ChevronLeft size={18} color={OR} />
+                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: MUTED }}>
                         {sourates[souratePrecedente - 1]?.nom}
                     </Text>
                 </Pressable>
             ) : <View />}
             {sourateSuivante ? (
                 <Pressable
-                    onPress={() => router.replace(`/coran/${sourateSuivante}?riwaya=${riwaya}` as any)}
+                    onPress={() => router.replace(`/coran/${sourateSuivante}?riwaya=hafs` as any)}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
                 >
-                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: t.muted }}>
+                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: MUTED }}>
                         {sourates[sourateSuivante - 1]?.nom}
                     </Text>
-                    <ChevronRight size={18} color={t.or} />
+                    <ChevronRight size={18} color={OR} />
                 </Pressable>
             ) : <View />}
         </View>
     )
 
     return (
-        <View style={{ flex: 1, backgroundColor: t.bg }}>
-            <StatusBar barStyle={t.barre} />
+        <View style={{ flex: 1, backgroundColor: BG }}>
+            <StatusBar barStyle="dark-content" />
 
-            {/* Texte : flux justifié continu, virtualisé, pinch + tap */}
+            {/* Texte : flux continu virtualisé, pinch + tap */}
             {!loading && (
                 <GestureDetector gesture={gestes}>
                     <FlatList
                         data={blocs}
                         keyExtractor={b => b.cle}
                         renderItem={renderBloc}
+                        ItemSeparatorComponent={() => (
+                            <View style={styles.separateur} />
+                        )}
                         ListHeaderComponent={entete}
                         ListFooterComponent={pied}
                         extraData={taille}
@@ -286,21 +282,29 @@ export default function LectureSourate() {
                     position: 'absolute', top: 0, left: 0, right: 0,
                     paddingTop: insets.top + 6, paddingBottom: 10, paddingHorizontal: 12,
                     flexDirection: 'row', alignItems: 'center',
-                    backgroundColor: t.bg,
+                    backgroundColor: BG,
                 }, headerStyle]}
             >
                 <Pressable onPress={() => router.back()} hitSlop={10} style={{ padding: 6 }}>
-                    <ArrowLeft size={22} color={t.texte} />
+                    <ArrowLeft size={22} color={TEXTE} />
                 </Pressable>
                 <View style={{ flex: 1, alignItems: 'center' }}>
-                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.coran, fontSize: 20, color: t.or, lineHeight: 30 }}>
+                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.coran, fontSize: 20, color: OR, lineHeight: 30 }}>
                         {nomAr}
                     </Text>
                 </View>
-                <Pressable onPress={() => { const v = !nuit; setNuit(v); AsyncStorage.setItem(CLE_NUIT, v ? '1' : '0').catch(() => {}) }} hitSlop={10} style={{ padding: 6 }}>
-                    {nuit ? <Sun size={20} color={t.or} /> : <Moon size={20} color={t.muted} />}
-                </Pressable>
+                {/* espace vide pour garder le titre centré */}
+                <View style={{ width: 34 }} />
             </Animated.View>
         </View>
     )
 }
+
+const styles = StyleSheet.create({
+    separateur: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: TEXTE,
+        opacity: 0.1,
+        marginHorizontal: 8,
+    },
+})
