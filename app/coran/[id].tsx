@@ -42,7 +42,7 @@ function clamp(v: number, min: number, max: number) {
 // الرحمن الرحيم »). Vectoriel → net à toute taille. La largeur suit le zoom mais
 // est plafonnée pour occuper ~92% de la largeur d'écran.
 const LARGEUR_ECRAN = Dimensions.get('window').width
-const BISMILLAH_LARGEUR_MAX = (LARGEUR_ECRAN - 44) * 0.57
+const BISMILLAH_LARGEUR_MAX = (LARGEUR_ECRAN - 44) * 0.71
 
 // Chiffres arabes (٠١٢…) pour les marqueurs de fin de verset, comme dans le Mushaf
 function chiffresArabes(n: number) {
@@ -214,7 +214,7 @@ export default function LectureSourate() {
                 pilotée par le zoom et plafonnée pour tenir en pleine largeur. */}
             {basmala && (
                 <View style={{ marginTop: 26, marginBottom: 4 }}>
-                    <Bismillah width={Math.min(taille * 6.8, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
+                    <Bismillah width={Math.min(taille * 8.5, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
                 </View>
             )}
         </View>
