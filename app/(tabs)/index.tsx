@@ -156,13 +156,14 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
   const insets = useSafeAreaInsets()
   const [prieres, setPrieres] = useState<Priere[]>([])
   const [ville, setVille] = useState<string | null>(null)
-  const [, setTick] = useState(0)
+  const [tick, setTick] = useState(0)
   const progress = useSharedValue(0)
 
   useEffect(() => {
-    // Le compte à rebours est au format minute : 30 s suffisent (au lieu d'un
-    // re-render par seconde). La barre s'anime de toute façon via withTiming.
-    const iv = setInterval(() => setTick(t => t + 1), 30000)
+    // Avancement volontairement lent : 5 min suffisent largement (l'évolution
+    // réelle sur un créneau de prière est imperceptible à l'œil). Moins de
+    // re-renders = moins de batterie.
+    const iv = setInterval(() => setTick(t => t + 1), 5 * 60 * 1000)
     return () => clearInterval(iv)
   }, [])
 
@@ -199,7 +200,9 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
     if (prochaine && precedente) {
       progress.value = withTiming(progressEntre(precedente, prochaine), { duration: 600 })
     }
-  }, [prochaine, precedente])
+    // `tick` (palier de 5 min) dans les deps : sans lui la barre resterait figée
+    // entre deux prières, car prochaine/precedente sont des références stables.
+  }, [prochaine, precedente, tick])
 
   const barStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }))
 

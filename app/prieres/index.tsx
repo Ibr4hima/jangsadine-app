@@ -134,9 +134,9 @@ export default function Prieres() {
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    // Format minute : 30 s suffisent au lieu d'un re-render par seconde de
-    // toute la liste. L'anneau ne bouge que très lentement (imperceptible).
-    const iv = setInterval(() => setTick(t => t + 1), 30000)
+    // Avancement volontairement lent : 5 min suffisent (l'anneau bouge de façon
+    // imperceptible). Bien moins de re-renders de toute la liste = batterie.
+    const iv = setInterval(() => setTick(t => t + 1), 5 * 60 * 1000)
     return () => clearInterval(iv)
   }, [])
 
