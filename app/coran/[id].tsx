@@ -167,26 +167,31 @@ export default function LectureSourate() {
     const lineHeight = taille * 2.0
 
     const renderBloc = useCallback(({ item }: { item: Bloc }) => (
-        <Text
-            style={{
-                fontFamily: typography.fontFamily.coran,
-                fontSize: taille,
-                lineHeight,
-                color: TEXTE,
-                textAlign: 'center',
-                writingDirection: 'rtl',
-            }}
-        >
-            {item.versets.map(v => (
-                <Text key={v.numero}>
-                    {v.texte}{' '}
-                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.78, color: OR }}>
-                        {'﴿'}{chiffresArabes(v.numero)}{'﴾'}
+        <View>
+            {item.versets.map((v, i) => (
+                <View key={v.numero}>
+                    <Text
+                        style={{
+                            fontFamily: typography.fontFamily.coran,
+                            fontSize: taille,
+                            lineHeight,
+                            color: TEXTE,
+                            textAlign: 'center',
+                            writingDirection: 'rtl',
+                            paddingVertical: 6,
+                        }}
+                    >
+                        {v.texte}{' '}
+                        <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.85, color: OR }}>
+                            {chiffresArabes(v.numero)}
+                        </Text>
                     </Text>
-                    {'  '}
-                </Text>
+                    {i < item.versets.length - 1 && (
+                        <View style={styles.separateur} />
+                    )}
+                </View>
             ))}
-        </Text>
+        </View>
     ), [taille, lineHeight])
 
     // ── En-tête de liste : nom de sourate + basmala ──
@@ -259,9 +264,7 @@ export default function LectureSourate() {
                         data={blocs}
                         keyExtractor={b => b.cle}
                         renderItem={renderBloc}
-                        ItemSeparatorComponent={() => (
-                            <View style={styles.separateur} />
-                        )}
+                        ItemSeparatorComponent={() => <View style={styles.separateur} />}
                         ListHeaderComponent={entete}
                         ListFooterComponent={pied}
                         extraData={taille}
