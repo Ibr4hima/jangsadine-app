@@ -11,6 +11,7 @@ import {
 import { readAsStringAsync } from 'expo-file-system/legacy'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert } from 'react-native'
+import { VolumeManager } from 'react-native-volume-manager'
 
 // Logo de l'app affiché par défaut comme jaquette sur l'écran verrouillé
 const LOGO_APP = require('../assets/images/logo.png')
@@ -92,6 +93,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const pochetteDefautRef = useRef<string | undefined>(undefined)
   // Position à appliquer dès que la nouvelle source est chargée (reprise)
   const repriseEnAttenteRef = useRef<number | null>(null)
+  // Ignore brièvement l'écho du listener de volume juste après qu'on a nous-même
+  // appelé setVolume, pour éviter une boucle de retour (réglage in-app → listener).
+  const ignoreVolumeListenerRef = useRef(0)
   // Watchdog de chargement : alerte si la piste ne charge jamais
   const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Permet à pisterSuivante (mémorisé) d'appeler la dernière version de
@@ -227,6 +231,25 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     // onUpdate est stable (useCallback) — abonnement unique
   }, [onUpdate, annulerWatchdog])
 
+  // Synchronisation avec le volume MATÉRIEL de l'appareil (option B).
+  // Le curseur in-app ne pilote plus un gain logiciel séparé : il lit et règle
+  // le volume système, et se met à jour quand l'utilisateur presse les boutons
+  // physiques / le centre de contrôle. Plus aucun décalage entre les deux.
+  useEffect(() => {
+    let annule = false
+    VolumeManager.getVolume()
+      .then(({ volume: v }) => { if (!annule && typeof v === 'number') setVolume(v) })
+      .catch(() => {})
+
+    const sub = VolumeManager.addVolumeListener(({ volume: v }) => {
+      // Écho de notre propre setVolume → on ignore quelques centaines de ms
+      if (Date.now() < ignoreVolumeListenerRef.current) return
+      if (typeof v === 'number') setVolume(v)
+    })
+
+    return () => { annule = true; sub?.remove?.() }
+  }, [])
+
   const chargerEtJouer = useCallback((p: Piste, suivantes: Piste[] = [], options?: OptionsLecture) => {
     const player = playerRef.current
     if (!player) return
@@ -340,7 +363,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const changerVolume = useCallback(async (v: number) => {
     setVolume(v)
-    if (playerRef.current) playerRef.current.volume = v
+    // On règle le volume MATÉRIEL (source unique de vérité). showUI:false → pas
+    // de HUD natif en double puisqu'on affiche déjà notre propre curseur.
+    ignoreVolumeListenerRef.current = Date.now() + 400
+    VolumeManager.setVolume(v, { showUI: false }).catch(() => {})
   }, [])
 
   const changerVitesse = useCallback(async (v: number) => {
