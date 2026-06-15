@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
+import { FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -37,14 +37,6 @@ function clamp(v: number, min: number, max: number) {
     return Math.min(max, Math.max(min, v))
 }
 
-// Ligature calligraphique « Bismillah ar-Rahman ar-Rahim » (U+FDFD) : un seul
-// glyphe qui dessine toute la basmala en naskh fluide via la police Amiri.
-const BISMILLAH = '﷽'
-// Le glyphe U+FDFD fait ~11.4 cadratins de large → on calcule la taille pour
-// qu'il occupe ~88% de la largeur d'écran (en-tête XXL pleine largeur).
-const LARGEUR_ECRAN = Dimensions.get('window').width
-const TAILLE_BISMILLAH = Math.round(((LARGEUR_ECRAN - 44) * 0.92) / 11.4)
-
 // Chiffres arabes (٠١٢…) pour les marqueurs de fin de verset, comme dans le Mushaf
 function chiffresArabes(n: number) {
     return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)])
@@ -69,7 +61,7 @@ function construireBlocs(versets: Verset[]): Bloc[] {
 }
 
 // Bloc de texte continu (un flux de versets). Le marqueur de fin de verset
-// (chiffre arabe doré) est dimensionné à 100% de la taille de lecture.
+// (chiffre arabe, même couleur que le texte) est dimensionné à 110% de la taille.
 function BlocTexte({ item, taille, lineHeight }: { item: Bloc; taille: number; lineHeight: number }) {
     return (
         <Text
@@ -85,7 +77,7 @@ function BlocTexte({ item, taille, lineHeight }: { item: Bloc; taille: number; l
             {item.versets.map(v => (
                 <Text key={v.numero}>
                     {v.texte}{' '}
-                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille, color: OR }}>
+                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 1.1, color: TEXTE }}>
                         {chiffresArabes(v.numero)}
                     </Text>
                     {'  '}
@@ -217,23 +209,22 @@ export default function LectureSourate() {
             <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: MUTED, marginTop: 4 }}>
                 {nomSourate} · {nombreVersets} versets · Hafs
             </Text>
-            {/* Calligraphie XXL de la basmala (ligature naskh Amiri) */}
+            {/* Calligraphie XXL de la basmala : vrai texte (police naskh Amiri)
+                dimensionné à 1,5× la taille de lecture → suit le zoom. */}
             {basmala && (
                 <Text
-                    allowFontScaling={false}
-                    numberOfLines={1}
                     style={{
                         fontFamily: 'Bismillah',
-                        fontSize: TAILLE_BISMILLAH,
-                        lineHeight: TAILLE_BISMILLAH * 1.9,
+                        fontSize: taille * 1.5,
+                        lineHeight: taille * 1.5 * 1.7,
                         color: TEXTE,
-                        marginTop: 30,
+                        marginTop: 28,
+                        paddingHorizontal: 8,
                         textAlign: 'center',
                         writingDirection: 'rtl',
-                        includeFontPadding: false,
                     }}
                 >
-                    {BISMILLAH}
+                    {basmala}
                 </Text>
             )}
         </View>
