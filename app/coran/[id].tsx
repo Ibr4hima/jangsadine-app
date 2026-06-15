@@ -29,6 +29,8 @@ const BLOC_CARACTERES = 480
 
 const CLE_TAILLE = 'jsd_coran_taille'
 
+const PADDING_BLOC = 6
+
 type Verset = { numero: number; texte: string }
 type Bloc = { cle: string; versets: Verset[] }
 
@@ -58,6 +60,56 @@ function construireBlocs(versets: Verset[]): Bloc[] {
     }
     if (courant.length) blocs.push({ cle: `b${blocs.length}`, versets: courant })
     return blocs
+}
+
+// Composant séparé pour pouvoir utiliser useState (hooks interdits dans useCallback)
+function BlocTexte({ item, taille, lineHeight }: { item: Bloc; taille: number; lineHeight: number }) {
+    const [hauteur, setHauteur] = useState(0)
+    // Nombre de lignes dans la zone de texte (hors padding vertical du bloc)
+    const nbLignes = hauteur > 0 ? Math.round((hauteur - PADDING_BLOC * 2) / lineHeight) : 0
+
+    return (
+        <View
+            onLayout={e => setHauteur(e.nativeEvent.layout.height)}
+            style={{ paddingVertical: PADDING_BLOC }}
+        >
+            <Text
+                style={{
+                    fontFamily: typography.fontFamily.coran,
+                    fontSize: taille,
+                    lineHeight,
+                    color: TEXTE,
+                    textAlign: 'center',
+                    writingDirection: 'rtl',
+                }}
+            >
+                {item.versets.map(v => (
+                    <Text key={v.numero}>
+                        {v.texte}{' '}
+                        <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.85, color: OR }}>
+                            {chiffresArabes(v.numero)}
+                        </Text>
+                        {'  '}
+                    </Text>
+                ))}
+            </Text>
+
+            {/* Lignes réglées : une ligne fine sous chaque ligne de texte affichée */}
+            {Array.from({ length: nbLignes }).map((_, i) => (
+                <View
+                    key={i}
+                    style={{
+                        position: 'absolute',
+                        top: PADDING_BLOC + (i + 1) * lineHeight,
+                        left: 0, right: 0,
+                        height: StyleSheet.hairlineWidth,
+                        backgroundColor: TEXTE,
+                        opacity: 0.13,
+                    }}
+                />
+            ))}
+        </View>
+    )
 }
 
 export default function LectureSourate() {
@@ -167,31 +219,7 @@ export default function LectureSourate() {
     const lineHeight = taille * 2.0
 
     const renderBloc = useCallback(({ item }: { item: Bloc }) => (
-        <View>
-            {item.versets.map((v, i) => (
-                <View key={v.numero}>
-                    <Text
-                        style={{
-                            fontFamily: typography.fontFamily.coran,
-                            fontSize: taille,
-                            lineHeight,
-                            color: TEXTE,
-                            textAlign: 'center',
-                            writingDirection: 'rtl',
-                            paddingVertical: 6,
-                        }}
-                    >
-                        {v.texte}{' '}
-                        <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.85, color: OR }}>
-                            {chiffresArabes(v.numero)}
-                        </Text>
-                    </Text>
-                    {i < item.versets.length - 1 && (
-                        <View style={styles.separateur} />
-                    )}
-                </View>
-            ))}
-        </View>
+        <BlocTexte item={item} taille={taille} lineHeight={lineHeight} />
     ), [taille, lineHeight])
 
     // ── En-tête de liste : nom de sourate + basmala ──
@@ -264,7 +292,6 @@ export default function LectureSourate() {
                         data={blocs}
                         keyExtractor={b => b.cle}
                         renderItem={renderBloc}
-                        ItemSeparatorComponent={() => <View style={styles.separateur} />}
                         ListHeaderComponent={entete}
                         ListFooterComponent={pied}
                         extraData={taille}
@@ -303,11 +330,4 @@ export default function LectureSourate() {
     )
 }
 
-const styles = StyleSheet.create({
-    separateur: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: TEXTE,
-        opacity: 0.1,
-        marginHorizontal: 8,
-    },
-})
+const styles = StyleSheet.create({})
