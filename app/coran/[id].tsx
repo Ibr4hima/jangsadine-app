@@ -206,15 +206,9 @@ export default function LectureSourate() {
         <BlocTexte item={item} taille={taille} lineHeight={lineHeight} />
     ), [taille, lineHeight])
 
-    // ── En-tête de liste : nom de sourate + basmala ──
+    // ── En-tête de liste : basmala uniquement ──
     const entete = (
         <View style={{ paddingTop: insets.top + 64, paddingBottom: 28, alignItems: 'center' }}>
-            <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: 34, color: OR, lineHeight: 52 }}>
-                {nomAr}
-            </Text>
-            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: MUTED, marginTop: 4 }}>
-                {nomSourate} · {nombreVersets} versets · Hafs
-            </Text>
             {/* Calligraphie XXL de la basmala : vrai texte (police naskh Amiri),
                 sur UNE seule ligne. La taille suit le zoom (1,6×) mais reste
                 plafonnée pour ne jamais déborder / passer à la ligne. */}
