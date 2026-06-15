@@ -4,7 +4,7 @@ import { useAudio, useAudioProgress } from '@/contexts/AudioContext'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode, useEffect } from 'react'
-import { Pressable, Text, View, ViewStyle } from 'react-native'
+import { Pressable, View, ViewStyle } from 'react-native'
 import Animated, {
     cancelAnimation,
     Easing,
@@ -49,15 +49,6 @@ function IconSuivant({ size = 20, color = 'white' }: { size?: number; color?: st
     )
 }
 
-function formaterTemps(s: number) {
-    if (!s || isNaN(s)) return '0:00'
-    const h = Math.floor(s / 3600)
-    const m = Math.floor((s % 3600) / 60)
-    const sec = Math.floor(s % 60)
-    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
-    return `${m}:${sec.toString().padStart(2, '0')}`
-}
-
 // ─── égaliseur au repos (5 points dorés statiques) ────────────
 function BarresRepos() {
     return (
@@ -93,11 +84,11 @@ function Tap({ onPress, style, children, hitSlop = 12 }: {
     )
 }
 
-// ─── sous-composants isolant les mises à jour ~2×/s ──────────
-// Eux seuls s'abonnent à useAudioProgress. Le corps du lecteur ne
+// ─── sous-composant isolant les mises à jour ~2×/s ───────────
+// Lui seul s'abonne à useAudioProgress. Le corps du lecteur ne
 // dépend que de useAudio (piste/lecture, valeurs stables), donc il
-// ne se re-render plus à chaque tick : seuls ces deux petits noeuds
-// se rafraîchissent, ce qui évite la surchauffe sur longue écoute.
+// ne se re-render plus à chaque tick : seule la barre se rafraîchit,
+// ce qui évite la surchauffe sur longue écoute.
 
 function BarreProgression() {
     const { progression } = useAudioProgress()
@@ -111,22 +102,6 @@ function BarreProgression() {
                 borderBottomRightRadius: 2,
             }} />
         </View>
-    )
-}
-
-function TempsLecture() {
-    const { tempsActuel, dureeTotal } = useAudioProgress()
-    if (dureeTotal <= 0) return null
-    return (
-        <Text style={{
-            fontFamily: typography.fontFamily.regular,
-            fontSize: typography.size.xs,
-            color: W70,
-            fontVariant: ['tabular-nums'],
-            flexShrink: 0,
-        }}>
-            {formaterTemps(tempsActuel)} / {formaterTemps(dureeTotal)}
-        </Text>
     )
 }
 
@@ -225,7 +200,7 @@ export default function LecteurPersistant() {
                                 : <BarresRepos />}
                         </Animated.View>
 
-                        {/* Titre + sheikh + temps */}
+                        {/* Titre + sheikh */}
                         <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                             <TextTicker
                                 style={{
@@ -237,19 +212,16 @@ export default function LecteurPersistant() {
                             >
                                 {piste.titre}
                             </TextTicker>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                                <TextTicker
-                                    style={{
-                                        fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
-                                        fontSize: typography.size.xs,
-                                        color: W70,
-                                    } as any}
-                                    loop bounce={false} repeatSpacer={50} marqueeDelay={3500} scrollSpeed={18}
-                                >
-                                    {piste.sheikh}
-                                </TextTicker>
-                                <TempsLecture />
-                            </View>
+                            <TextTicker
+                                style={{
+                                    fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
+                                    fontSize: typography.size.xs,
+                                    color: W70,
+                                } as any}
+                                loop bounce={false} repeatSpacer={50} marqueeDelay={3500} scrollSpeed={18}
+                            >
+                                {piste.sheikh}
+                            </TextTicker>
                         </View>
                     </Pressable>
 
