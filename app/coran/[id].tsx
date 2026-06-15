@@ -1,287 +1,298 @@
-import { colors, radius, spacing, typography } from '@/constants/theme'
+import { colors, typography } from '@/constants/theme'
 import { getSourate } from '@/lib/quran'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ArrowLeft, ChevronLeft, ChevronRight, Moon, Sun, Type } from 'lucide-react-native'
-import { useEffect, useState } from 'react'
-import {
-    Dimensions,
-    Pressable,
-    ScrollView,
-    StatusBar, Text, View
-} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { ArrowLeft, ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { FlatList, Pressable, StatusBar, Text, View } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-const { width } = Dimensions.get('window')
-
-type Verset = {
-    numero: number
-    texte: string
-}
-
-const BISMILLAH = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ'
-const TAILLES = [24, 28, 32, 38]
 const sourates = require('../../assets/quran/sourates.json')
 
+// Bornes de la taille de lecture (px). Le pinch fait varier en continu entre les deux.
+const TAILLE_MIN = 20
+const TAILLE_MAX = 64
+const TAILLE_DEFAUT = 30
+// On regroupe les versets en blocs d'environ ce nombre de caractères : le texte
+// reste un flux justifié continu DANS un bloc, et la FlatList ne rend que les
+// blocs visibles → fluide même sur al-Baqarah (286 versets).
+const BLOC_CARACTERES = 480
+
+const CLE_TAILLE = 'jsd_coran_taille'
+const CLE_NUIT = 'jsd_coran_nuit'
+
+type Verset = { numero: number; texte: string }
+type Bloc = { cle: string; versets: Verset[] }
+
+function clamp(v: number, min: number, max: number) {
+    'worklet'
+    return Math.min(max, Math.max(min, v))
+}
+
+// Chiffres arabes (٠١٢…) pour les marqueurs de fin de verset, comme dans le Mushaf
+function chiffresArabes(n: number) {
+    return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)])
+}
+
+// Découpe les versets en blocs ~homogènes (par longueur) pour la virtualisation
+function construireBlocs(versets: Verset[]): Bloc[] {
+    const blocs: Bloc[] = []
+    let courant: Verset[] = []
+    let taille = 0
+    for (const v of versets) {
+        courant.push(v)
+        taille += v.texte.length
+        if (taille >= BLOC_CARACTERES) {
+            blocs.push({ cle: `b${blocs.length}`, versets: courant })
+            courant = []
+            taille = 0
+        }
+    }
+    if (courant.length) blocs.push({ cle: `b${blocs.length}`, versets: courant })
+    return blocs
+}
+
 export default function LectureSourate() {
-    const { id, riwaya } = useLocalSearchParams<{ id: string, riwaya: string }>()
+    const { id, riwaya } = useLocalSearchParams<{ id: string; riwaya: string }>()
     const router = useRouter()
+    const insets = useSafeAreaInsets()
     const index = parseInt(id)
 
-    const [versets, setVersets] = useState<Verset[]>([])
+    const [blocs, setBlocs] = useState<Bloc[]>([])
+    const [basmala, setBasmala] = useState<string | null>(null)
     const [nomSourate, setNomSourate] = useState('')
     const [nomAr, setNomAr] = useState('')
     const [nombreVersets, setNombreVersets] = useState(0)
-    const [modeNuit, setModeNuit] = useState(true)
-    const [tailleIdx, setTailleIdx] = useState(1)
     const [loading, setLoading] = useState(true)
 
-    const taille = TAILLES[tailleIdx]
+    const [taille, setTaille] = useState(TAILLE_DEFAUT)
+    const [nuit, setNuit] = useState(true)
+    const [chromeVisible, setChromeVisible] = useState(true)
 
-    // Thème
-    const bg = modeNuit ? '#1a2a1a' : colors.fondCreme
-    const bgCard = modeNuit ? '#1e301e' : colors.blanc
-    const bgHeader = modeNuit ? '#162216' : colors.blanc
-    const txtColor = modeNuit ? '#f0ede4' : colors.texte
-    const txtMuted = modeNuit ? 'rgba(240,237,228,0.5)' : colors.texteMuted
-    const borderCol = modeNuit ? 'rgba(212,175,55,0.25)' : colors.bordure
-    const orColor = modeNuit ? '#d4af37' : colors.or
-    const numerosBg = modeNuit ? 'rgba(212,175,55,0.15)' : '#f0f0f0'
-    const numerosTxt = modeNuit ? '#d4af37' : colors.bleu
+    // Valeurs partagées pour le geste (lues/écrites sur le thread UI)
+    const tailleSV = useSharedValue(TAILLE_DEFAUT)
+    const tailleDebutSV = useSharedValue(TAILLE_DEFAUT)
+    const dernierePousseeRef = useRef(TAILLE_DEFAUT)
+    useEffect(() => { tailleSV.value = taille }, [taille])
 
+    // ── Thème (immersif : juste le fond + le texte) ──
+    const t = nuit
+        ? { bg: '#13140F', texte: '#ECE7D8', muted: 'rgba(236,231,216,0.45)', or: '#d8b84a', barre: 'light-content' as const }
+        : { bg: '#F6F3EC', texte: '#23201A', muted: 'rgba(35,32,26,0.45)', or: colors.orFonce, barre: 'dark-content' as const }
+
+    // ── Chargement des données ──
     useEffect(() => {
         try {
             const data = getSourate(index)
-            if (!data) return
+            if (!data) { setLoading(false); return }
             setNomSourate(data.name)
             const info = sourates.find((s: any) => s.index === index)
             if (info) { setNomAr(info.nomAr); setNombreVersets(info.versets) }
-            const vs: Verset[] = Object.entries(data.verse).map(([key, texte]) => ({
-                numero: parseInt(key.replace('verse_', '')),
-                texte: texte as string,
-            }))
-            setVersets(vs)
+
+            const versets: Verset[] = []
+            let basm: string | null = null
+            for (const [cle, texte] of Object.entries(data.verse)) {
+                const num = parseInt(cle.replace('verse_', ''))
+                // verse_0 = basmala séparée (sourates ≠ 1 et ≠ 9) → affichée en en-tête,
+                // pas dans le flux numéroté.
+                if (num === 0) { basm = texte as string; continue }
+                versets.push({ numero: num, texte: texte as string })
+            }
+            setBasmala(basm)
+            setBlocs(construireBlocs(versets))
         } catch (e) {
-            console.error(e)
+            console.warn('lecture sourate:', e)
         }
         setLoading(false)
     }, [index])
 
+    // ── Préférences persistées ──
+    useEffect(() => {
+        AsyncStorage.multiGet([CLE_TAILLE, CLE_NUIT]).then(entries => {
+            for (const [cle, val] of entries) {
+                if (val == null) continue
+                if (cle === CLE_TAILLE) {
+                    const n = parseFloat(val)
+                    if (!isNaN(n)) { setTaille(n); tailleSV.value = n }
+                } else if (cle === CLE_NUIT) {
+                    setNuit(val === '1')
+                }
+            }
+        }).catch(() => {})
+    }, [])
+
+    // ── Pinch : reflow en direct (la mise en page s'adapte pendant le geste) ──
+    const appliquerTaille = useCallback((n: number) => {
+        if (n === dernierePousseeRef.current) return
+        dernierePousseeRef.current = n
+        setTaille(n)
+    }, [])
+
+    const persisterTaille = useCallback((n: number) => {
+        AsyncStorage.setItem(CLE_TAILLE, String(n)).catch(() => {})
+    }, [])
+
+    const pinch = Gesture.Pinch()
+        .onStart(() => { tailleDebutSV.value = tailleSV.value })
+        .onUpdate(e => {
+            // Arrondi à l'entier → ~quelques dizaines de paliers sur toute la plage :
+            // reflow fluide sans spammer des rendus identiques.
+            const n = Math.round(clamp(tailleDebutSV.value * e.scale, TAILLE_MIN, TAILLE_MAX))
+            runOnJS(appliquerTaille)(n)
+        })
+        .onEnd(() => {
+            runOnJS(persisterTaille)(Math.round(tailleSV.value))
+        })
+
+    // Tap simple (1 doigt, sans déplacement) → bascule le chrome. N'interfère ni
+    // avec le scroll (qui a du mouvement) ni avec le pinch (2 doigts).
+    const basculerChrome = useCallback(() => setChromeVisible(v => !v), [])
+    const tap = Gesture.Tap().onEnd(() => { runOnJS(basculerChrome)() })
+    const gestes = Gesture.Simultaneous(pinch, tap)
+
+    // ── Animation du chrome (header) ──
+    const chromeSV = useSharedValue(1)
+    useEffect(() => { chromeSV.value = withTiming(chromeVisible ? 1 : 0, { duration: 220 }) }, [chromeVisible])
+    const headerStyle = useAnimatedStyle(() => ({
+        opacity: chromeSV.value,
+        transform: [{ translateY: (1 - chromeSV.value) * -18 }],
+    }))
+
     const souratePrecedente = index > 1 ? index - 1 : null
     const sourateSuivante = index < 114 ? index + 1 : null
 
-    return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: bg }} edges={['top']}>
-            <StatusBar barStyle="light-content" />
+    const lineHeight = taille * 2.0
 
-            {/* ── Header ── */}
-            <View style={{
-                flexDirection: 'row', alignItems: 'center',
-                paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-                backgroundColor: bgHeader,
-                borderBottomWidth: 1, borderBottomColor: borderCol,
-            }}>
-                <Pressable onPress={() => router.back()} style={{ padding: 6, marginRight: spacing.sm }}>
-                    <ArrowLeft size={22} color={txtColor} />
+    const renderBloc = useCallback(({ item }: { item: Bloc }) => (
+        <Text
+            style={{
+                fontFamily: typography.fontFamily.coran,
+                fontSize: taille,
+                lineHeight,
+                color: t.texte,
+                textAlign: 'justify',
+                writingDirection: 'rtl',
+            }}
+        >
+            {item.versets.map(v => (
+                <Text key={v.numero}>
+                    {v.texte}{' '}
+                    <Text style={{ fontSize: taille * 0.62, color: t.or }}>
+                        {'﴿'}{chiffresArabes(v.numero)}{'﴾'}
+                    </Text>
+                    {'  '}
+                </Text>
+            ))}
+        </Text>
+    ), [taille, lineHeight, t.texte, t.or])
+
+    // ── En-tête de liste : nom de sourate + basmala ──
+    const entete = (
+        <View style={{ paddingTop: insets.top + 64, paddingBottom: 28, alignItems: 'center' }}>
+            <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: 34, color: t.or, lineHeight: 52 }}>
+                {nomAr}
+            </Text>
+            <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: t.muted, marginTop: 4 }}>
+                {nomSourate} · {nombreVersets} versets · {riwaya === 'warsh' ? 'Warsh' : 'Hafs'}
+            </Text>
+            {basmala && (
+                <Text style={{
+                    fontFamily: typography.fontFamily.coran,
+                    fontSize: Math.min(taille, 30),
+                    lineHeight: Math.min(taille, 30) * 1.9,
+                    color: t.texte,
+                    marginTop: 26,
+                    textAlign: 'center',
+                    writingDirection: 'rtl',
+                }}>
+                    {basmala}
+                </Text>
+            )}
+            {/* fine séparation dorée */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, width: 120 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: t.or, opacity: 0.4 }} />
+                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: t.or, marginHorizontal: 6 }} />
+                <View style={{ flex: 1, height: 1, backgroundColor: t.or, opacity: 0.4 }} />
+            </View>
+        </View>
+    )
+
+    // ── Pied de liste : navigation sourate précédente / suivante ──
+    const pied = (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 36, marginBottom: insets.bottom + 48 }}>
+            {souratePrecedente ? (
+                <Pressable
+                    onPress={() => router.replace(`/coran/${souratePrecedente}?riwaya=${riwaya}` as any)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                >
+                    <ChevronLeft size={18} color={t.or} />
+                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: t.muted }}>
+                        {sourates[souratePrecedente - 1]?.nom}
+                    </Text>
                 </Pressable>
+            ) : <View />}
+            {sourateSuivante ? (
+                <Pressable
+                    onPress={() => router.replace(`/coran/${sourateSuivante}?riwaya=${riwaya}` as any)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                >
+                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: t.muted }}>
+                        {sourates[sourateSuivante - 1]?.nom}
+                    </Text>
+                    <ChevronRight size={18} color={t.or} />
+                </Pressable>
+            ) : <View />}
+        </View>
+    )
 
+    return (
+        <View style={{ flex: 1, backgroundColor: t.bg }}>
+            <StatusBar barStyle={t.barre} />
+
+            {/* Texte : flux justifié continu, virtualisé, pinch + tap */}
+            {!loading && (
+                <GestureDetector gesture={gestes}>
+                    <FlatList
+                        data={blocs}
+                        keyExtractor={b => b.cle}
+                        renderItem={renderBloc}
+                        ListHeaderComponent={entete}
+                        ListFooterComponent={pied}
+                        extraData={taille}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingHorizontal: 22 }}
+                        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                        initialNumToRender={6}
+                        maxToRenderPerBatch={6}
+                        windowSize={9}
+                    />
+                </GestureDetector>
+            )}
+
+            {/* Chrome flottant (se masque au tap) */}
+            <Animated.View
+                pointerEvents={chromeVisible ? 'auto' : 'none'}
+                style={[{
+                    position: 'absolute', top: 0, left: 0, right: 0,
+                    paddingTop: insets.top + 6, paddingBottom: 10, paddingHorizontal: 12,
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: t.bg,
+                }, headerStyle]}
+            >
+                <Pressable onPress={() => router.back()} hitSlop={10} style={{ padding: 6 }}>
+                    <ArrowLeft size={22} color={t.texte} />
+                </Pressable>
                 <View style={{ flex: 1, alignItems: 'center' }}>
-                    <Text style={{
-                        fontFamily: typography.fontFamily.coran,
-                        fontSize: 22, color: orColor, lineHeight: 32,
-                    }}>
+                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.coran, fontSize: 20, color: t.or, lineHeight: 30 }}>
                         {nomAr}
                     </Text>
-                    <Text style={{
-                        fontFamily: typography.fontFamily.medium,
-                        fontSize: typography.size.xs, color: txtMuted, marginTop: 2,
-                    }}>
-                        {nomSourate} · {nombreVersets} versets · {riwaya === 'warsh' ? 'Warsh' : 'Hafs'}
-                    </Text>
                 </View>
-
-                {/* Taille */}
-                <Pressable
-                    onPress={() => setTailleIdx(p => (p + 1) % TAILLES.length)}
-                    style={{
-                        width: 36, height: 36, borderRadius: radius.full,
-                        backgroundColor: modeNuit ? 'rgba(255,255,255,0.08)' : colors.fondCreme,
-                        alignItems: 'center', justifyContent: 'center', marginRight: spacing.sm,
-                    }}
-                >
-                    <Type size={15} color={txtMuted} />
+                <Pressable onPress={() => { const v = !nuit; setNuit(v); AsyncStorage.setItem(CLE_NUIT, v ? '1' : '0').catch(() => {}) }} hitSlop={10} style={{ padding: 6 }}>
+                    {nuit ? <Sun size={20} color={t.or} /> : <Moon size={20} color={t.muted} />}
                 </Pressable>
-
-                {/* Mode nuit */}
-                <Pressable
-                    onPress={() => setModeNuit(p => !p)}
-                    style={{
-                        width: 36, height: 36, borderRadius: radius.full,
-                        backgroundColor: modeNuit ? 'rgba(255,255,255,0.08)' : colors.fondCreme,
-                        alignItems: 'center', justifyContent: 'center',
-                    }}
-                >
-                    {modeNuit
-                        ? <Sun size={15} color="#ffd700" />
-                        : <Moon size={15} color={colors.texteMuted} />
-                    }
-                </Pressable>
-            </View>
-
-            {loading ? (
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: 24, color: orColor }}>
-                        ...
-                    </Text>
-                </View>
-            ) : (
-                <ScrollView
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 120 }}
-                >
-                    {/* Bismillah */}
-                    {index !== 9 && (
-                        <View style={{
-                            marginHorizontal: spacing.xl,
-                            marginTop: spacing.xl,
-                            marginBottom: spacing.lg,
-                            paddingVertical: spacing.lg,
-                            paddingHorizontal: spacing.xl,
-                            backgroundColor: bgCard,
-                            borderRadius: radius.xl,
-                            borderWidth: 1,
-                            borderColor: borderCol,
-                            alignItems: 'center',
-                        }}>
-                            {/* Ornement haut */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, width: '100%' }}>
-                                <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
-                                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: orColor, marginHorizontal: spacing.sm }} />
-                                <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
-                            </View>
-
-                            <Text style={{
-                                fontFamily: typography.fontFamily.coran,
-                                fontSize: index === 1 ? taille : taille - 2,
-                                color: index === 1 ? orColor : txtColor,
-                                textAlign: 'center',
-                                lineHeight: (index === 1 ? taille : taille - 2) * 1.9,
-                                writingDirection: 'rtl',
-                            }}>
-                                {BISMILLAH}
-                            </Text>
-
-                            {/* Ornement bas */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, width: '100%' }}>
-                                <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
-                                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: orColor, marginHorizontal: spacing.sm }} />
-                                <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
-                            </View>
-                        </View>
-                    )}
-
-                    {/* Versets — texte continu */}
-                    <View style={{
-                        marginHorizontal: spacing.xl,
-                        backgroundColor: bgCard,
-                        borderRadius: radius.xl,
-                        borderWidth: 1,
-                        borderColor: borderCol,
-                        padding: spacing.xl,
-                        marginBottom: spacing.xl,
-                    }}>
-                        {/* Ornement haut */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl }}>
-                            <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
-                            <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: 16, color: orColor, marginHorizontal: spacing.md }}>
-                                ﷽
-                            </Text>
-                            <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
-                        </View>
-
-                        {/* Texte continu avec numéros intégrés */}
-                        <Text style={{
-                            fontFamily: typography.fontFamily.coran,
-                            fontSize: taille,
-                            color: txtColor,
-                            textAlign: 'justify',
-                            lineHeight: taille * 2.2,
-                            writingDirection: 'rtl',
-                        }}>
-                            {versets.map((v, i) => (
-                                <Text key={v.numero}>
-                                    {v.texte}
-                                    {'  '}
-                                    <Text style={{
-                                        fontSize: taille * 0.65,
-                                        color: orColor,
-                                    }}>
-                                        {'﴿'}{v.numero}{'﴾'}
-                                    </Text>
-                                    {'  '}
-                                </Text>
-                            ))}
-                        </Text>
-
-                        {/* Ornement bas */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xl }}>
-                            <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
-                            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: orColor, marginHorizontal: spacing.sm }} />
-                            <View style={{ flex: 1, height: 1, backgroundColor: borderCol }} />
-                        </View>
-                    </View>
-
-                    {/* Navigation sourate précédente / suivante */}
-                    <View style={{
-                        flexDirection: 'row',
-                        marginHorizontal: spacing.xl,
-                        marginBottom: spacing.xl,
-                    }}>
-                        {souratePrecedente ? (
-                            <Pressable
-                                onPress={() => router.replace(`/coran/${souratePrecedente}?riwaya=${riwaya}` as any)}
-                                style={{
-                                    flex: 1, flexDirection: 'row', alignItems: 'center',
-                                    backgroundColor: bgCard, borderRadius: radius.lg,
-                                    borderWidth: 1, borderColor: borderCol,
-                                    padding: spacing.md, marginRight: sourateSuivante ? spacing.sm : 0,
-                                }}
-                            >
-                                <ChevronLeft size={18} color={orColor} />
-                                <View style={{ marginLeft: spacing.sm, flex: 1 }}>
-                                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: txtMuted }}>
-                                        Précédente
-                                    </Text>
-                                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: txtColor }}>
-                                        {sourates[souratePrecedente - 1]?.nom}
-                                    </Text>
-                                </View>
-                            </Pressable>
-                        ) : <View style={{ flex: 1 }} />}
-
-                        {sourateSuivante ? (
-                            <Pressable
-                                onPress={() => router.replace(`/coran/${sourateSuivante}?riwaya=${riwaya}` as any)}
-                                style={{
-                                    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
-                                    backgroundColor: bgCard, borderRadius: radius.lg,
-                                    borderWidth: 1, borderColor: borderCol,
-                                    padding: spacing.md, marginLeft: souratePrecedente ? spacing.sm : 0,
-                                }}
-                            >
-                                <View style={{ marginRight: spacing.sm, flex: 1, alignItems: 'flex-end' }}>
-                                    <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: txtMuted }}>
-                                        Suivante
-                                    </Text>
-                                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.sm, color: txtColor }}>
-                                        {sourates[sourateSuivante - 1]?.nom}
-                                    </Text>
-                                </View>
-                                <ChevronRight size={18} color={orColor} />
-                            </Pressable>
-                        ) : <View style={{ flex: 1 }} />}
-                    </View>
-                </ScrollView>
-            )}
-        </SafeAreaView>
+            </Animated.View>
+        </View>
     )
 }
