@@ -10,8 +10,14 @@ import {
 } from 'expo-audio'
 import { readAsStringAsync } from 'expo-file-system/legacy'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert } from 'react-native'
+import { Alert, NativeModules } from 'react-native'
 import { VolumeManager } from 'react-native-volume-manager'
+
+// Le module natif du volume n'existe pas dans Expo Go : on détecte sa présence
+// pour ne l'utiliser que dans un vrai build (dev/production). Sinon on dégrade
+// proprement (le curseur in-app reste utilisable, la synchro matérielle est juste
+// inactive) — ça évite tout crash en Expo Go et garde le hot-reload exploitable.
+const VOLUME_NATIF_DISPO = !!NativeModules.VolumeManager
 
 // Logo de l'app affiché par défaut comme jaquette sur l'écran verrouillé
 const LOGO_APP = require('../assets/images/logo.png')
@@ -236,16 +242,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // le volume système, et se met à jour quand l'utilisateur presse les boutons
   // physiques / le centre de contrôle. Plus aucun décalage entre les deux.
   useEffect(() => {
+    if (!VOLUME_NATIF_DISPO) return // Expo Go : pas de module natif → on n'attache rien
     let annule = false
-    VolumeManager.getVolume()
-      .then(({ volume: v }) => { if (!annule && typeof v === 'number') setVolume(v) })
-      .catch(() => {})
+    let sub: { remove?: () => void } | undefined
+    try {
+      VolumeManager.getVolume()
+        .then(({ volume: v }) => { if (!annule && typeof v === 'number') setVolume(v) })
+        .catch(() => {})
 
-    const sub = VolumeManager.addVolumeListener(({ volume: v }) => {
-      // Écho de notre propre setVolume → on ignore quelques centaines de ms
-      if (Date.now() < ignoreVolumeListenerRef.current) return
-      if (typeof v === 'number') setVolume(v)
-    })
+      sub = VolumeManager.addVolumeListener(({ volume: v }) => {
+        // Écho de notre propre setVolume → on ignore quelques centaines de ms
+        if (Date.now() < ignoreVolumeListenerRef.current) return
+        if (typeof v === 'number') setVolume(v)
+      })
+    } catch {}
 
     return () => { annule = true; sub?.remove?.() }
   }, [])
@@ -363,10 +373,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const changerVolume = useCallback(async (v: number) => {
     setVolume(v)
+    if (!VOLUME_NATIF_DISPO) return // Expo Go : le curseur bouge mais pas de réglage natif
     // On règle le volume MATÉRIEL (source unique de vérité). showUI:false → pas
     // de HUD natif en double puisqu'on affiche déjà notre propre curseur.
     ignoreVolumeListenerRef.current = Date.now() + 400
-    VolumeManager.setVolume(v, { showUI: false }).catch(() => {})
+    try { VolumeManager.setVolume(v, { showUI: false }).catch(() => {}) } catch {}
   }, [])
 
   const changerVitesse = useCallback(async (v: number) => {
