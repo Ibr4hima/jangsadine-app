@@ -1,5 +1,4 @@
 import Bismillah from '@/components/Bismillah'
-import SurahBanner from '@/components/SurahBanner'
 import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate } from '@/lib/quran'
@@ -238,15 +237,35 @@ export default function LectureSourate() {
 
     const renderItem = useCallback(({ item }: { item: Item }) => {
         if (item.type === 'entete') {
+            const id3 = String(item.sourate).padStart(3, '0')
             return (
                 <View style={{
-                    paddingTop: item.premier ? insets.top + 64 : taille * 1.4,
+                    paddingTop: item.premier ? insets.top + 64 : taille * 2,
                     paddingBottom: Math.round(taille * 0.5),
                     alignItems: 'center',
                 }}>
-                    {/* Bandeau ornemental Mushaf : cadre doré + nom + médaillons */}
-                    <SurahBanner sourate={item.sourate} nbVersets={item.nbVersets} largeur={LARGEUR_ECRAN - 44} taille={taille} />
-                    {/* Calligraphie de la basmala (SVG vectoriel quran.com) */}
+                    {/* Étiquette "Sourate N" style hero */}
+                    <Text style={{
+                        fontFamily: typography.fontFamily.bold,
+                        fontSize: 11,
+                        letterSpacing: 2,
+                        color: OR,
+                        textTransform: 'uppercase',
+                        marginBottom: taille * 0.25,
+                    }}>
+                        Sourate {item.sourate}
+                    </Text>
+                    {/* Nom calligraphié (police SuraNames — ligature par identifiant) */}
+                    <Text style={{
+                        fontFamily: 'SuraNames',
+                        fontSize: taille * 2.3,
+                        lineHeight: taille * 2.3 * 1.35,
+                        color: OR,
+                        writingDirection: 'rtl',
+                    }}>
+                        {`surah${id3}`}
+                    </Text>
+                    {/* Basmala SVG (quran.com) */}
                     {item.basmala && (
                         <View style={{ marginTop: taille * 0.9 }}>
                             <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
@@ -299,8 +318,8 @@ export default function LectureSourate() {
                     <ArrowLeft size={22} color={TEXTE} />
                 </Pressable>
                 <View style={{ flex: 1, alignItems: 'center' }}>
-                    <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.coran, fontSize: 20, color: OR, lineHeight: 30 }}>
-                        {sourates[sourateActive - 1]?.nomAr}
+                    <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: OR, lineHeight: 33 }}>
+                        {`surah${String(sourateActive).padStart(3, '0')}`}
                     </Text>
                 </View>
                 {/* espace vide pour garder le titre centré */}
