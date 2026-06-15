@@ -37,11 +37,13 @@ function clamp(v: number, min: number, max: number) {
     return Math.min(max, Math.max(min, v))
 }
 
-// La basmala (police Amiri) mesure ≈ 6.92 cadratins de large. On en déduit la
-// taille de police maximale pour qu'elle tienne sur UNE seule ligne, calligraphie
-// élégante sans retour à la ligne. La taille réelle suit le zoom mais est plafonnée.
+// Calligraphie de la basmala : ligature naskh « ﷽ » (U+FDFD, police Amiri),
+// un seul glyphe fluide. Le glyphe fait ≈ 11.44 cadratins de large → on calcule
+// la taille de police pour qu'il occupe ~94% de la largeur (XXL pleine largeur).
+// La taille suit le zoom mais est plafonnée pour ne jamais déborder.
+const BISMILLAH = '﷽'
 const LARGEUR_ECRAN = Dimensions.get('window').width
-const BASMALA_TAILLE_MAX = ((LARGEUR_ECRAN - 60) * 0.97) / 6.92
+const BISMILLAH_TAILLE_MAX = ((LARGEUR_ECRAN - 44) * 0.94) / 11.44
 
 // Chiffres arabes (٠١٢…) pour les marqueurs de fin de verset, comme dans le Mushaf
 function chiffresArabes(n: number) {
@@ -209,24 +211,22 @@ export default function LectureSourate() {
     // ── En-tête de liste : basmala uniquement ──
     const entete = (
         <View style={{ paddingTop: insets.top + 64, paddingBottom: 28, alignItems: 'center' }}>
-            {/* Calligraphie XXL de la basmala : vrai texte (police naskh Amiri),
-                sur UNE seule ligne. La taille suit le zoom (1,6×) mais reste
-                plafonnée pour ne jamais déborder / passer à la ligne. */}
+            {/* Calligraphie XXL de la basmala : ligature naskh Amiri (un seul
+                glyphe fluide). Taille = zoom plafonné pour tenir en pleine largeur. */}
             {basmala && (
                 <Text
                     numberOfLines={1}
-                    adjustsFontSizeToFit
                     style={{
                         fontFamily: 'Bismillah',
-                        fontSize: Math.min(taille * 1.6, BASMALA_TAILLE_MAX),
-                        lineHeight: Math.min(taille * 1.6, BASMALA_TAILLE_MAX) * 1.55,
+                        fontSize: Math.min(taille, BISMILLAH_TAILLE_MAX),
+                        lineHeight: Math.min(taille, BISMILLAH_TAILLE_MAX) * 1.9,
                         color: TEXTE,
-                        marginTop: 28,
+                        marginTop: 24,
                         textAlign: 'center',
                         writingDirection: 'rtl',
                     }}
                 >
-                    {basmala}
+                    {BISMILLAH}
                 </Text>
             )}
         </View>
