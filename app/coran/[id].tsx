@@ -1,3 +1,4 @@
+import Bismillah from '@/components/Bismillah'
 import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate } from '@/lib/quran'
@@ -37,13 +38,11 @@ function clamp(v: number, min: number, max: number) {
     return Math.min(max, Math.max(min, v))
 }
 
-// Calligraphie de la basmala : ligature naskh « ﷽ » (U+FDFD, police Amiri),
-// un seul glyphe fluide. Le glyphe fait ≈ 11.44 cadratins de large → on calcule
-// la taille de police pour qu'il occupe ~94% de la largeur (XXL pleine largeur).
-// La taille suit le zoom mais est plafonnée pour ne jamais déborder.
-const BISMILLAH = '﷽'
+// Basmala : SVG vectoriel officiel de quran.com (calligraphie naskh « بسم الله
+// الرحمن الرحيم »). Vectoriel → net à toute taille. La largeur suit le zoom mais
+// est plafonnée pour occuper ~92% de la largeur d'écran.
 const LARGEUR_ECRAN = Dimensions.get('window').width
-const BISMILLAH_TAILLE_MAX = ((LARGEUR_ECRAN - 44) * 0.94) / 11.44
+const BISMILLAH_LARGEUR_MAX = (LARGEUR_ECRAN - 44) * 0.92
 
 // Chiffres arabes (٠١٢…) pour les marqueurs de fin de verset, comme dans le Mushaf
 function chiffresArabes(n: number) {
@@ -211,23 +210,12 @@ export default function LectureSourate() {
     // ── En-tête de liste : basmala uniquement ──
     const entete = (
         <View style={{ paddingTop: insets.top + 64, paddingBottom: 28, alignItems: 'center' }}>
-            {/* Calligraphie XXL de la basmala : ligature naskh Amiri (un seul
-                glyphe fluide). Taille = zoom plafonné pour tenir en pleine largeur. */}
+            {/* Calligraphie XXL de la basmala : SVG vectoriel quran.com, largeur
+                pilotée par le zoom et plafonnée pour tenir en pleine largeur. */}
             {basmala && (
-                <Text
-                    numberOfLines={1}
-                    style={{
-                        fontFamily: 'Bismillah',
-                        fontSize: Math.min(taille, BISMILLAH_TAILLE_MAX),
-                        lineHeight: Math.min(taille, BISMILLAH_TAILLE_MAX) * 1.9,
-                        color: TEXTE,
-                        marginTop: 24,
-                        textAlign: 'center',
-                        writingDirection: 'rtl',
-                    }}
-                >
-                    {BISMILLAH}
-                </Text>
+                <View style={{ marginTop: 26, marginBottom: 4 }}>
+                    <Bismillah width={Math.min(taille * 11, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
+                </View>
             )}
         </View>
     )
