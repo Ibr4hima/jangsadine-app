@@ -1,4 +1,5 @@
 import Bismillah from '@/components/Bismillah'
+import SurahBanner from '@/components/SurahBanner'
 import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate } from '@/lib/quran'
@@ -35,7 +36,7 @@ type Bloc = { cle: string; versets: Verset[] }
 // Lecture « au fil » : la liste contient, à la suite, l'en-tête (basmala) de
 // chaque sourate puis ses blocs de versets. On enchaîne les sourates au scroll.
 type Item =
-    | { type: 'entete'; cle: string; sourate: number; basmala: string | null; nomAr: string; premier: boolean }
+    | { type: 'entete'; cle: string; sourate: number; basmala: string | null; nbVersets: number; premier: boolean }
     | { type: 'bloc'; cle: string; sourate: number; versets: Verset[] }
 
 function clamp(v: number, min: number, max: number) {
@@ -146,7 +147,7 @@ export default function LectureSourate() {
             versets.push({ numero: num, texte: texte as string })
         }
         const out: Item[] = [
-            { type: 'entete', cle: `s${idx}_e`, sourate: idx, basmala: basm, nomAr: info?.nomAr ?? '', premier: idx === index },
+            { type: 'entete', cle: `s${idx}_e`, sourate: idx, basmala: basm, nbVersets: info?.versets ?? versets.length, premier: idx === index },
             ...construireBlocs(versets).map((b, i) => ({ type: 'bloc' as const, cle: `s${idx}_b${i}`, sourate: idx, versets: b.versets })),
         ]
         itemsCacheRef.current[idx] = out
@@ -243,16 +244,13 @@ export default function LectureSourate() {
                     paddingBottom: Math.round(taille * 0.5),
                     alignItems: 'center',
                 }}>
-                    {item.basmala ? (
-                        // Calligraphie de la basmala (SVG vectoriel quran.com)
-                        <View style={{ marginTop: item.premier ? 26 : 0 }}>
+                    {/* Bandeau ornemental Mushaf : cadre doré + nom + médaillons */}
+                    <SurahBanner sourate={item.sourate} nbVersets={item.nbVersets} largeur={LARGEUR_ECRAN - 44} taille={taille} />
+                    {/* Calligraphie de la basmala (SVG vectoriel quran.com) */}
+                    {item.basmala && (
+                        <View style={{ marginTop: taille * 0.9 }}>
                             <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
                         </View>
-                    ) : (
-                        // at-Tawba (9) : pas de basmala → nom de la sourate en repère
-                        <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 1.3, color: TEXTE, lineHeight: taille * 2 }}>
-                            {item.nomAr}
-                        </Text>
                     )}
                 </View>
             )
