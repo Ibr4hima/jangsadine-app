@@ -4,7 +4,7 @@ import { useAudio } from '@/contexts/AudioContext'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode, useEffect } from 'react'
-import { Pressable, View, ViewStyle } from 'react-native'
+import { Pressable, Text, View, ViewStyle } from 'react-native'
 import Animated, {
     cancelAnimation,
     Easing,
@@ -208,17 +208,29 @@ export default function LecteurPersistant() {
                             >
                                 {piste.titre}
                             </TextTicker>
-                            <TextTicker
-                                style={{
-                                    fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
-                                    fontSize: typography.size.xs,
-                                    color: W70,
-                                    fontVariant: ['tabular-nums'],
-                                } as any}
-                                loop bounce={false} repeatSpacer={50} marqueeDelay={3500} scrollSpeed={18}
-                            >
-                                {piste.sheikh}{dureeTotal > 0 ? ` · ${formaterTemps(tempsActuel)} / ${formaterTemps(dureeTotal)}` : ''}
-                            </TextTicker>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                                <TextTicker
+                                    style={{
+                                        fontFamily: sousTitreArabe ? typography.fontFamily.arabic : typography.fontFamily.regular,
+                                        fontSize: typography.size.xs,
+                                        color: W70,
+                                    } as any}
+                                    loop bounce={false} repeatSpacer={50} marqueeDelay={3500} scrollSpeed={18}
+                                >
+                                    {piste.sheikh}
+                                </TextTicker>
+                                {dureeTotal > 0 && (
+                                    <Text style={{
+                                        fontFamily: typography.fontFamily.regular,
+                                        fontSize: typography.size.xs,
+                                        color: W70,
+                                        fontVariant: ['tabular-nums'],
+                                        flexShrink: 0,
+                                    }}>
+                                        {formaterTemps(tempsActuel)} / {formaterTemps(dureeTotal)}
+                                    </Text>
+                                )}
+                            </View>
                         </View>
                     </Pressable>
 

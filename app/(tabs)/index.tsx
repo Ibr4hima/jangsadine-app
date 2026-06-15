@@ -197,7 +197,7 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
     if (prochaine && precedente) {
       progress.value = withTiming(progressEntre(precedente, prochaine), { duration: 600 })
     }
-  })
+  }, [prochaine, precedente])
 
   const barStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }))
 
