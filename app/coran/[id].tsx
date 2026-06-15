@@ -29,8 +29,6 @@ const BLOC_CARACTERES = 480
 
 const CLE_TAILLE = 'jsd_coran_taille'
 
-const PADDING_BLOC = 6
-
 type Verset = { numero: number; texte: string }
 type Bloc = { cle: string; versets: Verset[] }
 
@@ -63,16 +61,14 @@ function construireBlocs(versets: Verset[]): Bloc[] {
 }
 
 // Composant séparé pour pouvoir utiliser useState (hooks interdits dans useCallback)
+// Pas de padding vertical : la grille de lignes reste continue d'un bloc à l'autre,
+// chaque ligne de texte est ainsi parfaitement centrée entre deux lignes réglées.
 function BlocTexte({ item, taille, lineHeight }: { item: Bloc; taille: number; lineHeight: number }) {
     const [hauteur, setHauteur] = useState(0)
-    // Nombre de lignes dans la zone de texte (hors padding vertical du bloc)
-    const nbLignes = hauteur > 0 ? Math.round((hauteur - PADDING_BLOC * 2) / lineHeight) : 0
+    const nbLignes = hauteur > 0 ? Math.round(hauteur / lineHeight) : 0
 
     return (
-        <View
-            onLayout={e => setHauteur(e.nativeEvent.layout.height)}
-            style={{ paddingVertical: PADDING_BLOC }}
-        >
+        <View onLayout={e => setHauteur(e.nativeEvent.layout.height)}>
             <Text
                 style={{
                     fontFamily: typography.fontFamily.coran,
@@ -94,17 +90,19 @@ function BlocTexte({ item, taille, lineHeight }: { item: Bloc; taille: number; l
                 ))}
             </Text>
 
-            {/* Lignes réglées : une ligne fine sous chaque ligne de texte affichée */}
+            {/* Lignes réglées : une ligne fine à chaque fin de ligne de texte.
+                Comme le texte est centré dans sa boîte (lineHeight) et qu'il n'y a
+                aucun padding entre les blocs, la grille est régulière → texte centré. */}
             {Array.from({ length: nbLignes }).map((_, i) => (
                 <View
                     key={i}
                     style={{
                         position: 'absolute',
-                        top: PADDING_BLOC + (i + 1) * lineHeight,
+                        top: (i + 1) * lineHeight,
                         left: 0, right: 0,
                         height: StyleSheet.hairlineWidth,
                         backgroundColor: TEXTE,
-                        opacity: 0.13,
+                        opacity: 0.15,
                     }}
                 />
             ))}
