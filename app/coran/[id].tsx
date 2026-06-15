@@ -4,7 +4,7 @@ import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native'
+import { ArrowLeft } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 const BG = '#F2F0EF'
 const TEXTE = '#23201A'
 const OR = '#b8932a'
-const MUTED = 'rgba(35,32,26,0.45)'
 
 const sourates = require('../../assets/quran/sourates.json')
 
@@ -32,6 +31,12 @@ const CLE_TAILLE = 'jsd_coran_taille'
 
 type Verset = { numero: number; texte: string }
 type Bloc = { cle: string; versets: Verset[] }
+
+// Lecture « au fil » : la liste contient, à la suite, l'en-tête (basmala) de
+// chaque sourate puis ses blocs de versets. On enchaîne les sourates au scroll.
+type Item =
+    | { type: 'entete'; cle: string; sourate: number; basmala: string | null; nomAr: string; premier: boolean }
+    | { type: 'bloc'; cle: string; sourate: number; versets: Verset[] }
 
 function clamp(v: number, min: number, max: number) {
     'worklet'
@@ -95,20 +100,21 @@ function BlocTexte({ item, taille, lineHeight }: { item: Bloc; taille: number; l
 }
 
 export default function LectureSourate() {
-    const { id, riwaya } = useLocalSearchParams<{ id: string; riwaya: string }>()
+    const { id } = useLocalSearchParams<{ id: string }>()
     const router = useRouter()
     const insets = useSafeAreaInsets()
     const index = parseInt(id)
 
-    const [blocs, setBlocs] = useState<Bloc[]>([])
-    const [basmala, setBasmala] = useState<string | null>(null)
-    const [nomSourate, setNomSourate] = useState('')
-    const [nomAr, setNomAr] = useState('')
-    const [nombreVersets, setNombreVersets] = useState(0)
+    const [items, setItems] = useState<Item[]>([])
+    const [sourateActive, setSourateActive] = useState(index)
     const [loading, setLoading] = useState(true)
 
     const [taille, setTaille] = useState(TAILLE_DEFAUT)
     const [chromeVisible, setChromeVisible] = useState(true)
+
+    // Sourates déjà chargées (dans l'ordre) + cache des items construits par sourate
+    const chargeesRef = useRef<number[]>([])
+    const itemsCacheRef = useRef<Record<number, Item[]>>({})
 
     // Masque la barre d'onglets du bas pendant la lecture (immersif), la restaure en sortant
     const { hideTabBar, showTabBar } = useTabBar()
@@ -123,34 +129,63 @@ export default function LectureSourate() {
     const dernierePousseeRef = useRef(TAILLE_DEFAUT)
     useEffect(() => { tailleSV.value = taille }, [taille])
 
-    // ── Chargement des données ──
-    useEffect(() => {
-        try {
-            const data = getSourate(index)
-            if (!data) { setLoading(false); return }
-            setNomSourate(data.name)
-            const info = sourates.find((s: any) => s.index === index)
-            if (info) { setNomAr(info.nomAr); setNombreVersets(info.versets) }
-
-            const versets: Verset[] = []
-            let basm: string | null = null
-            for (const [cle, texte] of Object.entries(data.verse)) {
-                const num = parseInt(cle.replace('verse_', ''))
-                // verse_0 = basmala séparée (sourates ≠ 1 et ≠ 9) → affichée en
-                // en-tête (calligraphie), pas dans le flux numéroté.
-                if (num === 0) { basm = texte as string; continue }
-                // al-Fatiha : la basmala EST le verset 1 → on la sort aussi du flux
-                // pour l'afficher en calligraphie d'en-tête ; les versets 2→7 restent.
-                if (index === 1 && num === 1) { basm = texte as string; continue }
-                versets.push({ numero: num, texte: texte as string })
-            }
-            setBasmala(basm)
-            setBlocs(construireBlocs(versets))
-        } catch (e) {
-            console.warn('lecture sourate:', e)
+    // Construit (et met en cache) les items d'une sourate : en-tête (basmala) + blocs
+    const construireSourate = useCallback((idx: number): Item[] => {
+        if (itemsCacheRef.current[idx]) return itemsCacheRef.current[idx]
+        const data = getSourate(idx)
+        if (!data) return []
+        const info = sourates.find((s: any) => s.index === idx)
+        const versets: Verset[] = []
+        let basm: string | null = null
+        for (const [cle, texte] of Object.entries(data.verse)) {
+            const num = parseInt(cle.replace('verse_', ''))
+            // verse_0 = basmala séparée → affichée en en-tête, hors flux numéroté.
+            if (num === 0) { basm = texte as string; continue }
+            // al-Fatiha : la basmala EST le verset 1 → en en-tête, versets 2→7 restent.
+            if (idx === 1 && num === 1) { basm = texte as string; continue }
+            versets.push({ numero: num, texte: texte as string })
         }
-        setLoading(false)
+        const out: Item[] = [
+            { type: 'entete', cle: `s${idx}_e`, sourate: idx, basmala: basm, nomAr: info?.nomAr ?? '', premier: idx === index },
+            ...construireBlocs(versets).map((b, i) => ({ type: 'bloc' as const, cle: `s${idx}_b${i}`, sourate: idx, versets: b.versets })),
+        ]
+        itemsCacheRef.current[idx] = out
+        return out
     }, [index])
+
+    const recomposer = useCallback((indices: number[]) => {
+        setItems(indices.flatMap(idx => construireSourate(idx)))
+    }, [construireSourate])
+
+    // ── Chargement initial : on démarre sur la sourate demandée ──
+    useEffect(() => {
+        itemsCacheRef.current = {}
+        chargeesRef.current = [index]
+        setSourateActive(index)
+        recomposer([index])
+        setLoading(false)
+    }, [index, recomposer])
+
+    // ── Au fil : à l'approche de la fin, on enchaîne la sourate suivante ──
+    const chargerSuivante = useCallback(() => {
+        const ch = chargeesRef.current
+        const dernier = ch[ch.length - 1]
+        if (dernier >= 114) return
+        chargeesRef.current = [...ch, dernier + 1]
+        recomposer(chargeesRef.current)
+    }, [recomposer])
+
+    // ── En-tête flottant : suit la sourate dont le contenu occupe le haut.
+    // Bascule quand la basmala de la suivante atteint ~le 1er quart de l'écran. ──
+    const onViewable = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null; item: Item }> }) => {
+        if (!viewableItems.length) return
+        let haut = viewableItems[0]
+        for (const v of viewableItems) {
+            if (v.index != null && (haut.index == null || v.index < haut.index)) haut = v
+        }
+        if (haut.item?.sourate) setSourateActive(haut.item.sourate)
+    }).current
+    const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 0 }).current
 
     // ── Préférences persistées ──
     useEffect(() => {
@@ -198,74 +233,53 @@ export default function LectureSourate() {
         transform: [{ translateY: (1 - chromeSV.value) * -18 }],
     }))
 
-    const souratePrecedente = index > 1 ? index - 1 : null
-    const sourateSuivante = index < 114 ? index + 1 : null
-
     const lineHeight = taille * 2.0
 
-    const renderBloc = useCallback(({ item }: { item: Bloc }) => (
-        <BlocTexte item={item} taille={taille} lineHeight={lineHeight} />
-    ), [taille, lineHeight])
-
-    // ── En-tête de liste : basmala uniquement ──
-    const entete = (
-        <View style={{ paddingTop: insets.top + 64, paddingBottom: Math.round(taille * 0.5), alignItems: 'center' }}>
-            {/* Calligraphie XXL de la basmala : SVG vectoriel quran.com, largeur
-                pilotée par le zoom et plafonnée pour tenir en pleine largeur. La
-                marge sous la basmala = ~1 interligne (taille*0.5 + leading du texte). */}
-            {basmala && (
-                <View style={{ marginTop: 26 }}>
-                    <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
+    const renderItem = useCallback(({ item }: { item: Item }) => {
+        if (item.type === 'entete') {
+            return (
+                <View style={{
+                    paddingTop: item.premier ? insets.top + 64 : taille * 1.4,
+                    paddingBottom: Math.round(taille * 0.5),
+                    alignItems: 'center',
+                }}>
+                    {item.basmala ? (
+                        // Calligraphie de la basmala (SVG vectoriel quran.com)
+                        <View style={{ marginTop: item.premier ? 26 : 0 }}>
+                            <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
+                        </View>
+                    ) : (
+                        // at-Tawba (9) : pas de basmala → nom de la sourate en repère
+                        <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 1.3, color: TEXTE, lineHeight: taille * 2 }}>
+                            {item.nomAr}
+                        </Text>
+                    )}
                 </View>
-            )}
-        </View>
-    )
-
-    // ── Pied de liste : navigation sourate précédente / suivante ──
-    const pied = (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 36, marginBottom: insets.bottom + 48 }}>
-            {souratePrecedente ? (
-                <Pressable
-                    onPress={() => router.replace(`/coran/${souratePrecedente}?riwaya=hafs` as any)}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                >
-                    <ChevronLeft size={18} color={OR} />
-                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: MUTED }}>
-                        {sourates[souratePrecedente - 1]?.nom}
-                    </Text>
-                </Pressable>
-            ) : <View />}
-            {sourateSuivante ? (
-                <Pressable
-                    onPress={() => router.replace(`/coran/${sourateSuivante}?riwaya=hafs` as any)}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                >
-                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: MUTED }}>
-                        {sourates[sourateSuivante - 1]?.nom}
-                    </Text>
-                    <ChevronRight size={18} color={OR} />
-                </Pressable>
-            ) : <View />}
-        </View>
-    )
+            )
+        }
+        return <BlocTexte item={item} taille={taille} lineHeight={lineHeight} />
+    }, [taille, lineHeight, insets.top])
 
     return (
         <View style={{ flex: 1, backgroundColor: BG }}>
             <StatusBar barStyle="dark-content" />
 
-            {/* Texte : flux continu virtualisé, pinch + tap */}
+            {/* Lecture « au fil » : toutes les sourates s'enchaînent, virtualisé */}
             {!loading && (
                 <GestureDetector gesture={gestes}>
                     <FlatList
-                        data={blocs}
-                        keyExtractor={b => b.cle}
-                        renderItem={renderBloc}
-                        ListHeaderComponent={entete}
-                        ListFooterComponent={pied}
+                        data={items}
+                        keyExtractor={it => it.cle}
+                        renderItem={renderItem}
+                        ListFooterComponent={<View style={{ height: insets.bottom + 80 }} />}
                         extraData={taille}
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={{ paddingHorizontal: 22 }}
                         maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                        onEndReached={chargerSuivante}
+                        onEndReachedThreshold={1.5}
+                        onViewableItemsChanged={onViewable}
+                        viewabilityConfig={viewabilityConfig}
                         initialNumToRender={6}
                         maxToRenderPerBatch={6}
                         windowSize={9}
@@ -288,7 +302,7 @@ export default function LectureSourate() {
                 </Pressable>
                 <View style={{ flex: 1, alignItems: 'center' }}>
                     <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.coran, fontSize: 20, color: OR, lineHeight: 30 }}>
-                        {nomAr}
+                        {sourates[sourateActive - 1]?.nomAr}
                     </Text>
                 </View>
                 {/* espace vide pour garder le titre centré */}
