@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FlatList, Pressable, StatusBar, Text, View } from 'react-native'
+import { Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -36,6 +36,12 @@ function clamp(v: number, min: number, max: number) {
     'worklet'
     return Math.min(max, Math.max(min, v))
 }
+
+// La basmala (police Amiri) mesure ≈ 6.92 cadratins de large. On en déduit la
+// taille de police maximale pour qu'elle tienne sur UNE seule ligne, calligraphie
+// élégante sans retour à la ligne. La taille réelle suit le zoom mais est plafonnée.
+const LARGEUR_ECRAN = Dimensions.get('window').width
+const BASMALA_TAILLE_MAX = ((LARGEUR_ECRAN - 60) * 0.97) / 6.92
 
 // Chiffres arabes (٠١٢…) pour les marqueurs de fin de verset, comme dans le Mushaf
 function chiffresArabes(n: number) {
@@ -209,17 +215,19 @@ export default function LectureSourate() {
             <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: MUTED, marginTop: 4 }}>
                 {nomSourate} · {nombreVersets} versets · Hafs
             </Text>
-            {/* Calligraphie XXL de la basmala : vrai texte (police naskh Amiri)
-                dimensionné à 1,5× la taille de lecture → suit le zoom. */}
+            {/* Calligraphie XXL de la basmala : vrai texte (police naskh Amiri),
+                sur UNE seule ligne. La taille suit le zoom (1,6×) mais reste
+                plafonnée pour ne jamais déborder / passer à la ligne. */}
             {basmala && (
                 <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
                     style={{
                         fontFamily: 'Bismillah',
-                        fontSize: taille * 1.5,
-                        lineHeight: taille * 1.5 * 1.7,
+                        fontSize: Math.min(taille * 1.6, BASMALA_TAILLE_MAX),
+                        lineHeight: Math.min(taille * 1.6, BASMALA_TAILLE_MAX) * 1.55,
                         color: TEXTE,
                         marginTop: 28,
-                        paddingHorizontal: 8,
                         textAlign: 'center',
                         writingDirection: 'rtl',
                     }}
