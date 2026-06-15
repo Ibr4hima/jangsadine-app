@@ -268,7 +268,7 @@ export default function RootLayout() {
     GoogleSans_SemiBold: require('../assets/fonts/GoogleSans_17pt-SemiBold.ttf'),
     GoogleSans_Bold: require('../assets/fonts/GoogleSans_17pt-Bold.ttf'),
     IBMPlexSansArabic: require('../assets/fonts/IBMPlexSansArabic-Regular.ttf'),
-    UthmanicHafs: require('../assets/fonts/UthmanicHafs.otf'),
+    UthmanicHafs: require('../assets/fonts/UthmanicHafs1Ver18.ttf'),
   })
 
   useEffect(() => {
