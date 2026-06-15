@@ -42,7 +42,7 @@ function clamp(v: number, min: number, max: number) {
 // الرحمن الرحيم »). Vectoriel → net à toute taille. La largeur suit le zoom mais
 // est plafonnée pour occuper ~92% de la largeur d'écran.
 const LARGEUR_ECRAN = Dimensions.get('window').width
-const BISMILLAH_LARGEUR_MAX = (LARGEUR_ECRAN - 44) * 0.71
+const BISMILLAH_LARGEUR_MAX = (LARGEUR_ECRAN - 44) * 0.68
 
 // Chiffres arabes (٠١٢…) pour les marqueurs de fin de verset, comme dans le Mushaf
 function chiffresArabes(n: number) {
@@ -209,12 +209,13 @@ export default function LectureSourate() {
 
     // ── En-tête de liste : basmala uniquement ──
     const entete = (
-        <View style={{ paddingTop: insets.top + 64, paddingBottom: 28, alignItems: 'center' }}>
+        <View style={{ paddingTop: insets.top + 64, paddingBottom: Math.round(taille * 0.5), alignItems: 'center' }}>
             {/* Calligraphie XXL de la basmala : SVG vectoriel quran.com, largeur
-                pilotée par le zoom et plafonnée pour tenir en pleine largeur. */}
+                pilotée par le zoom et plafonnée pour tenir en pleine largeur. La
+                marge sous la basmala = ~1 interligne (taille*0.5 + leading du texte). */}
             {basmala && (
-                <View style={{ marginTop: 26, marginBottom: 4 }}>
-                    <Bismillah width={Math.min(taille * 8.5, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
+                <View style={{ marginTop: 26 }}>
+                    <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
                 </View>
             )}
         </View>
