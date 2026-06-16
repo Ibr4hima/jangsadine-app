@@ -240,34 +240,32 @@ export default function LectureSourate() {
             const id3 = String(item.sourate).padStart(3, '0')
             return (
                 <View style={{
-                    paddingTop: item.premier ? insets.top + 64 : taille * 2,
+                    paddingTop: item.premier ? insets.top + 64 : taille * 1.2,
                     paddingBottom: Math.round(taille * 0.5),
                     alignItems: 'center',
                 }}>
-                    {/* Étiquette "Sourate N" style hero */}
-                    <Text style={{
-                        fontFamily: typography.fontFamily.bold,
-                        fontSize: 11,
-                        letterSpacing: 2,
-                        color: OR,
-                        textTransform: 'uppercase',
-                        marginBottom: taille * 0.25,
-                    }}>
-                        Sourate {item.sourate}
-                    </Text>
-                    {/* Nom calligraphié (police SuraNames — ligature par identifiant) */}
+                    {/* Trait de fin de sourate (sauf avant la toute première) */}
+                    {!item.premier && (
+                        <View style={{
+                            width: 120, height: 3, borderRadius: 2,
+                            backgroundColor: OR, opacity: 0.55,
+                            marginBottom: taille * 1.3,
+                        }} />
+                    )}
+                    {/* Nom calligraphié (police SuraNames — ligature par identifiant).
+                        writingDirection ltr : la police gère elle-même l'ordre des mots. */}
                     <Text style={{
                         fontFamily: 'SuraNames',
-                        fontSize: taille * 2.3,
-                        lineHeight: taille * 2.3 * 1.35,
+                        fontSize: taille * 1.6,
+                        lineHeight: taille * 1.6 * 1.35,
                         color: OR,
-                        writingDirection: 'rtl',
+                        writingDirection: 'ltr',
                     }}>
                         {`surah${id3}`}
                     </Text>
                     {/* Basmala SVG (quran.com) */}
                     {item.basmala && (
-                        <View style={{ marginTop: taille * 0.9 }}>
+                        <View style={{ marginTop: taille * 0.6 }}>
                             <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
                         </View>
                     )}
@@ -318,7 +316,19 @@ export default function LectureSourate() {
                     <ArrowLeft size={22} color={TEXTE} />
                 </Pressable>
                 <View style={{ flex: 1, alignItems: 'center' }}>
-                    <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: OR, lineHeight: 33 }}>
+                    {/* Chip doré façon hero (cf. pages Qibla / Coran) */}
+                    <View style={{
+                        backgroundColor: 'rgba(184,147,42,0.16)', borderRadius: 999,
+                        paddingHorizontal: 12, paddingVertical: 3, marginBottom: 3,
+                    }}>
+                        <Text numberOfLines={1} style={{
+                            fontFamily: typography.fontFamily.bold, fontSize: 10,
+                            letterSpacing: 1.6, color: OR, textTransform: 'uppercase',
+                        }}>
+                            {sourates[sourateActive - 1]?.nom}
+                        </Text>
+                    </View>
+                    <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: OR, lineHeight: 32, writingDirection: 'ltr' }}>
                         {`surah${String(sourateActive).padStart(3, '0')}`}
                     </Text>
                 </View>
