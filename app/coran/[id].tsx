@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // Couleurs fixes — pas de mode nuit/jour
 const BG = '#F2F0EF'
-const TEXTE = '#66615E'
+const TEXTE = '#4A4641'
 const OR = '#b8932a'
 
 // Police SuraNames (quran.com) : deux ligatures distinctes — les 3 chiffres
