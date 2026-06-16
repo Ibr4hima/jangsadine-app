@@ -14,8 +14,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // Couleurs fixes — pas de mode nuit/jour
 const BG = '#F2F0EF'
-const TEXTE = '#23201A'
+const TEXTE = '#66615E'
 const OR = '#b8932a'
+
+// La police SuraNames produit ses glyphes en ordre RTL, mais « surahNNN » est de
+// l'ASCII pur → traité LTR par l'algo bidi (writingDirection ne suffit pas). On
+// force un niveau d'enrobage RTL (RLE…PDF) pour rétablir l'ordre سورة + nom.
+const RLE = '\u202B'
+const PDF = '\u202C'
+function nomSourate(idx: number) {
+    return `${RLE}surah${String(idx).padStart(3, '0')}${PDF}`
+}
 // Dégradé bleu du héros (cohérent avec les autres pages : Plus, Qibla…)
 const HERO_TOP = '#3d6ba3'
 const HERO_MID = '#2d578c'
@@ -242,7 +251,6 @@ export default function LectureSourate() {
 
     const renderItem = useCallback(({ item }: { item: Item }) => {
         if (item.type === 'entete') {
-            const id3 = String(item.sourate).padStart(3, '0')
             return (
                 <View style={{
                     paddingTop: item.premier ? insets.top + 64 : taille * 1.2,
@@ -265,7 +273,7 @@ export default function LectureSourate() {
                         color: OR,
                         writingDirection: 'rtl',
                     }}>
-                        {`surah${id3}`}
+                        {nomSourate(item.sourate)}
                     </Text>
                     {/* Basmala SVG (quran.com) */}
                     {item.basmala && (
@@ -346,7 +354,7 @@ export default function LectureSourate() {
                         </View>
                         {/* Nom calligraphié (blanc, sur le héros bleu) */}
                         <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: '#fff', lineHeight: 32, writingDirection: 'rtl' }}>
-                            {`surah${String(sourateActive).padStart(3, '0')}`}
+                            {nomSourate(sourateActive)}
                         </Text>
                     </View>
                     {/* espace vide pour garder le titre centré */}
