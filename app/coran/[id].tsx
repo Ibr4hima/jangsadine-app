@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { LinearGradient } from 'expo-linear-gradient'
 import { Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
@@ -15,6 +16,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 const BG = '#F2F0EF'
 const TEXTE = '#23201A'
 const OR = '#b8932a'
+// Dégradé bleu du héros (cohérent avec les autres pages : Plus, Qibla…)
+const HERO_TOP = '#3d6ba3'
+const HERO_MID = '#2d578c'
+const HERO_BOT = '#234a7a'
 
 const sourates = require('../../assets/quran/sourates.json')
 
@@ -277,7 +282,7 @@ export default function LectureSourate() {
 
     return (
         <View style={{ flex: 1, backgroundColor: BG }}>
-            <StatusBar barStyle="dark-content" />
+            <StatusBar barStyle={chromeVisible ? 'light-content' : 'dark-content'} />
 
             {/* Lecture « au fil » : toutes les sourates s'enchaînent, virtualisé */}
             {!loading && (
@@ -302,38 +307,52 @@ export default function LectureSourate() {
                 </GestureDetector>
             )}
 
-            {/* Chrome flottant (se masque au tap) */}
+            {/* Chrome flottant — héros bleu en dégradé, comme les autres pages */}
             <Animated.View
                 pointerEvents={chromeVisible ? 'auto' : 'none'}
                 style={[{
                     position: 'absolute', top: 0, left: 0, right: 0,
-                    paddingTop: insets.top + 6, paddingBottom: 10, paddingHorizontal: 12,
-                    flexDirection: 'row', alignItems: 'center',
-                    backgroundColor: BG,
+                    borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
+                    overflow: 'hidden',
                 }, headerStyle]}
             >
-                <Pressable onPress={() => router.back()} hitSlop={10} style={{ padding: 6 }}>
-                    <ArrowLeft size={22} color={TEXTE} />
-                </Pressable>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                    {/* Chip doré façon hero (cf. pages Qibla / Coran) */}
-                    <View style={{
-                        backgroundColor: 'rgba(184,147,42,0.16)', borderRadius: 999,
-                        paddingHorizontal: 12, paddingVertical: 3, marginBottom: 3,
-                    }}>
-                        <Text numberOfLines={1} style={{
-                            fontFamily: typography.fontFamily.bold, fontSize: 10,
-                            letterSpacing: 1.6, color: OR, textTransform: 'uppercase',
+                <LinearGradient
+                    colors={[HERO_TOP, HERO_MID, HERO_BOT]}
+                    locations={[0, 0.6, 1]}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                />
+                {/* halos décoratifs du héros */}
+                <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.12)', top: -180, right: -100 }} />
+                <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.06)', bottom: -120, left: -70 }} />
+
+                <View style={{
+                    paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 12,
+                    flexDirection: 'row', alignItems: 'center',
+                }}>
+                    <Pressable onPress={() => router.back()} hitSlop={10} style={{ padding: 6 }}>
+                        <ArrowLeft size={22} color="#fff" />
+                    </Pressable>
+                    <View style={{ flex: 1, alignItems: 'center' }}>
+                        {/* Chip doré (nom FR) */}
+                        <View style={{
+                            backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: 999,
+                            paddingHorizontal: 12, paddingVertical: 4, marginBottom: 3,
                         }}>
-                            {sourates[sourateActive - 1]?.nom}
+                            <Text numberOfLines={1} style={{
+                                fontFamily: typography.fontFamily.bold, fontSize: 10,
+                                letterSpacing: 1.8, color: OR, textTransform: 'uppercase',
+                            }}>
+                                {sourates[sourateActive - 1]?.nom}
+                            </Text>
+                        </View>
+                        {/* Nom calligraphié (blanc, sur le héros bleu) */}
+                        <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: '#fff', lineHeight: 32, writingDirection: 'ltr' }}>
+                            {`surah${String(sourateActive).padStart(3, '0')}`}
                         </Text>
                     </View>
-                    <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: OR, lineHeight: 32, writingDirection: 'ltr' }}>
-                        {`surah${String(sourateActive).padStart(3, '0')}`}
-                    </Text>
+                    {/* espace vide pour garder le titre centré */}
+                    <View style={{ width: 34 }} />
                 </View>
-                {/* espace vide pour garder le titre centré */}
-                <View style={{ width: 34 }} />
             </Animated.View>
         </View>
     )
