@@ -249,22 +249,21 @@ export default function LectureSourate() {
                     paddingBottom: Math.round(taille * 0.5),
                     alignItems: 'center',
                 }}>
-                    {/* Trait de fin de sourate (sauf avant la toute première) */}
+                    {/* Trait de fin de sourate sur toute la ligne (sauf avant la première) */}
                     {!item.premier && (
                         <View style={{
-                            width: 120, height: 3, borderRadius: 2,
-                            backgroundColor: OR, opacity: 0.55,
+                            alignSelf: 'stretch', height: 1.5,
+                            backgroundColor: '#66615E',
                             marginBottom: taille * 1.3,
                         }} />
                     )}
-                    {/* Nom calligraphié (police SuraNames — ligature par identifiant).
-                        writingDirection ltr : la police gère elle-même l'ordre des mots. */}
+                    {/* Nom calligraphié (police SuraNames — ligature par identifiant). */}
                     <Text style={{
                         fontFamily: 'SuraNames',
                         fontSize: taille * 1.6,
                         lineHeight: taille * 1.6 * 1.35,
                         color: OR,
-                        writingDirection: 'ltr',
+                        writingDirection: 'rtl',
                     }}>
                         {`surah${id3}`}
                     </Text>
@@ -346,7 +345,7 @@ export default function LectureSourate() {
                             </Text>
                         </View>
                         {/* Nom calligraphié (blanc, sur le héros bleu) */}
-                        <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: '#fff', lineHeight: 32, writingDirection: 'ltr' }}>
+                        <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: '#fff', lineHeight: 32, writingDirection: 'rtl' }}>
                             {`surah${String(sourateActive).padStart(3, '0')}`}
                         </Text>
                     </View>
