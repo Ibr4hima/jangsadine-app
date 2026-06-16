@@ -17,13 +17,12 @@ const BG = '#F2F0EF'
 const TEXTE = '#66615E'
 const OR = '#b8932a'
 
-// La police SuraNames produit ses glyphes en ordre RTL, mais « surahNNN » est de
-// l'ASCII pur → traité LTR par l'algo bidi (writingDirection ne suffit pas). On
-// force un niveau d'enrobage RTL (RLE…PDF) pour rétablir l'ordre سورة + nom.
-const RLE = '\u202B'
-const PDF = '\u202C'
+// Police SuraNames (quran.com) : deux ligatures distinctes — les 3 chiffres
+// « 026 » → le nom calligraphié de la sourate, et « surah » → le mot « سورة ».
+// En flux LTR, on place d'abord le nom puis « surah » : le mot سورة se retrouve
+// à droite du nom → lecture RTL « سورة + nom », l'ordre correct.
 function nomSourate(idx: number) {
-    return `${RLE}surah${String(idx).padStart(3, '0')}${PDF}`
+    return `${String(idx).padStart(3, '0')}surah`
 }
 // Dégradé bleu du héros (cohérent avec les autres pages : Plus, Qibla…)
 const HERO_TOP = '#3d6ba3'
@@ -271,7 +270,7 @@ export default function LectureSourate() {
                         fontSize: taille * 1.6,
                         lineHeight: taille * 1.6 * 1.35,
                         color: OR,
-                        writingDirection: 'rtl',
+                        writingDirection: 'ltr',
                     }}>
                         {nomSourate(item.sourate)}
                     </Text>
@@ -301,7 +300,8 @@ export default function LectureSourate() {
                         ListFooterComponent={<View style={{ height: insets.bottom + 80 }} />}
                         extraData={taille}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingHorizontal: 22 }}
+                        style={{ backgroundColor: BG }}
+                        contentContainerStyle={{ paddingHorizontal: 22, backgroundColor: BG }}
                         maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
                         onEndReached={chargerSuivante}
                         onEndReachedThreshold={1.5}
@@ -353,7 +353,7 @@ export default function LectureSourate() {
                             </Text>
                         </View>
                         {/* Nom calligraphié (blanc, sur le héros bleu) */}
-                        <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: '#fff', lineHeight: 32, writingDirection: 'rtl' }}>
+                        <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: '#fff', lineHeight: 32, writingDirection: 'ltr' }}>
                             {nomSourate(sourateActive)}
                         </Text>
                     </View>
