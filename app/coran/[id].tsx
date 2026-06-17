@@ -34,6 +34,11 @@ const sourates = require('../../assets/quran/sourates.json')
 // de la page qui se TERMINE à cet ayah. Sert à insérer un bandeau de numéro de
 // page au fil de la lecture, comme dans un vrai Mushaf.
 const pageEnds: Record<string, number> = require('../../assets/quran/pages.json')
+// Délimitations Juz (30) et Hizb (les 30 mi-juz). « sora:aya » → numéro. Le début
+// d'un juz est aussi le début d'un hizb impair : on n'affiche donc en plus que les
+// hizb pairs (milieu de juz) pour éviter les doublons.
+const divisions: { juz: Record<string, number>; hizb: Record<string, number> } =
+    require('../../assets/quran/divisions.json')
 
 // Bornes de la taille de lecture (px). Le pinch fait varier en continu entre les deux.
 const TAILLE_MIN = 20
@@ -55,6 +60,8 @@ type Item =
     | { type: 'entete'; cle: string; sourate: number; basmala: string | null; nbVersets: number; premier: boolean }
     | { type: 'bloc'; cle: string; sourate: number; versets: Verset[] }
     | { type: 'page'; cle: string; sourate: number; page: number }
+    | { type: 'juz'; cle: string; sourate: number; num: number }
+    | { type: 'hizb'; cle: string; sourate: number; num: number }
 
 function clamp(v: number, min: number, max: number) {
     'worklet'
@@ -164,9 +171,19 @@ export default function LectureSourate() {
         }
         for (let i = 0; i < versets.length; i++) {
             const v = versets[i]
+            const key = `${idx}:${v.numero}`
+            // Délimitation Juz/Hizb : elle COMMENCE à ce verset → bandeau AVANT lui.
+            const juzN = divisions.juz[key]
+            const hizbN = divisions.hizb[key]
+            if (juzN || hizbN) {
+                fermerBloc()
+                if (juzN) out.push({ type: 'juz', cle: `s${idx}_j${v.numero}`, sourate: idx, num: juzN })
+                else out.push({ type: 'hizb', cle: `s${idx}_h${v.numero}`, sourate: idx, num: hizbN })
+            }
             courant.push(v)
             nbCar += v.texte.length
-            const page = pageEnds[`${idx}:${v.numero}`]
+            // Fin de page : le bandeau s'affiche APRÈS le dernier verset de la page.
+            const page = pageEnds[key]
             if (page) {
                 fermerBloc()
                 out.push({ type: 'page', cle: `s${idx}_p${v.numero}`, sourate: idx, page })
@@ -324,6 +341,43 @@ export default function LectureSourate() {
                         </Text>
                     </View>
                     <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(184,147,42,0.35)' }} />
+                </View>
+            )
+        }
+        if (item.type === 'juz') {
+            // Délimitation de Juz : pastille bleue encadrée de deux filets.
+            return (
+                <View style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                    gap: 12, paddingVertical: Math.round(taille * 0.9),
+                }}>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(45,87,140,0.30)' }} />
+                    <View style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 8,
+                        borderWidth: 1, borderColor: 'rgba(45,87,140,0.35)', borderRadius: 999,
+                        backgroundColor: 'rgba(45,87,140,0.10)',
+                        paddingHorizontal: 16, paddingVertical: 6,
+                    }}>
+                        <Text style={{ fontFamily: typography.fontFamily.arabic, fontSize: 15, color: '#2d578c' }}>
+                            {`الجزء ${chiffresArabes(item.num)}`}
+                        </Text>
+                    </View>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(45,87,140,0.30)' }} />
+                </View>
+            )
+        }
+        if (item.type === 'hizb') {
+            // Délimitation de Hizb (milieu de juz) : marque ۞ + « الحزب N », plus discrète.
+            return (
+                <View style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                    gap: 10, paddingVertical: Math.round(taille * 0.6),
+                }}>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(184,147,42,0.30)' }} />
+                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: 14, color: OR }}>
+                        {`۞ الحزب ${chiffresArabes(item.num)}`}
+                    </Text>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(184,147,42,0.30)' }} />
                 </View>
             )
         }
