@@ -274,22 +274,26 @@ export default function LectureSourate() {
                     }}>
                         {nomSourate(item.sourate)}
                     </Text>
-                    {/* Basmala SVG (quran.com) */}
+                    {/* Basmala SVG (quran.com). Pour la Fatiha (Hafs) la basmala EST le
+                        verset 1 : on l'affiche sur une seule ligne centrée avec son
+                        marqueur ١ à gauche (fin du verset en lecture RTL). */}
                     {item.basmala && (
-                        <View style={{ marginTop: taille * 0.6, alignItems: 'center' }}>
-                            <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
-                            {/* Al-Fatiha : la basmala est le verset 1 → afficher son marqueur */}
+                        <View style={{
+                            marginTop: taille * 0.6,
+                            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                            gap: taille * 0.4,
+                        }}>
                             {item.sourate === 1 && (
                                 <Text style={{
                                     fontFamily: typography.fontFamily.coran,
                                     fontSize: taille * 1.1,
                                     color: TEXTE,
-                                    marginTop: taille * 0.3,
                                     lineHeight: taille * 1.5,
                                 }}>
                                     {chiffresArabes(1)}
                                 </Text>
                             )}
+                            <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
                         </View>
                     )}
                 </View>
