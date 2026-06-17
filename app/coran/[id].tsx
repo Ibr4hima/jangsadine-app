@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 const BG = '#F2F0EF'
 const TEXTE = '#353839'
 const OR = '#b8932a'
+const BLEU = '#2d578c'
 
 // Police SuraNames (quran.com) : deux ligatures distinctes — les 3 chiffres
 // « 026 » → le nom calligraphié de la sourate, et « surah » → le mot « سورة ».
@@ -60,8 +61,6 @@ type Item =
     | { type: 'entete'; cle: string; sourate: number; basmala: string | null; nbVersets: number; premier: boolean }
     | { type: 'bloc'; cle: string; sourate: number; versets: Verset[] }
     | { type: 'page'; cle: string; sourate: number; page: number }
-    | { type: 'juz'; cle: string; sourate: number; num: number }
-    | { type: 'hizb'; cle: string; sourate: number; num: number }
 
 function clamp(v: number, min: number, max: number) {
     'worklet'
@@ -79,9 +78,21 @@ function chiffresArabes(n: number) {
     return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)])
 }
 
+// Étiquette inline d'un début de Juz / Hizb. Renvoie le libellé arabe ou null.
+function libelleDivision(sourate: number, numero: number): string | null {
+    const cle = `${sourate}:${numero}`
+    const j = divisions.juz[cle]
+    if (j) return `ٱلْجُزْءُ ${chiffresArabes(j)}`
+    const h = divisions.hizb[cle]
+    if (h) return `ٱلْحِزْبُ ${chiffresArabes(h)}`
+    return null
+}
+
 // Bloc de texte continu (un flux de versets). Le marqueur de fin de verset
 // (chiffre arabe, même couleur que le texte) est dimensionné à 110% de la taille.
-function BlocTexte({ item, taille, lineHeight }: { item: Bloc; taille: number; lineHeight: number }) {
+// Au début d'un Juz/Hizb, on remplace l'ornement ۞ du texte par un badge bleu
+// en ligne (même police, même taille que le Coran).
+function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate: number; taille: number; lineHeight: number }) {
     return (
         <Text
             style={{
@@ -93,15 +104,26 @@ function BlocTexte({ item, taille, lineHeight }: { item: Bloc; taille: number; l
                 writingDirection: 'rtl',
             }}
         >
-            {item.versets.map(v => (
-                <Text key={v.numero}>
-                    {v.texte}{' '}
-                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 1.1, color: TEXTE }}>
-                        {chiffresArabes(v.numero)}
+            {item.versets.map(v => {
+                const badge = libelleDivision(sourate, v.numero)
+                // ۞ (U+06DE) en tête de verset = marque rub-el-hizb : on l'enlève
+                // uniquement aux débuts de Juz/Hizb (remplacée par le badge).
+                const texte = badge && v.texte.charCodeAt(0) === 0x06DE ? v.texte.slice(1) : v.texte
+                return (
+                    <Text key={v.numero}>
+                        {badge && (
+                            <Text style={{ color: BLEU }}>
+                                {' '}<Text style={{ backgroundColor: BLEU, color: '#fff' }}>{` ${badge} `}</Text>{' '}
+                            </Text>
+                        )}
+                        {texte}{' '}
+                        <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 1.1, color: TEXTE }}>
+                            {chiffresArabes(v.numero)}
+                        </Text>
+                        {'  '}
                     </Text>
-                    {'  '}
-                </Text>
-            ))}
+                )
+            })}
         </Text>
     )
 }
@@ -171,19 +193,11 @@ export default function LectureSourate() {
         }
         for (let i = 0; i < versets.length; i++) {
             const v = versets[i]
-            const key = `${idx}:${v.numero}`
-            // Délimitation Juz/Hizb : elle COMMENCE à ce verset → bandeau AVANT lui.
-            const juzN = divisions.juz[key]
-            const hizbN = divisions.hizb[key]
-            if (juzN || hizbN) {
-                fermerBloc()
-                if (juzN) out.push({ type: 'juz', cle: `s${idx}_j${v.numero}`, sourate: idx, num: juzN })
-                else out.push({ type: 'hizb', cle: `s${idx}_h${v.numero}`, sourate: idx, num: hizbN })
-            }
             courant.push(v)
             nbCar += v.texte.length
             // Fin de page : le bandeau s'affiche APRÈS le dernier verset de la page.
-            const page = pageEnds[key]
+            // (Juz/Hizb sont gérés en ligne dans BlocTexte, au début du verset.)
+            const page = pageEnds[`${idx}:${v.numero}`]
             if (page) {
                 fermerBloc()
                 out.push({ type: 'page', cle: `s${idx}_p${v.numero}`, sourate: idx, page })
@@ -344,44 +358,7 @@ export default function LectureSourate() {
                 </View>
             )
         }
-        if (item.type === 'juz') {
-            // Début de Juz : composition calligraphique centrée, police du Coran.
-            return (
-                <View style={{ alignItems: 'center', paddingTop: taille * 1.7, paddingBottom: taille * 1.1 }}>
-                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 1.05, color: OR, lineHeight: taille * 1.45 }}>
-                        ۞
-                    </Text>
-                    <Text style={{
-                        fontFamily: typography.fontFamily.coran,
-                        fontSize: taille * 1.5,
-                        color: OR,
-                        lineHeight: taille * 2.1,
-                        writingDirection: 'rtl',
-                        textAlign: 'center',
-                    }}>
-                        {`ٱلْجُزْءُ ${chiffresArabes(item.num)}`}
-                    </Text>
-                </View>
-            )
-        }
-        if (item.type === 'hizb') {
-            // Début de Hizb (milieu de juz) : ۞ + « الحزب N », police du Coran.
-            return (
-                <View style={{ alignItems: 'center', paddingTop: taille * 1.3, paddingBottom: taille * 0.95 }}>
-                    <Text style={{
-                        fontFamily: typography.fontFamily.coran,
-                        fontSize: taille * 1.15,
-                        color: OR,
-                        lineHeight: taille * 1.7,
-                        writingDirection: 'rtl',
-                        textAlign: 'center',
-                    }}>
-                        {`۞ ٱلْحِزْبُ ${chiffresArabes(item.num)}`}
-                    </Text>
-                </View>
-            )
-        }
-        return <BlocTexte item={item} taille={taille} lineHeight={lineHeight} />
+        return <BlocTexte item={item} sourate={item.sourate} taille={taille} lineHeight={lineHeight} />
     }, [taille, lineHeight, insets.top])
 
     return (
