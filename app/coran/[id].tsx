@@ -82,9 +82,9 @@ function chiffresArabes(n: number) {
 function libelleDivision(sourate: number, numero: number): string | null {
     const cle = `${sourate}:${numero}`
     const j = divisions.juz[cle]
-    if (j) return `الجزء ${j}`
+    if (j) return `الجزء ${chiffresArabes(j)}`
     const h = divisions.hizb[cle]
-    if (h) return `الحزب ${h}`
+    if (h) return `الحزب ${chiffresArabes(h)}`
     return null
 }
 
@@ -114,8 +114,12 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
                         {badge && (
                             <Text>
                                 {' '}
-                                <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.53, color: '#80838A', verticalAlign: 'top' } as any}>{`${badge} `}</Text>
-                                <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.95, color: '#000000', verticalAlign: 'bottom' } as any}>{'\ue3ac'}</Text>
+                                <View style={{ width: taille * 1.5, height: taille * 1.15, alignItems: 'center', justifyContent: 'flex-end', transform: [{ translateY: taille * 0.22 }] }}>
+                                    {/* Libell\u00e9 en exposant, au-dessus de l'ast\u00e9risque */}
+                                    <Text style={{ position: 'absolute', top: 0, fontFamily: typography.fontFamily.arabic, fontSize: taille * 0.42, color: '#80838A', writingDirection: 'rtl' } as any}>{badge}</Text>
+                                    {/* Ast\u00e9risque sur la ligne du texte */}
+                                    <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.8, color: '#000000' }}>{'\ue3ac'}</Text>
+                                </View>
                                 {'  '}
                             </Text>
                         )}
