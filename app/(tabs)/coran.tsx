@@ -46,16 +46,16 @@ function SourateCard({ sourate }: { sourate: Sourate }) {
           width: 52, height: 52, marginRight: spacing.md, flexShrink: 0,
           alignItems: 'center', justifyContent: 'center',
         }}>
-          {/* deux carrés superposés (0° + 45°) → étoile à 8 branches */}
+          {/* deux carrés superposés (0° + 45°) → étoile à 8 branches pointue */}
           <View style={{
-            position: 'absolute', width: 36, height: 36, borderRadius: 7,
-            borderWidth: 1.5, borderColor: colors.or,
-            backgroundColor: 'rgba(214,173,58,0.07)',
+            position: 'absolute', width: 36, height: 36,
+            borderWidth: 1.5, borderColor: colors.bleu,
+            backgroundColor: 'rgba(45,87,140,0.07)',
           }} />
           <View style={{
-            position: 'absolute', width: 36, height: 36, borderRadius: 7,
-            borderWidth: 1.5, borderColor: colors.or,
-            backgroundColor: 'rgba(214,173,58,0.07)',
+            position: 'absolute', width: 36, height: 36,
+            borderWidth: 1.5, borderColor: colors.bleu,
+            backgroundColor: 'rgba(45,87,140,0.07)',
             transform: [{ rotate: '45deg' }],
           }} />
           <Text style={{
