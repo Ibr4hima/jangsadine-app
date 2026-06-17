@@ -345,39 +345,39 @@ export default function LectureSourate() {
             )
         }
         if (item.type === 'juz') {
-            // Délimitation de Juz : pastille bleue encadrée de deux filets.
+            // Début de Juz : composition calligraphique centrée, police du Coran.
             return (
-                <View style={{
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                    gap: 12, paddingVertical: Math.round(taille * 0.9),
-                }}>
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(45,87,140,0.30)' }} />
-                    <View style={{
-                        flexDirection: 'row', alignItems: 'center', gap: 8,
-                        borderWidth: 1, borderColor: 'rgba(45,87,140,0.35)', borderRadius: 999,
-                        backgroundColor: 'rgba(45,87,140,0.10)',
-                        paddingHorizontal: 16, paddingVertical: 6,
+                <View style={{ alignItems: 'center', paddingTop: taille * 1.7, paddingBottom: taille * 1.1 }}>
+                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 1.05, color: OR, lineHeight: taille * 1.45 }}>
+                        ۞
+                    </Text>
+                    <Text style={{
+                        fontFamily: typography.fontFamily.coran,
+                        fontSize: taille * 1.5,
+                        color: OR,
+                        lineHeight: taille * 2.1,
+                        writingDirection: 'rtl',
+                        textAlign: 'center',
                     }}>
-                        <Text style={{ fontFamily: typography.fontFamily.arabic, fontSize: 15, color: '#2d578c' }}>
-                            {`الجزء ${chiffresArabes(item.num)}`}
-                        </Text>
-                    </View>
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(45,87,140,0.30)' }} />
+                        {`ٱلْجُزْءُ ${chiffresArabes(item.num)}`}
+                    </Text>
                 </View>
             )
         }
         if (item.type === 'hizb') {
-            // Délimitation de Hizb (milieu de juz) : marque ۞ + « الحزب N », plus discrète.
+            // Début de Hizb (milieu de juz) : ۞ + « الحزب N », police du Coran.
             return (
-                <View style={{
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                    gap: 10, paddingVertical: Math.round(taille * 0.6),
-                }}>
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(184,147,42,0.30)' }} />
-                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: 14, color: OR }}>
-                        {`۞ الحزب ${chiffresArabes(item.num)}`}
+                <View style={{ alignItems: 'center', paddingTop: taille * 1.3, paddingBottom: taille * 0.95 }}>
+                    <Text style={{
+                        fontFamily: typography.fontFamily.coran,
+                        fontSize: taille * 1.15,
+                        color: OR,
+                        lineHeight: taille * 1.7,
+                        writingDirection: 'rtl',
+                        textAlign: 'center',
+                    }}>
+                        {`۞ ٱلْحِزْبُ ${chiffresArabes(item.num)}`}
                     </Text>
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(184,147,42,0.30)' }} />
                 </View>
             )
         }
