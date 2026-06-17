@@ -276,8 +276,20 @@ export default function LectureSourate() {
                     </Text>
                     {/* Basmala SVG (quran.com) */}
                     {item.basmala && (
-                        <View style={{ marginTop: taille * 0.6 }}>
+                        <View style={{ marginTop: taille * 0.6, alignItems: 'center' }}>
                             <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
+                            {/* Al-Fatiha : la basmala est le verset 1 → afficher son marqueur */}
+                            {item.sourate === 1 && (
+                                <Text style={{
+                                    fontFamily: typography.fontFamily.coran,
+                                    fontSize: taille * 1.1,
+                                    color: TEXTE,
+                                    marginTop: taille * 0.3,
+                                    lineHeight: taille * 1.5,
+                                }}>
+                                    {chiffresArabes(1)}
+                                </Text>
+                            )}
                         </View>
                     )}
                 </View>
