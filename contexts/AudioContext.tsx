@@ -175,7 +175,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       repriseEnAttenteRef.current = null
       if (pos > 1 && pos < d - 1) {
         ignoreJusquaRef.current = Date.now() + 900
-        playerRef.current?.seekTo(pos).catch(() => {})
+        // Seek vers la position sauvegardée, PUIS on coupe la sourdine : on
+        // n'entend jamais le tout début joué pendant le chargement.
+        playerRef.current?.seekTo(pos)
+          .catch(() => {})
+          .finally(() => { if (playerRef.current) playerRef.current.muted = false })
+      } else if (playerRef.current) {
+        playerRef.current.muted = false
       }
     }
 
@@ -288,8 +294,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     repriseEnAttenteRef.current = reprise > 1 ? reprise : null
 
     try {
+      // Reprise : on démarre en sourdine pour ne pas entendre le tout début
+      // pendant que le player charge ; on rétablit le son juste après le seek.
+      const estReprise = repriseEnAttenteRef.current != null
       player.replace({ uri: p.url })
       player.setPlaybackRate(vitesseRef.current, 'high')
+      player.muted = estReprise
       player.play()
 
       // Affiche les contrôles sur l'écran verrouillé / centre de contrôle
