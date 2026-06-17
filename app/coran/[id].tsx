@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // Couleurs fixes — pas de mode nuit/jour
 const BG = '#F2F0EF'
-const TEXTE = '#4A4641'
+const TEXTE = '#353839'
 const OR = '#b8932a'
 
 // Police SuraNames (quran.com) : deux ligatures distinctes — les 3 chiffres
@@ -256,20 +256,12 @@ export default function LectureSourate() {
                     paddingBottom: Math.round(taille * 0.5),
                     alignItems: 'center',
                 }}>
-                    {/* Trait de fin de sourate sur toute la ligne (sauf avant la première) */}
-                    {!item.premier && (
-                        <View style={{
-                            alignSelf: 'stretch', height: 1.5,
-                            backgroundColor: '#66615E',
-                            marginBottom: taille * 1.3,
-                        }} />
-                    )}
                     {/* Nom calligraphié (police SuraNames — ligature par identifiant). */}
                     <Text style={{
                         fontFamily: 'SuraNames',
                         fontSize: taille * 1.6,
                         lineHeight: taille * 1.6 * 1.35,
-                        color: OR,
+                        color: '#000000',
                         writingDirection: 'ltr',
                     }}>
                         {nomSourate(item.sourate)}
@@ -289,6 +281,7 @@ export default function LectureSourate() {
                                     fontSize: taille * 1.1,
                                     color: TEXTE,
                                     lineHeight: taille * 1.5,
+                                    transform: [{ translateY: taille * 0.45 }],
                                 }}>
                                     {chiffresArabes(1)}
                                 </Text>
