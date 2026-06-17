@@ -30,6 +30,10 @@ const HERO_MID = '#2d578c'
 const HERO_BOT = '#234a7a'
 
 const sourates = require('../../assets/quran/sourates.json')
+// Délimitations des pages du Mushaf Madani (KFGQPC v18) : « sora:aya » → numéro
+// de la page qui se TERMINE à cet ayah. Sert à insérer un bandeau de numéro de
+// page au fil de la lecture, comme dans un vrai Mushaf.
+const pageEnds: Record<string, number> = require('../../assets/quran/pages.json')
 
 // Bornes de la taille de lecture (px). Le pinch fait varier en continu entre les deux.
 const TAILLE_MIN = 20
@@ -50,6 +54,7 @@ type Bloc = { cle: string; versets: Verset[] }
 type Item =
     | { type: 'entete'; cle: string; sourate: number; basmala: string | null; nbVersets: number; premier: boolean }
     | { type: 'bloc'; cle: string; sourate: number; versets: Verset[] }
+    | { type: 'page'; cle: string; sourate: number; page: number }
 
 function clamp(v: number, min: number, max: number) {
     'worklet'
@@ -65,24 +70,6 @@ const BISMILLAH_LARGEUR_MAX = (LARGEUR_ECRAN - 44) * 0.68
 // Chiffres arabes (٠١٢…) pour les marqueurs de fin de verset, comme dans le Mushaf
 function chiffresArabes(n: number) {
     return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)])
-}
-
-// Découpe les versets en blocs ~homogènes (par longueur) pour la virtualisation
-function construireBlocs(versets: Verset[]): Bloc[] {
-    const blocs: Bloc[] = []
-    let courant: Verset[] = []
-    let taille = 0
-    for (const v of versets) {
-        courant.push(v)
-        taille += v.texte.length
-        if (taille >= BLOC_CARACTERES) {
-            blocs.push({ cle: `b${blocs.length}`, versets: courant })
-            courant = []
-            taille = 0
-        }
-    }
-    if (courant.length) blocs.push({ cle: `b${blocs.length}`, versets: courant })
-    return blocs
 }
 
 // Bloc de texte continu (un flux de versets). Le marqueur de fin de verset
@@ -160,8 +147,34 @@ export default function LectureSourate() {
         }
         const out: Item[] = [
             { type: 'entete', cle: `s${idx}_e`, sourate: idx, basmala: basm, nbVersets: info?.versets ?? versets.length, premier: idx === index },
-            ...construireBlocs(versets).map((b, i) => ({ type: 'bloc' as const, cle: `s${idx}_b${i}`, sourate: idx, versets: b.versets })),
         ]
+        // On découpe en blocs (pour la virtualisation) ET on coupe à chaque fin de
+        // page pour intercaler un bandeau « numéro de page ». Pas de bandeau au
+        // tout dernier ayah de la sourate : l'en-tête suivant fait déjà la coupure.
+        let courant: Verset[] = []
+        let nbCar = 0
+        let blocIdx = 0
+        const fermerBloc = () => {
+            if (courant.length) {
+                out.push({ type: 'bloc', cle: `s${idx}_b${blocIdx++}`, sourate: idx, versets: courant })
+                courant = []
+                nbCar = 0
+            }
+        }
+        for (let i = 0; i < versets.length; i++) {
+            const v = versets[i]
+            courant.push(v)
+            nbCar += v.texte.length
+            const page = pageEnds[`${idx}:${v.numero}`]
+            const dernierDeSourate = i === versets.length - 1
+            if (page && !dernierDeSourate) {
+                fermerBloc()
+                out.push({ type: 'page', cle: `s${idx}_p${v.numero}`, sourate: idx, page })
+            } else if (nbCar >= BLOC_CARACTERES) {
+                fermerBloc()
+            }
+        }
+        fermerBloc()
         itemsCacheRef.current[idx] = out
         return out
     }, [index])
@@ -289,6 +302,28 @@ export default function LectureSourate() {
                             <Bismillah width={Math.min(taille * 8.1, BISMILLAH_LARGEUR_MAX)} color={TEXTE} />
                         </View>
                     )}
+                </View>
+            )
+        }
+        if (item.type === 'page') {
+            // Bandeau de fin de page : numéro centré dans un cartouche, encadré de
+            // deux filets dorés, comme dans un Mushaf imprimé.
+            return (
+                <View style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                    gap: 12, paddingVertical: Math.round(taille * 0.7),
+                }}>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(184,147,42,0.35)' }} />
+                    <View style={{
+                        borderWidth: 1, borderColor: 'rgba(184,147,42,0.55)', borderRadius: 999,
+                        paddingHorizontal: 14, paddingVertical: 3,
+                        backgroundColor: 'rgba(184,147,42,0.06)',
+                    }}>
+                        <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 13, color: OR, letterSpacing: 1 }}>
+                            {item.page}
+                        </Text>
+                    </View>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(184,147,42,0.35)' }} />
                 </View>
             )
         }
