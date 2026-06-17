@@ -82,9 +82,9 @@ function chiffresArabes(n: number) {
 function libelleDivision(sourate: number, numero: number): string | null {
     const cle = `${sourate}:${numero}`
     const j = divisions.juz[cle]
-    if (j) return `الجزء ${chiffresArabes(j)}`
+    if (j) return `الجزء ${j}`
     const h = divisions.hizb[cle]
-    if (h) return `الحزب ${chiffresArabes(h)}`
+    if (h) return `الحزب ${h}`
     return null
 }
 
@@ -114,11 +114,11 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
                         {badge && (
                             <Text>
                                 {' '}
-                                <View style={{ width: taille * 1.5, height: taille * 1.15, alignItems: 'center', justifyContent: 'flex-end', transform: [{ translateY: taille * 0.22 }] }}>
-                                    {/* Libell\u00e9 en exposant, au-dessus de l'ast\u00e9risque */}
-                                    <Text style={{ position: 'absolute', top: 0, fontFamily: typography.fontFamily.arabic, fontSize: taille * 0.42, color: '#80838A', writingDirection: 'rtl' } as any}>{badge}</Text>
-                                    {/* Ast\u00e9risque sur la ligne du texte */}
-                                    <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.8, color: '#000000' }}>{'\ue3ac'}</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-end', transform: [{ translateY: taille * 0.18 }] }}>
+                                    {/* Ast\u00e9risque ancr\u00e9 en bas de la ligne */}
+                                    <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.88, color: '#000000', lineHeight: taille * 0.95 }}>{'\ue3ac'}</Text>
+                                    {/* Libell\u00e9 exposant : en haut + d\u00e9cal\u00e9 \u00e0 droite */}
+                                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.44, color: '#80838A', alignSelf: 'flex-start', paddingLeft: taille * 0.14, lineHeight: taille * 0.5, writingDirection: 'rtl' } as any}>{badge}</Text>
                                 </View>
                                 {'  '}
                             </Text>
