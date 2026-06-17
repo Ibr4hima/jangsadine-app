@@ -170,7 +170,7 @@ function AppShell() {
 
       {tabBarVisible && (
         <SafeAreaView edges={['bottom']} style={{ backgroundColor: 'transparent' }}>
-          <View style={{ marginHorizontal: spacing.lg, marginBottom: 6, gap: spacing.sm }}>
+          <View style={{ marginHorizontal: spacing.lg, marginBottom: -4, gap: spacing.sm }}>
             <LecteurPersistant />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               {/* Barre principale */}

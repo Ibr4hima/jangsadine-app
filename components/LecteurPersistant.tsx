@@ -158,7 +158,7 @@ export default function LecteurPersistant() {
         <Animated.View
             entering={FadeInDown.springify().damping(18).stiffness(160)}
             style={{
-                borderRadius: 26,
+                borderRadius: 22,
                 overflow: 'hidden',
                 shadowColor: '#08162a',
                 shadowOffset: { width: 0, height: 10 },
@@ -179,24 +179,24 @@ export default function LecteurPersistant() {
                 <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    paddingLeft: 10,
-                    paddingRight: 12,
-                    paddingVertical: 10,
-                    gap: 10,
+                    paddingLeft: 9,
+                    paddingRight: 10,
+                    paddingVertical: 7,
+                    gap: 9,
                 }}>
                     {/* Zone pressable ouvrir le lecteur (logo + info) */}
                     <Pressable
                         onPress={ouvrir}
-                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0 }}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, minWidth: 0 }}
                     >
                         {/* Vignette égaliseur */}
                         <Animated.View style={[{
-                            width: 46, height: 46,
+                            width: 38, height: 38,
                             alignItems: 'center',
                             justifyContent: 'center',
                         }, artStyle]}>
                             {enLecture
-                                ? <MiniEgaliseur color={colors.or} hauteur={18} />
+                                ? <MiniEgaliseur color={colors.or} hauteur={16} />
                                 : <BarresRepos />}
                         </Animated.View>
 
@@ -205,7 +205,7 @@ export default function LecteurPersistant() {
                             <TextTicker
                                 style={{
                                     fontFamily: typography.fontFamily.semibold,
-                                    fontSize: typography.size.base,
+                                    fontSize: typography.size.sm,
                                     color: '#fff',
                                 }}
                                 loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
@@ -226,20 +226,20 @@ export default function LecteurPersistant() {
                     </Pressable>
 
                     {/* Boutons de contrôle (indépendants du Pressable ouvrir) */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                         {/* Skip suivant */}
                         <Tap onPress={onPressSuivant} style={{
-                            width: 36, height: 36, borderRadius: 18,
+                            width: 31, height: 31, borderRadius: 16,
                             backgroundColor: W12,
                             alignItems: 'center', justifyContent: 'center',
                         }}>
-                            <IconSuivant size={19} color="rgba(255,255,255,0.80)" />
+                            <IconSuivant size={17} color="rgba(255,255,255,0.80)" />
                         </Tap>
 
                         {/* Play / Pause : fond doré, icône bleue */}
                         <Animated.View style={playPulse}>
                             <Tap onPress={onPressPlay} style={{
-                                width: 46, height: 46, borderRadius: 23,
+                                width: 39, height: 39, borderRadius: 20,
                                 backgroundColor: colors.or,
                                 alignItems: 'center', justifyContent: 'center',
                                 shadowColor: colors.or,
@@ -249,8 +249,8 @@ export default function LecteurPersistant() {
                                 elevation: 7,
                             }}>
                                 {enLecture
-                                    ? <IconPause size={19} color={colors.bleu} />
-                                    : <IconPlay size={19} color={colors.bleu} />}
+                                    ? <IconPause size={17} color={colors.bleu} />
+                                    : <IconPlay size={17} color={colors.bleu} />}
                             </Tap>
                         </Animated.View>
                     </View>
