@@ -112,8 +112,11 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
                 return (
                     <Text key={v.numero}>
                         {badge && (
-                            <Text style={{ color: BLEU }}>
-                                {' '}<Text style={{ backgroundColor: BLEU, color: '#fff' }}>{` ${badge} `}</Text>{' '}
+                            <Text>
+                                {' '}
+                                <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.9, color: OR }}>{'\ue3ac'}</Text>
+                                <Text style={{ fontFamily: typography.fontFamily.arabic, fontSize: taille * 0.5, color: BLEU }}>{` ${badge}`}</Text>
+                                {'  '}
                             </Text>
                         )}
                         {texte}{' '}
