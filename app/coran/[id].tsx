@@ -281,7 +281,7 @@ export default function LectureSourate() {
                                     fontSize: taille * 1.1,
                                     color: TEXTE,
                                     lineHeight: taille * 1.5,
-                                    transform: [{ translateY: taille * 0.45 }],
+                                    transform: [{ translateY: taille * 0.28 }],
                                 }}>
                                     {chiffresArabes(1)}
                                 </Text>
