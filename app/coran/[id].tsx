@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 const BG = '#F2F0EF'
 const TEXTE = '#353839'
 const OR = '#b8932a'
-const BLEU = '#2d578c'
 
 // Police SuraNames (quran.com) : deux ligatures distinctes — les 3 chiffres
 // « 026 » → le nom calligraphié de la sourate, et « surah » → le mot « سورة ».
@@ -78,13 +77,14 @@ function chiffresArabes(n: number) {
     return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)])
 }
 
-// Étiquette inline d'un début de Juz / Hizb. Renvoie le libellé arabe ou null.
+// Étiquette inline d'un début de Juz / Hizb (sans voyelles). Renvoie le libellé
+// arabe ou null.
 function libelleDivision(sourate: number, numero: number): string | null {
     const cle = `${sourate}:${numero}`
     const j = divisions.juz[cle]
-    if (j) return `ٱلْجُزْءُ ${chiffresArabes(j)}`
+    if (j) return `الجزء ${chiffresArabes(j)}`
     const h = divisions.hizb[cle]
-    if (h) return `ٱلْحِزْبُ ${chiffresArabes(h)}`
+    if (h) return `الحزب ${chiffresArabes(h)}`
     return null
 }
 
@@ -114,8 +114,8 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
                         {badge && (
                             <Text>
                                 {' '}
-                                <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.9, color: OR }}>{'\ue3ac'}</Text>
-                                <Text style={{ fontFamily: typography.fontFamily.arabic, fontSize: taille * 0.5, color: BLEU }}>{` ${badge}`}</Text>
+                                <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.46, color: '#80838A' }}>{`${badge} `}</Text>
+                                <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.95, color: '#000000' }}>{'\ue3ac'}</Text>
                                 {'  '}
                             </Text>
                         )}
