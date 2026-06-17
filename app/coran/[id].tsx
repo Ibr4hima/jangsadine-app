@@ -82,9 +82,9 @@ function chiffresArabes(n: number) {
 function libelleDivision(sourate: number, numero: number): string | null {
     const cle = `${sourate}:${numero}`
     const j = divisions.juz[cle]
-    if (j) return `الجزء ${chiffresArabes(j)}`
+    if (j) return `الجزء ${j}`
     const h = divisions.hizb[cle]
-    if (h) return `الحزب ${chiffresArabes(h)}`
+    if (h) return `الحزب ${h}`
     return null
 }
 
@@ -114,8 +114,8 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
                         {badge && (
                             <Text>
                                 {' '}
-                                <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.46, color: '#80838A' }}>{`${badge} `}</Text>
-                                <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.95, color: '#000000' }}>{'\ue3ac'}</Text>
+                                <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.53, color: '#80838A', verticalAlign: 'top' } as any}>{`${badge} `}</Text>
+                                <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.95, color: '#000000', verticalAlign: 'bottom' } as any}>{'\ue3ac'}</Text>
                                 {'  '}
                             </Text>
                         )}
