@@ -41,17 +41,26 @@ function SourateCard({ sourate }: { sourate: Sourate }) {
         marginHorizontal: spacing.xl,
         marginBottom: spacing.sm,
       }}>
-        {/* Numéro */}
+        {/* Numéro — médaillon façon Rub el Hizb (étoile à 8 branches) */}
         <View style={{
-          width: 40, height: 40, borderRadius: radius.md,
-          backgroundColor: colors.fondCreme,
-          borderWidth: 1, borderColor: colors.bordure,
+          width: 52, height: 52, marginRight: spacing.md, flexShrink: 0,
           alignItems: 'center', justifyContent: 'center',
-          marginRight: spacing.md, flexShrink: 0,
         }}>
+          {/* deux carrés superposés (0° + 45°) → étoile à 8 branches */}
+          <View style={{
+            position: 'absolute', width: 36, height: 36, borderRadius: 7,
+            borderWidth: 1.5, borderColor: colors.or,
+            backgroundColor: 'rgba(214,173,58,0.07)',
+          }} />
+          <View style={{
+            position: 'absolute', width: 36, height: 36, borderRadius: 7,
+            borderWidth: 1.5, borderColor: colors.or,
+            backgroundColor: 'rgba(214,173,58,0.07)',
+            transform: [{ rotate: '45deg' }],
+          }} />
           <Text style={{
             fontFamily: typography.fontFamily.bold,
-            fontSize: typography.size.sm,
+            fontSize: typography.size.base,
             color: colors.bleu,
           }}>
             {sourate.index}
@@ -72,7 +81,7 @@ function SourateCard({ sourate }: { sourate: Sourate }) {
         {/* Nom SuraNames calligraphique */}
         <Text style={{
           fontFamily: 'SuraNames',
-          fontSize: 20,
+          fontSize: 25,
           color: colors.bleu,
           marginRight: spacing.sm,
           writingDirection: 'ltr',
