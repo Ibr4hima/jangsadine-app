@@ -149,8 +149,9 @@ export default function LectureSourate() {
             { type: 'entete', cle: `s${idx}_e`, sourate: idx, basmala: basm, nbVersets: info?.versets ?? versets.length, premier: idx === index },
         ]
         // On découpe en blocs (pour la virtualisation) ET on coupe à chaque fin de
-        // page pour intercaler un bandeau « numéro de page ». Pas de bandeau au
-        // tout dernier ayah de la sourate : l'en-tête suivant fait déjà la coupure.
+        // page pour intercaler un bandeau « numéro de page », comme dans un Mushaf
+        // imprimé — y compris quand la page se termine à la fin d'une sourate
+        // (ex. la page 1 juste après al-Fatiha).
         let courant: Verset[] = []
         let nbCar = 0
         let blocIdx = 0
@@ -166,8 +167,7 @@ export default function LectureSourate() {
             courant.push(v)
             nbCar += v.texte.length
             const page = pageEnds[`${idx}:${v.numero}`]
-            const dernierDeSourate = i === versets.length - 1
-            if (page && !dernierDeSourate) {
+            if (page) {
                 fermerBloc()
                 out.push({ type: 'page', cle: `s${idx}_p${v.numero}`, sourate: idx, page })
             } else if (nbCar >= BLOC_CARACTERES) {
