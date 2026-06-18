@@ -1,5 +1,6 @@
 import { MiniEgaliseur } from '@/components/AudioUI'
 import { colors, radius, spacing, typography } from '@/constants/theme'
+import { QURAN_ICON_URI } from '@/constants/quranIcon'
 import { Piste, useAudio } from '@/contexts/AudioContext'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { geocoderInverse } from '@/lib/geo'
@@ -79,13 +80,14 @@ function IcoSettings({ size = 16, color = colors.bleu }: IcoProps) {
 // Taille de la calligraphie dans sa tuile. Plus grande que les glyphes en
 // trait (29) car une calligraphie détaillée devient illisible à 29px ; la
 // boîte et la tuile restent identiques aux autres.
-const CORAN_ICON = 52
+const CORAN_ICON = 48
 function IcoCoran({ size = 16 }: IcoProps) {
-  // PNG déjà blanc (pas de tintColor → rendu fiable hors-ligne, jamais de
-  // disparition). On ignore `size` : la calligraphie a sa propre taille.
+  // Image inline base64 (déjà blanche) → aucun fetch Metro, s'affiche
+  // toujours, même hors-ligne en dev. On ignore `size` : la calligraphie a
+  // sa propre taille.
   return (
     <Image
-      source={require('../../assets/icons/quran.png')}
+      source={{ uri: QURAN_ICON_URI }}
       style={{ width: CORAN_ICON, height: CORAN_ICON }}
       resizeMode="contain"
     />
