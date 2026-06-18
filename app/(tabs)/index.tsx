@@ -79,7 +79,7 @@ function IcoSettings({ size = 16, color = colors.bleu }: IcoProps) {
 // Taille de la calligraphie dans sa tuile. Plus grande que les glyphes en
 // trait (29) car une calligraphie détaillée devient illisible à 29px ; la
 // boîte et la tuile restent identiques aux autres.
-const CORAN_ICON = 46
+const CORAN_ICON = 52
 function IcoCoran({ size = 16 }: IcoProps) {
   // PNG déjà blanc (pas de tintColor → rendu fiable hors-ligne, jamais de
   // disparition). On ignore `size` : la calligraphie a sa propre taille.
