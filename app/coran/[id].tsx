@@ -137,7 +137,8 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
 
 export default function LectureSourate() {
     // `cle` (optionnel) : clé du bloc où reprendre la lecture exactement.
-    const { id, cle } = useLocalSearchParams<{ id: string; cle?: string }>()
+    // `verset` (optionnel) : numéro de verset où s'ouvrir (ex. début d'un juz).
+    const { id, cle, verset } = useLocalSearchParams<{ id: string; cle?: string; verset?: string }>()
     const router = useRouter()
     const insets = useSafeAreaInsets()
     const index = parseInt(id)
@@ -248,17 +249,25 @@ export default function LectureSourate() {
         setLoading(false)
     }, [index, recomposer])
 
-    // ── Restauration de la position exacte (param `cle`) une fois les items posés ──
+    // ── Restauration de la position (param `cle` ou `verset`) une fois les items posés ──
+    const versetCibleRef = useRef<number | null>(verset ? parseInt(String(verset)) : null)
     useEffect(() => {
-        const cible = cibleRef.current
-        if (!cible || !items.length) return
-        const idx = items.findIndex(it => it.cle === cible)
-        cibleRef.current = null
+        if (!items.length) return
+        let idx = -1
+        if (cibleRef.current) {
+            idx = items.findIndex(it => it.cle === cibleRef.current)
+            cibleRef.current = null
+        } else if (versetCibleRef.current != null) {
+            const num = versetCibleRef.current
+            idx = items.findIndex(it =>
+                it.type === 'bloc' && it.sourate === index && it.versets.some(v => v.numero === num))
+            versetCibleRef.current = null
+        }
         if (idx <= 0) return
         requestAnimationFrame(() => {
             listeRef.current?.scrollToIndex({ index: idx, animated: false })
         })
-    }, [items])
+    }, [items, index])
 
     // ── Au fil : à l'approche de la fin, on enchaîne la sourate suivante ──
     const chargerSuivante = useCallback(() => {
@@ -437,9 +446,13 @@ export default function LectureSourate() {
                         onEndReachedThreshold={1.5}
                         onViewableItemsChanged={onViewable}
                         viewabilityConfig={viewabilityConfig}
-                        initialNumToRender={6}
-                        maxToRenderPerBatch={6}
-                        windowSize={9}
+                        // Assez d'items dès le premier rendu pour couvrir l'écran
+                        // (sinon le bas de page reste vide 1-2 s le temps des lots),
+                        // et des lots rapides pour la suite du remplissage.
+                        initialNumToRender={14}
+                        maxToRenderPerBatch={12}
+                        updateCellsBatchingPeriod={30}
+                        windowSize={13}
                     />
                 </GestureDetector>
             )}

@@ -6,13 +6,29 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { Search } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Animated, FlatList, Image, Pressable, StatusBar,
+  Animated, FlatList, Image, Pressable, ScrollView, StatusBar,
   Text, TextInput, View
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Rect } from 'react-native-svg'
 
 const sourates = require('../../assets/quran/sourates.json')
+const divisions: { juz: Record<string, number> } = require('../../assets/quran/divisions.json')
+
+// Débuts des 30 juz : « sora:aya » → n°, triés. Chaque chip ouvre le lecteur
+// pile au premier verset du juz (param `verset`).
+const JUZS = Object.entries(divisions.juz)
+  .map(([cle, n]) => {
+    const [sora, aya] = cle.split(':').map(Number)
+    return { n, sora, aya }
+  })
+  .sort((a, b) => a.n - b.n)
+
+// Recherche tolérante : accents, apostrophes, tirets et espaces ignorés
+// (« maidah » trouve Al-Ma'idah).
+function normaliser(s: string) {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['’\-\s]/g, '')
+}
 
 type Sourate = {
   index: number
@@ -66,7 +82,7 @@ function BadgeNumero({ n }: { n: number }) {
 }
 
 // ─── carte sourate ────────────────────────────────────────────
-function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) {
+function SourateCard({ sourate, riwaya, enCours }: { sourate: Sourate; riwaya: string; enCours: boolean }) {
   const scale = useRef(new Animated.Value(1)).current
   const router = useRouter()
 
@@ -92,7 +108,16 @@ function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) 
         shadowOpacity: 0.06,
         shadowRadius: 14,
         elevation: 3,
+        overflow: 'hidden',
       }}>
+        {/* filet doré = sourate en cours de lecture */}
+        {enCours && (
+          <View style={{
+            position: 'absolute', left: 0, top: 10, bottom: 10,
+            width: 3, borderTopRightRadius: 2, borderBottomRightRadius: 2,
+            backgroundColor: colors.or,
+          }} />
+        )}
         <BadgeNumero n={sourate.index} />
 
         {/* Nom latin + méta */}
@@ -110,6 +135,11 @@ function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) 
             color: colors.texteMuted,
           }}>
             {sourate.versets} versets · Page {sourate.page}
+            {enCours && (
+              <Text style={{ fontFamily: typography.fontFamily.semibold, color: colors.or }}>
+                {'  ·  En cours'}
+              </Text>
+            )}
           </Text>
         </View>
 
@@ -151,11 +181,11 @@ export default function Coran() {
     if (!recherche.trim()) {
       setFiltrees(sourates)
     } else {
-      const q = recherche.toLowerCase()
+      const q = normaliser(recherche)
       setFiltrees(sourates.filter((s: Sourate) =>
-        s.nom.toLowerCase().includes(q) ||
-        s.nomAr.includes(recherche) ||
-        String(s.index).includes(q)
+        normaliser(s.nom).includes(q) ||
+        s.nomAr.includes(recherche.trim()) ||
+        String(s.index).includes(recherche.trim())
       ))
     }
   }, [recherche])
@@ -331,14 +361,52 @@ export default function Coran() {
         </View>
       </View>
 
+      {/* ─── saut rapide par juz ─────────────────────────────── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, marginTop: spacing.md }}
+        contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 8 }}
+      >
+        {JUZS.map(j => (
+          <Pressable
+            key={j.n}
+            onPress={() => router.push(`/coran/${j.sora}?riwaya=${riwaya}&verset=${j.aya}` as any)}
+            style={({ pressed }) => ({
+              backgroundColor: colors.blanc,
+              borderRadius: radius.full,
+              paddingHorizontal: 13,
+              paddingVertical: 7,
+              borderWidth: 1,
+              borderColor: colors.bordure,
+              transform: [{ scale: pressed ? 0.93 : 1 }],
+            })}
+          >
+            <Text style={{
+              fontFamily: typography.fontFamily.semibold,
+              fontSize: typography.size.xs,
+              color: colors.bleu,
+            }}>
+              Juz {j.n}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
       {/* ─── liste ───────────────────────────────────────────── */}
       <FlatList
         data={filtrees}
         keyExtractor={item => String(item.index)}
-        renderItem={({ item }) => <SourateCard sourate={item} riwaya={riwaya} />}
+        renderItem={({ item }) => (
+          <SourateCard
+            sourate={item}
+            riwaya={riwaya}
+            enCours={reprise?.sourate.index === item.index}
+          />
+        )}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingTop: spacing.lg, paddingBottom: 130 }}
+        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 130 }}
         ListEmptyComponent={
           <Text style={{
             textAlign: 'center', marginTop: spacing['2xl'],
