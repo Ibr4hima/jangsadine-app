@@ -136,7 +136,8 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
 }
 
 export default function LectureSourate() {
-    const { id } = useLocalSearchParams<{ id: string }>()
+    // `cle` (optionnel) : clé du bloc où reprendre la lecture exactement.
+    const { id, cle } = useLocalSearchParams<{ id: string; cle?: string }>()
     const router = useRouter()
     const insets = useSafeAreaInsets()
     const index = parseInt(id)
@@ -145,10 +146,22 @@ export default function LectureSourate() {
     const [sourateActive, setSourateActive] = useState(index)
     const [loading, setLoading] = useState(true)
 
-    // Mémorise la dernière sourate lue → puce « Reprendre » sur la liste Coran
-    useEffect(() => {
-        AsyncStorage.setItem('jsd_derniere_sourate', String(sourateActive)).catch(() => { })
-    }, [sourateActive])
+    // ── Reprise exacte ──
+    // Le bloc visible en haut d'écran est mémorisé ({sourate, cle}) : la liste
+    // Coran rouvre alors le lecteur pile à cet endroit via le param `cle`.
+    // Les clés de blocs sont déterministes (indépendantes de la taille de police).
+    const listeRef = useRef<FlatList<Item>>(null)
+    const repriseRef = useRef<{ sourate: number; cle: string } | null>(null)
+    const derniereSauvegardeRef = useRef(0)
+    const cibleRef = useRef<string | null>(cle ? String(cle) : null)
+
+    // Sauvegarde finale en quittant le lecteur (la sauvegarde throttlée au fil
+    // du scroll couvre le cas d'une fermeture brutale de l'app).
+    useEffect(() => () => {
+        if (repriseRef.current) {
+            AsyncStorage.setItem('jsd_reprise_coran', JSON.stringify(repriseRef.current)).catch(() => { })
+        }
+    }, [])
 
     const [taille, setTaille] = useState(TAILLE_DEFAUT)
     const [chromeVisible, setChromeVisible] = useState(true)
@@ -235,6 +248,18 @@ export default function LectureSourate() {
         setLoading(false)
     }, [index, recomposer])
 
+    // ── Restauration de la position exacte (param `cle`) une fois les items posés ──
+    useEffect(() => {
+        const cible = cibleRef.current
+        if (!cible || !items.length) return
+        const idx = items.findIndex(it => it.cle === cible)
+        cibleRef.current = null
+        if (idx <= 0) return
+        requestAnimationFrame(() => {
+            listeRef.current?.scrollToIndex({ index: idx, animated: false })
+        })
+    }, [items])
+
     // ── Au fil : à l'approche de la fin, on enchaîne la sourate suivante ──
     const chargerSuivante = useCallback(() => {
         const ch = chargeesRef.current
@@ -253,6 +278,15 @@ export default function LectureSourate() {
             if (v.index != null && (haut.index == null || v.index < haut.index)) haut = v
         }
         if (haut.item?.sourate) setSourateActive(haut.item.sourate)
+        // Position exacte de lecture (throttlée à ~1,5 s pour ménager le stockage)
+        if (haut.item?.cle) {
+            repriseRef.current = { sourate: haut.item.sourate, cle: haut.item.cle }
+            const maintenant = Date.now()
+            if (maintenant - derniereSauvegardeRef.current > 1500) {
+                derniereSauvegardeRef.current = maintenant
+                AsyncStorage.setItem('jsd_reprise_coran', JSON.stringify(repriseRef.current)).catch(() => { })
+            }
+        }
     }).current
     const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 0 }).current
 
@@ -381,11 +415,20 @@ export default function LectureSourate() {
             {!loading && (
                 <GestureDetector gesture={gestes}>
                     <FlatList
+                        ref={listeRef}
                         data={items}
                         keyExtractor={it => it.cle}
                         renderItem={renderItem}
                         ListFooterComponent={<View style={{ height: insets.bottom + 80 }} />}
                         extraData={taille}
+                        // scrollToIndex sans getItemLayout : on approche à l'estime,
+                        // puis on retente une fois la zone rendue.
+                        onScrollToIndexFailed={info => {
+                            listeRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false })
+                            setTimeout(() => {
+                                listeRef.current?.scrollToIndex({ index: info.index, animated: false })
+                            }, 150)
+                        }}
                         showsVerticalScrollIndicator={false}
                         style={{ backgroundColor: BG }}
                         contentContainerStyle={{ paddingHorizontal: 22, backgroundColor: BG }}

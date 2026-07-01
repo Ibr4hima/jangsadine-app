@@ -27,6 +27,16 @@ const BG_TOP = '#3d6ba3'
 const BG_MID = '#2d578c'
 const BG_BOT = '#234a7a'
 const W55 = 'rgba(255,255,255,0.55)'
+const W12 = 'rgba(255,255,255,0.12)'
+
+// ─── riwayas ──────────────────────────────────────────────────
+// Hafs disponible ; Warsh et Qaloon arrivent — le sélecteur prépare la
+// navigation entre les trois.
+const RIWAYAS = [
+  { id: 'hafs', nom: 'Hafs', dispo: true },
+  { id: 'warsh', nom: 'Warsh', dispo: false },
+  { id: 'qaloon', nom: 'Qaloon', dispo: false },
+] as const
 
 // ─── badge octogramme ۞ (deux carrés superposés à 45°) ───────
 // Clin d'œil au rub-el-hizb du Mushaf : discret, fin, élégant.
@@ -56,7 +66,7 @@ function BadgeNumero({ n }: { n: number }) {
 }
 
 // ─── carte sourate ────────────────────────────────────────────
-function SourateCard({ sourate }: { sourate: Sourate }) {
+function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) {
   const scale = useRef(new Animated.Value(1)).current
   const router = useRouter()
 
@@ -64,7 +74,7 @@ function SourateCard({ sourate }: { sourate: Sourate }) {
     <Pressable
       onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start()}
       onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()}
-      onPress={() => router.push(`/coran/${sourate.index}?riwaya=hafs` as any)}
+      onPress={() => router.push(`/coran/${sourate.index}?riwaya=${riwaya}` as any)}
     >
       <Animated.View style={{
         transform: [{ scale }],
@@ -99,19 +109,19 @@ function SourateCard({ sourate }: { sourate: Sourate }) {
             fontSize: typography.size.xs,
             color: colors.texteMuted,
           }}>
-            {sourate.versets} versets · page {sourate.page}
+            {sourate.versets} versets · Page {sourate.page}
           </Text>
         </View>
 
-        {/* Nom SuraNames calligraphique */}
+        {/* Nom calligraphique seul (sans le mot سورة) */}
         <Text style={{
           fontFamily: 'SuraNames',
-          fontSize: 26,
+          fontSize: 27,
           color: BG_MID,
           marginLeft: spacing.sm,
           writingDirection: 'ltr',
         }}>
-          {String(sourate.index).padStart(3, '0') + 'surah'}
+          {String(sourate.index).padStart(3, '0')}
         </Text>
       </Animated.View>
     </Pressable>
@@ -123,7 +133,19 @@ export default function Coran() {
   const router = useRouter()
   const [recherche, setRecherche] = useState('')
   const [filtrees, setFiltrees] = useState<Sourate[]>(sourates)
-  const [reprise, setReprise] = useState<Sourate | null>(null)
+  const [reprise, setReprise] = useState<{ sourate: Sourate; cle: string | null } | null>(null)
+  const [riwaya, setRiwaya] = useState<string>('hafs')
+
+  // Riwaya choisie, persistée
+  useEffect(() => {
+    AsyncStorage.getItem('jsd_riwaya')
+      .then(r => { if (r && RIWAYAS.some(x => x.id === r && x.dispo)) setRiwaya(r) })
+      .catch(() => { })
+  }, [])
+  const choisirRiwaya = (id: string) => {
+    setRiwaya(id)
+    AsyncStorage.setItem('jsd_riwaya', id).catch(() => { })
+  }
 
   useEffect(() => {
     if (!recherche.trim()) {
@@ -138,16 +160,23 @@ export default function Coran() {
     }
   }, [recherche])
 
-  // Recharge la dernière sourate lue à chaque retour sur la page
+  // Recharge la position exacte de lecture à chaque retour sur la page
   useFocusEffect(useCallback(() => {
-    AsyncStorage.getItem('jsd_derniere_sourate')
+    AsyncStorage.getItem('jsd_reprise_coran')
       .then(raw => {
-        const idx = raw ? parseInt(raw) : NaN
-        const s = sourates.find((x: Sourate) => x.index === idx)
-        setReprise(s ?? null)
+        if (!raw) return setReprise(null)
+        const r = JSON.parse(raw) as { sourate: number; cle?: string }
+        const s = sourates.find((x: Sourate) => x.index === r.sourate)
+        setReprise(s ? { sourate: s, cle: r.cle ?? null } : null)
       })
-      .catch(() => { })
+      .catch(() => setReprise(null))
   }, []))
+
+  const ouvrirReprise = () => {
+    if (!reprise) return
+    const suffixe = reprise.cle ? `&cle=${reprise.cle}` : ''
+    router.push(`/coran/${reprise.sourate.index}?riwaya=${riwaya}${suffixe}` as any)
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
@@ -188,18 +217,51 @@ export default function Coran() {
             }}>
               Coran
             </Text>
-            <Text style={{
-              fontFamily: typography.fontFamily.regular,
-              fontSize: typography.size.sm,
-              color: W55, marginTop: 3,
-            }}>
-              114 sourates · riwaya Hafs
-            </Text>
 
-            {/* puce « Reprendre » — dernière sourate lue */}
+            {/* sélecteur de riwaya */}
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.sm }}>
+              {RIWAYAS.map(r => {
+                const active = r.id === riwaya
+                return (
+                  <Pressable
+                    key={r.id}
+                    disabled={!r.dispo}
+                    onPress={() => choisirRiwaya(r.id)}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row', alignItems: 'baseline', gap: 4,
+                      backgroundColor: active ? '#fff' : W12,
+                      borderRadius: radius.full,
+                      paddingHorizontal: 13,
+                      paddingVertical: 5,
+                      opacity: r.dispo ? 1 : 0.45,
+                      transform: [{ scale: pressed ? 0.94 : 1 }],
+                    })}
+                  >
+                    <Text style={{
+                      fontFamily: typography.fontFamily.semibold,
+                      fontSize: typography.size.xs,
+                      color: active ? BG_BOT : '#fff',
+                    }}>
+                      {r.nom}
+                    </Text>
+                    {!r.dispo && (
+                      <Text style={{
+                        fontFamily: typography.fontFamily.regular,
+                        fontSize: 9,
+                        color: W55,
+                      }}>
+                        bientôt
+                      </Text>
+                    )}
+                  </Pressable>
+                )
+              })}
+            </View>
+
+            {/* puce « Reprendre » — rouvre pile où on s'était arrêté */}
             {reprise && (
               <Pressable
-                onPress={() => router.push(`/coran/${reprise.index}?riwaya=hafs` as any)}
+                onPress={ouvrirReprise}
                 style={({ pressed }) => ({
                   alignSelf: 'flex-start',
                   flexDirection: 'row',
@@ -218,7 +280,7 @@ export default function Coran() {
                   fontSize: typography.size.xs,
                   color: '#1c3d66',
                 }}>
-                  Reprendre · {reprise.nom}  ›
+                  Reprendre · {reprise.sourate.nom}  ›
                 </Text>
               </Pressable>
             )}
@@ -257,6 +319,15 @@ export default function Coran() {
               paddingVertical: 15,
             }}
           />
+          {recherche.length > 0 && (
+            <Pressable onPress={() => setRecherche('')} hitSlop={10} style={{
+              width: 20, height: 20, borderRadius: 10,
+              backgroundColor: 'rgba(45,87,140,0.10)',
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Text style={{ fontSize: 11, color: colors.bleu, fontFamily: typography.fontFamily.bold, lineHeight: 13 }}>✕</Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -264,7 +335,7 @@ export default function Coran() {
       <FlatList
         data={filtrees}
         keyExtractor={item => String(item.index)}
-        renderItem={({ item }) => <SourateCard sourate={item} />}
+        renderItem={({ item }) => <SourateCard sourate={item} riwaya={riwaya} />}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingTop: spacing.lg, paddingBottom: 130 }}
