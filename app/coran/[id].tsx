@@ -145,6 +145,11 @@ export default function LectureSourate() {
     const [sourateActive, setSourateActive] = useState(index)
     const [loading, setLoading] = useState(true)
 
+    // Mémorise la dernière sourate lue → puce « Reprendre » sur la liste Coran
+    useEffect(() => {
+        AsyncStorage.setItem('jsd_derniere_sourate', String(sourateActive)).catch(() => { })
+    }, [sourateActive])
+
     const [taille, setTaille] = useState(TAILLE_DEFAUT)
     const [chromeVisible, setChromeVisible] = useState(true)
 
