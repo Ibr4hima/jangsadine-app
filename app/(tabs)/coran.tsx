@@ -82,7 +82,7 @@ function BadgeNumero({ n }: { n: number }) {
 }
 
 // ─── carte sourate ────────────────────────────────────────────
-function SourateCard({ sourate, riwaya, enCours }: { sourate: Sourate; riwaya: string; enCours: boolean }) {
+function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) {
   const scale = useRef(new Animated.Value(1)).current
   const router = useRouter()
 
@@ -108,16 +108,7 @@ function SourateCard({ sourate, riwaya, enCours }: { sourate: Sourate; riwaya: s
         shadowOpacity: 0.06,
         shadowRadius: 14,
         elevation: 3,
-        overflow: 'hidden',
       }}>
-        {/* filet doré = sourate en cours de lecture */}
-        {enCours && (
-          <View style={{
-            position: 'absolute', left: 0, top: 10, bottom: 10,
-            width: 3, borderTopRightRadius: 2, borderBottomRightRadius: 2,
-            backgroundColor: colors.or,
-          }} />
-        )}
         <BadgeNumero n={sourate.index} />
 
         {/* Nom latin + méta */}
@@ -135,11 +126,6 @@ function SourateCard({ sourate, riwaya, enCours }: { sourate: Sourate; riwaya: s
             color: colors.texteMuted,
           }}>
             {sourate.versets} versets · Page {sourate.page}
-            {enCours && (
-              <Text style={{ fontFamily: typography.fontFamily.semibold, color: colors.or }}>
-                {'  ·  En cours'}
-              </Text>
-            )}
           </Text>
         </View>
 
@@ -366,7 +352,7 @@ export default function Coran() {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={{ flexGrow: 0, marginTop: spacing.md }}
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 8 }}
+        contentContainerStyle={{ paddingHorizontal: spacing.xl }}
       >
         {JUZS.map(j => (
           <Pressable
@@ -375,19 +361,26 @@ export default function Coran() {
             style={({ pressed }) => ({
               backgroundColor: colors.blanc,
               borderRadius: radius.full,
-              paddingHorizontal: 13,
-              paddingVertical: 7,
+              height: 32,
+              paddingHorizontal: 14,
+              marginRight: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
               borderWidth: 1,
               borderColor: colors.bordure,
               transform: [{ scale: pressed ? 0.93 : 1 }],
             })}
           >
-            <Text style={{
-              fontFamily: typography.fontFamily.semibold,
-              fontSize: typography.size.xs,
-              color: colors.bleu,
-            }}>
-              Juz {j.n}
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: typography.fontFamily.semibold,
+                fontSize: typography.size.xs,
+                color: colors.bleu,
+                flexShrink: 0,
+              }}
+            >
+              {`Juz ${j.n}`}
             </Text>
           </Pressable>
         ))}
@@ -397,13 +390,7 @@ export default function Coran() {
       <FlatList
         data={filtrees}
         keyExtractor={item => String(item.index)}
-        renderItem={({ item }) => (
-          <SourateCard
-            sourate={item}
-            riwaya={riwaya}
-            enCours={reprise?.sourate.index === item.index}
-          />
-        )}
+        renderItem={({ item }) => <SourateCard sourate={item} riwaya={riwaya} />}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 130 }}

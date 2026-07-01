@@ -7,7 +7,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
+import { ActivityIndicator, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -163,6 +163,26 @@ export default function LectureSourate() {
             AsyncStorage.setItem('jsd_reprise_coran', JSON.stringify(repriseRef.current)).catch(() => { })
         }
     }, [])
+
+    // ── Voile d'ouverture ──
+    // La virtualisation remplit l'écran par lots : sans voile, le bas de page
+    // reste vide ~1 s. On couvre le temps que le contenu dépasse l'écran (ou
+    // 1,5 s max), puis fondu → la page apparaît entière, d'un coup.
+    const [voile, setVoile] = useState(true)
+    const voileOp = useSharedValue(1)
+    const reveleRef = useRef(false)
+    const revele = useCallback(() => {
+        if (reveleRef.current) return
+        reveleRef.current = true
+        voileOp.value = withTiming(0, { duration: 200 }, fini => {
+            if (fini) runOnJS(setVoile)(false)
+        })
+    }, [])
+    useEffect(() => {
+        const t = setTimeout(revele, 1500)
+        return () => clearTimeout(t)
+    }, [revele])
+    const voileStyle = useAnimatedStyle(() => ({ opacity: voileOp.value }))
 
     const [taille, setTaille] = useState(TAILLE_DEFAUT)
     const [chromeVisible, setChromeVisible] = useState(true)
@@ -438,6 +458,10 @@ export default function LectureSourate() {
                                 listeRef.current?.scrollToIndex({ index: info.index, animated: false })
                             }, 150)
                         }}
+                        // Lève le voile dès que le contenu rendu couvre l'écran
+                        onContentSizeChange={(_l, h) => {
+                            if (h >= Dimensions.get('window').height) revele()
+                        }}
                         showsVerticalScrollIndicator={false}
                         style={{ backgroundColor: BG }}
                         contentContainerStyle={{ paddingHorizontal: 22, backgroundColor: BG }}
@@ -504,6 +528,20 @@ export default function LectureSourate() {
                     <View style={{ width: 34 }} />
                 </View>
             </Animated.View>
+
+            {/* Voile d'ouverture : masque le remplissage progressif de la liste */}
+            {voile && (
+                <Animated.View
+                    pointerEvents="none"
+                    style={[{
+                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: BG,
+                        alignItems: 'center', justifyContent: 'center',
+                    }, voileStyle]}
+                >
+                    <ActivityIndicator color={OR} />
+                </Animated.View>
+            )}
         </View>
     )
 }
