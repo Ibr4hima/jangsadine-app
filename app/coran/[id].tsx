@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ActivityIndicator, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // Couleurs fixes — pas de mode nuit/jour
@@ -365,6 +365,22 @@ export default function LectureSourate() {
         transform: [{ translateY: (1 - chromeSV.value) * -18 }],
     }))
 
+    // ── Compaction du header au défilement ──
+    // Passé ~80 px de scroll, le chip doré se replie et la calligraphie
+    // rétrécit : l'en-tête devient une barre fine, la lecture respire.
+    const scrollLect = useSharedValue(0)
+    const chipCompactStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(scrollLect.value, [0, 50], [1, 0], Extrapolation.CLAMP),
+        height: interpolate(scrollLect.value, [0, 80], [24, 0], Extrapolation.CLAMP),
+        overflow: 'hidden',
+    }))
+    const calliCompactStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: interpolate(scrollLect.value, [0, 80], [1, 0.85], Extrapolation.CLAMP) }],
+    }))
+    const headerPadStyle = useAnimatedStyle(() => ({
+        paddingBottom: interpolate(scrollLect.value, [0, 80], [14, 7], Extrapolation.CLAMP),
+    }))
+
     const lineHeight = taille * 2.0
 
     const renderItem = useCallback(({ item }: { item: Item }) => {
@@ -462,6 +478,8 @@ export default function LectureSourate() {
                         onContentSizeChange={(_l, h) => {
                             if (h >= Dimensions.get('window').height) revele()
                         }}
+                        onScroll={e => { scrollLect.value = e.nativeEvent.contentOffset.y }}
+                        scrollEventThrottle={16}
                         showsVerticalScrollIndicator={false}
                         style={{ backgroundColor: BG }}
                         contentContainerStyle={{ paddingHorizontal: 22, backgroundColor: BG }}
@@ -499,34 +517,38 @@ export default function LectureSourate() {
                 <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.12)', top: -180, right: -100 }} />
                 <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.06)', bottom: -120, left: -70 }} />
 
-                <View style={{
-                    paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 12,
+                <Animated.View style={[{
+                    paddingTop: insets.top + 6, paddingHorizontal: 12,
                     flexDirection: 'row', alignItems: 'center',
-                }}>
+                }, headerPadStyle]}>
                     <Pressable onPress={() => router.back()} hitSlop={10} style={{ padding: 6 }}>
                         <ArrowLeft size={22} color="#fff" />
                     </Pressable>
                     <View style={{ flex: 1, alignItems: 'center' }}>
-                        {/* Chip doré (nom FR) */}
-                        <View style={{
-                            backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: 999,
-                            paddingHorizontal: 12, paddingVertical: 4, marginBottom: 3,
-                        }}>
-                            <Text numberOfLines={1} style={{
-                                fontFamily: typography.fontFamily.bold, fontSize: 10,
-                                letterSpacing: 1.8, color: OR, textTransform: 'uppercase',
+                        {/* Chip doré (nom FR) — se replie au défilement */}
+                        <Animated.View style={chipCompactStyle}>
+                            <View style={{
+                                backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: 999,
+                                paddingHorizontal: 12, paddingVertical: 4, marginBottom: 3,
                             }}>
-                                {sourates[sourateActive - 1]?.nom}
+                                <Text numberOfLines={1} style={{
+                                    fontFamily: typography.fontFamily.bold, fontSize: 10,
+                                    letterSpacing: 1.8, color: OR, textTransform: 'uppercase',
+                                }}>
+                                    {sourates[sourateActive - 1]?.nom}
+                                </Text>
+                            </View>
+                        </Animated.View>
+                        {/* Nom calligraphié (blanc) — rétrécit au défilement */}
+                        <Animated.View style={calliCompactStyle}>
+                            <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: '#fff', lineHeight: 32, writingDirection: 'ltr' }}>
+                                {nomSourate(sourateActive)}
                             </Text>
-                        </View>
-                        {/* Nom calligraphié (blanc, sur le héros bleu) */}
-                        <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: '#fff', lineHeight: 32, writingDirection: 'ltr' }}>
-                            {nomSourate(sourateActive)}
-                        </Text>
+                        </Animated.View>
                     </View>
                     {/* espace vide pour garder le titre centré */}
                     <View style={{ width: 34 }} />
-                </View>
+                </Animated.View>
             </Animated.View>
 
             {/* Voile d'ouverture : masque le remplissage progressif de la liste */}

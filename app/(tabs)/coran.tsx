@@ -6,9 +6,10 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { Search } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Animated, FlatList, Image, Pressable, ScrollView, StatusBar,
+  Animated, FlatList, Pressable, ScrollView, StatusBar,
   Text, TextInput, View
 } from 'react-native'
+import RAnimated, { Extrapolation, interpolate, useAnimatedStyle, useSharedValue } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Rect } from 'react-native-svg'
 
@@ -194,6 +195,33 @@ export default function Coran() {
     router.push(`/coran/${reprise.sourate.index}?riwaya=${riwaya}${suffixe}` as any)
   }
 
+  // ── Héros compactable ──
+  // Au défilement de la liste, l'eyebrow disparaît, les extras (riwaya +
+  // reprendre) se replient et la calligraphie rétrécit : le héros devient
+  // une barre compacte. Tout est piloté par la position de scroll.
+  const scrollY = useSharedValue(0)
+  const extrasH = useSharedValue(0)
+
+  const eyebrowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolation.CLAMP),
+    height: interpolate(scrollY.value, [0, 90], [18, 0], Extrapolation.CLAMP),
+    overflow: 'hidden',
+  }))
+  const extrasStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, 60], [1, 0], Extrapolation.CLAMP),
+    height: extrasH.value
+      ? interpolate(scrollY.value, [0, 110], [extrasH.value, 0], Extrapolation.CLAMP)
+      : undefined,
+    overflow: 'hidden',
+  }))
+  const calliStyle = useAnimatedStyle(() => {
+    const s = interpolate(scrollY.value, [0, 110], [92, 40], Extrapolation.CLAMP)
+    return { width: s, height: s }
+  })
+  const heroPadStyle = useAnimatedStyle(() => ({
+    paddingBottom: interpolate(scrollY.value, [0, 110], [spacing.xl + 26, 12 + 26], Extrapolation.CLAMP),
+  }))
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
       <StatusBar barStyle="light-content" />
@@ -209,23 +237,24 @@ export default function Coran() {
         <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.13)', top: -140, right: -100 }} />
         <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.08)', bottom: -110, left: -70 }} />
 
-        <View style={{
+        <RAnimated.View style={[{
           paddingTop: insets.top + spacing.sm,
           paddingHorizontal: spacing.xl,
-          paddingBottom: spacing.xl + 26,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-        }}>
+        }, heroPadStyle]}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{
-              fontFamily: typography.fontFamily.bold,
-              fontSize: typography.size.xs,
-              letterSpacing: 2, color: colors.or,
-              textTransform: 'uppercase', marginBottom: 4,
-            }}>
-              Lecture
-            </Text>
+            <RAnimated.View style={eyebrowStyle}>
+              <Text style={{
+                fontFamily: typography.fontFamily.bold,
+                fontSize: typography.size.xs,
+                letterSpacing: 2, color: colors.or,
+                textTransform: 'uppercase',
+              }}>
+                Lecture
+              </Text>
+            </RAnimated.View>
             <Text style={{
               fontFamily: typography.fontFamily.bold,
               fontSize: typography.size['2xl'],
@@ -234,81 +263,86 @@ export default function Coran() {
               Coran
             </Text>
 
-            {/* sélecteur de riwaya */}
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.sm }}>
-              {RIWAYAS.map(r => {
-                const active = r.id === riwaya
-                return (
+            {/* extras repliables au scroll : riwaya + reprendre */}
+            <RAnimated.View style={extrasStyle}>
+              <View onLayout={e => { extrasH.value = e.nativeEvent.layout.height }}>
+                {/* sélecteur de riwaya */}
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.sm }}>
+                  {RIWAYAS.map(r => {
+                    const active = r.id === riwaya
+                    return (
+                      <Pressable
+                        key={r.id}
+                        disabled={!r.dispo}
+                        onPress={() => choisirRiwaya(r.id)}
+                        style={({ pressed }) => ({
+                          flexDirection: 'row', alignItems: 'baseline', gap: 4,
+                          backgroundColor: active ? '#fff' : W12,
+                          borderRadius: radius.full,
+                          paddingHorizontal: 13,
+                          paddingVertical: 5,
+                          opacity: r.dispo ? 1 : 0.45,
+                          transform: [{ scale: pressed ? 0.94 : 1 }],
+                        })}
+                      >
+                        <Text style={{
+                          fontFamily: typography.fontFamily.semibold,
+                          fontSize: typography.size.xs,
+                          color: active ? BG_BOT : '#fff',
+                        }}>
+                          {r.nom}
+                        </Text>
+                        {!r.dispo && (
+                          <Text style={{
+                            fontFamily: typography.fontFamily.regular,
+                            fontSize: 9,
+                            color: W55,
+                          }}>
+                            bientôt
+                          </Text>
+                        )}
+                      </Pressable>
+                    )
+                  })}
+                </View>
+
+                {/* puce « Reprendre » — rouvre pile où on s'était arrêté */}
+                {reprise && (
                   <Pressable
-                    key={r.id}
-                    disabled={!r.dispo}
-                    onPress={() => choisirRiwaya(r.id)}
+                    onPress={ouvrirReprise}
                     style={({ pressed }) => ({
-                      flexDirection: 'row', alignItems: 'baseline', gap: 4,
-                      backgroundColor: active ? '#fff' : W12,
+                      alignSelf: 'flex-start',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      backgroundColor: colors.or,
                       borderRadius: radius.full,
-                      paddingHorizontal: 13,
-                      paddingVertical: 5,
-                      opacity: r.dispo ? 1 : 0.45,
-                      transform: [{ scale: pressed ? 0.94 : 1 }],
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      marginTop: spacing.md,
+                      transform: [{ scale: pressed ? 0.95 : 1 }],
                     })}
                   >
                     <Text style={{
                       fontFamily: typography.fontFamily.semibold,
                       fontSize: typography.size.xs,
-                      color: active ? BG_BOT : '#fff',
+                      color: '#1c3d66',
                     }}>
-                      {r.nom}
+                      Reprendre · {reprise.sourate.nom}  ›
                     </Text>
-                    {!r.dispo && (
-                      <Text style={{
-                        fontFamily: typography.fontFamily.regular,
-                        fontSize: 9,
-                        color: W55,
-                      }}>
-                        bientôt
-                      </Text>
-                    )}
                   </Pressable>
-                )
-              })}
-            </View>
-
-            {/* puce « Reprendre » — rouvre pile où on s'était arrêté */}
-            {reprise && (
-              <Pressable
-                onPress={ouvrirReprise}
-                style={({ pressed }) => ({
-                  alignSelf: 'flex-start',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.or,
-                  borderRadius: radius.full,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  marginTop: spacing.md,
-                  transform: [{ scale: pressed ? 0.95 : 1 }],
-                })}
-              >
-                <Text style={{
-                  fontFamily: typography.fontFamily.semibold,
-                  fontSize: typography.size.xs,
-                  color: '#1c3d66',
-                }}>
-                  Reprendre · {reprise.sourate.nom}  ›
-                </Text>
-              </Pressable>
-            )}
+                )}
+              </View>
+            </RAnimated.View>
           </View>
 
-          {/* calligraphie القرآن الكريم (blanche, inline base64) */}
-          <Image
+          {/* calligraphie القرآن الكريم — rétrécit au scroll */}
+          <RAnimated.Image
             source={{ uri: QURAN_ICON_URI }}
-            style={{ width: 92, height: 92, marginLeft: spacing.md, opacity: 0.95 }}
+            style={[{ marginLeft: spacing.md, opacity: 0.95 }, calliStyle]}
             resizeMode="contain"
           />
-        </View>
+        </RAnimated.View>
       </View>
 
       {/* ─── recherche flottante (fixe, chevauche le héros) ── */}
@@ -393,6 +427,8 @@ export default function Coran() {
         renderItem={({ item }) => <SourateCard sourate={item} riwaya={riwaya} />}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
+        scrollEventThrottle={16}
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 130 }}
         ListEmptyComponent={
           <Text style={{
