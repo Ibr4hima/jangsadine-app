@@ -17,6 +17,7 @@ import {
   Image,
   Pressable,
   ScrollView,
+  Share,
   StatusBar,
   Text,
   View,
@@ -33,6 +34,8 @@ import Svg, { Path } from 'react-native-svg'
 import TextTicker from 'react-native-text-ticker'
 
 const { width: W } = Dimensions.get('window')
+
+const sourates = require('../../assets/quran/sourates.json')
 
 // ─── palette héros (bleu logo) ────────────────────────────────
 const BG_TOP = '#3d6ba3'
@@ -95,6 +98,9 @@ function IcoCoran({ size = 16 }: IcoProps) {
 }
 function IcoQuote({ size = 26, color = colors.or }: IcoProps) {
   return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="m228-240 92-160q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 23-5.5 42.5T458-480L320-240h-92Zm360 0 92-160q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 23-5.5 42.5T818-480L680-240h-92Z" fill={color} /></Svg>
+}
+function IcoShare({ size = 16, color = colors.bleu }: IcoProps) {
+  return <Svg width={size} height={size} viewBox="0 -960 960 960"><Path d="M680-80q-50 0-85-35t-35-85q0-6 3-28L282-392q-16 15-37 23.5t-45 8.5q-50 0-85-35t-35-85q0-50 35-85t85-35q24 0 45 8.5t37 23.5l281-164q-2-7-2.5-13.5T560-760q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35q-24 0-45-8.5T598-672L317-508q2 7 2.5 13.5t.5 14.5q0 8-.5 14.5T317-452l281 164q16-15 37-23.5t45-8.5q50 0 85 35t35 85q0 50-35 85t-85 35Zm0-80q17 0 28.5-11.5T720-200q0-17-11.5-28.5T680-240q-17 0-28.5 11.5T640-200q0 17 11.5 28.5T680-160ZM200-440q17 0 28.5-11.5T240-480q0-17-11.5-28.5T200-520q-17 0-28.5 11.5T160-480q0 17 11.5 28.5T200-440Zm480-280q17 0 28.5-11.5T720-760q0-17-11.5-28.5T680-800q-17 0-28.5 11.5T640-760q0 17 11.5 28.5T680-720Z" fill={color} /></Svg>
 }
 
 // ─── helpers prières ──────────────────────────────────────────
@@ -294,12 +300,16 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
                 <Animated.View style={[{ height: '100%', borderRadius: 3, backgroundColor: colors.or }, barStyle]} />
               </View>
 
-              {/* les 5 horaires */}
+              {/* les 5 horaires — la prochaine est mise en avant dans une pastille */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.md }}>
                 {prieres.map(p => {
                   const actif = p.nom === prochaine.nom
                   return (
-                    <View key={p.nom} style={{ alignItems: 'center', gap: 3, minWidth: 52 }}>
+                    <View key={p.nom} style={{
+                      alignItems: 'center', gap: 3, minWidth: 56,
+                      paddingVertical: 7, borderRadius: 14,
+                      backgroundColor: actif ? 'rgba(214,173,58,0.16)' : 'transparent',
+                    }}>
                       <Text style={{ fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.medium, fontSize: typography.size.xs, color: actif ? colors.or : W55 }}>
                         {p.nom}
                       </Text>
@@ -425,6 +435,84 @@ function CarteReprendre() {
   )
 }
 
+// ─── continuer la lecture du Coran ────────────────────────────
+// Reprend la lecture pile où on s'était arrêté (position mémorisée par le
+// lecteur). Carte claire, pendant du « Reprendre l'écoute » bleu.
+function CarteLectureCoran({ onNav }: { onNav: (href: string) => void }) {
+  const [reprise, setReprise] = useState<{ index: number; nom: string; cle: string | null } | null>(null)
+  const [riwaya, setRiwaya] = useState('hafs')
+
+  useFocusEffect(useCallback(() => {
+    AsyncStorage.getItem('jsd_reprise_coran')
+      .then(raw => {
+        if (!raw) return setReprise(null)
+        const r = JSON.parse(raw) as { sourate: number; cle?: string }
+        const s = sourates.find((x: any) => x.index === r.sourate)
+        setReprise(s ? { index: s.index, nom: s.nom, cle: r.cle ?? null } : null)
+      })
+      .catch(() => setReprise(null))
+    AsyncStorage.getItem('jsd_riwaya')
+      .then(r => { if (r) setRiwaya(r) })
+      .catch(() => { })
+  }, []))
+
+  if (!reprise) return null
+
+  const ouvrir = () => {
+    const suffixe = reprise.cle ? `&cle=${reprise.cle}` : ''
+    onNav(`/coran/${reprise.index}?riwaya=${riwaya}${suffixe}`)
+  }
+
+  return (
+    <Animated.View entering={FadeInDown.duration(500).delay(110)}>
+      <PressableScale onPress={ouvrir} style={{
+        marginHorizontal: spacing.xl,
+        marginTop: spacing.md,
+        backgroundColor: colors.blanc,
+        borderRadius: radius.xl + 4,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.md,
+        gap: spacing.md,
+        shadowColor: '#2a3b52',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 18,
+        elevation: 4,
+      }}>
+        {/* vignette calligraphie sur dégradé bleu */}
+        <View style={{
+          width: 52, height: 52, borderRadius: 17, overflow: 'hidden',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <LinearGradient
+            colors={[TUILE_G1, TUILE_G2]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+          <Image source={{ uri: QURAN_ICON_URI }} style={{ width: 36, height: 36 }} resizeMode="contain" />
+        </View>
+
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{
+            fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs,
+            color: colors.texteMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3,
+          }}>
+            Continuer la lecture
+          </Text>
+          <Text numberOfLines={1} style={{
+            fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: colors.texte,
+          }}>
+            {reprise.nom}
+          </Text>
+        </View>
+
+        <IcoChevron size={20} color="#c4c9d0" />
+      </PressableScale>
+    </Animated.View>
+  )
+}
+
 // ─── accès rapide ─────────────────────────────────────────────
 // Teinte unique, cohérente avec le bleu du logo / des héros
 const TUILE_G1 = '#3d6ba3'
@@ -534,27 +622,54 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
 function HadithDuJour() {
   const jour = Math.floor(Date.now() / 86400000)
   const h = HADITHS[jour % HADITHS.length]
+
+  const partager = () => {
+    Haptics.selectionAsync()
+    Share.share({ message: `« ${h.texte} »\n— Rapporté par ${h.source}` }).catch(() => { })
+  }
+
   return (
     <Animated.View entering={FadeInDown.duration(500).delay(520)} style={{ paddingHorizontal: spacing.xl }}>
       <View style={{
         backgroundColor: colors.blanc,
         borderRadius: radius.xl + 4,
         padding: spacing.lg,
-        borderLeftWidth: 4,
-        borderLeftColor: colors.bleu,
+        overflow: 'hidden',
         shadowColor: '#3a4a5c',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.06,
         shadowRadius: 18,
         elevation: 3,
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-          <IcoQuote size={20} color={colors.bleu} />
-          <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.bleu, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+        {/* filigrane décoratif */}
+        <View style={{ position: 'absolute', top: -14, right: -10, opacity: 0.07 }}>
+          <IcoQuote size={110} color={colors.or} />
+        </View>
+
+        {/* en-tête : label + bouton partager */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+          <View style={{
+            width: 30, height: 30, borderRadius: 15,
+            backgroundColor: 'rgba(214,173,58,0.14)',
+            alignItems: 'center', justifyContent: 'center',
+            marginRight: spacing.sm,
+          }}>
+            <IcoQuote size={16} color={colors.orFonce} />
+          </View>
+          <Text style={{ flex: 1, fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.orFonce, letterSpacing: 1.2, textTransform: 'uppercase' }}>
             Hadith du jour
           </Text>
+          <Pressable onPress={partager} hitSlop={10} style={({ pressed }) => ({
+            width: 32, height: 32, borderRadius: 16,
+            backgroundColor: 'rgba(45,87,140,0.08)',
+            alignItems: 'center', justifyContent: 'center',
+            transform: [{ scale: pressed ? 0.9 : 1 }],
+          })}>
+            <IcoShare size={14} color={colors.bleu} />
+          </Pressable>
         </View>
-        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.md, color: colors.texte, lineHeight: 24 }}>
+
+        <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.md, color: colors.texte, lineHeight: 26 }}>
           « {h.texte} »
         </Text>
         <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.texteMuted, marginTop: spacing.sm }}>
@@ -611,6 +726,7 @@ export default function Accueil() {
         </Animated.View>
 
         <CarteReprendre />
+        <CarteLectureCoran onNav={naviguer} />
         <AccesRapide onNav={naviguer} />
         <HadithDuJour />
       </ScrollView>
