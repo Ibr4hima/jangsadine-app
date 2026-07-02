@@ -201,12 +201,10 @@ function SpringTap({ onPress, children, style, hitSlop = 14, pressedScale = 0.86
 }
 
 // ─── Bouton ±10 s animé ───────────────────────────────────────
-// L'icône tourne d'un cran dans le sens du saut puis revient à ressort,
-// pendant qu'un badge « -10 s » / « +10 s » flotte vers le haut et s'évapore.
+// L'icône tourne d'un cran dans le sens du saut puis revient à ressort.
 function BoutonSkip({ sens, onSkip }: { sens: 1 | -1; onSkip: () => void }) {
-    const s     = useSharedValue(1)
-    const rot   = useSharedValue(0)
-    const badge = useSharedValue(0)
+    const s   = useSharedValue(1)
+    const rot = useSharedValue(0)
 
     const press = () => {
         onSkip()
@@ -214,18 +212,10 @@ function BoutonSkip({ sens, onSkip }: { sens: 1 | -1; onSkip: () => void }) {
             withTiming(sens * 42, { duration: 130, easing: Easing.out(Easing.quad) }),
             withSpring(0, { damping: 9, stiffness: 150 }),
         )
-        badge.value = withSequence(
-            withTiming(1, { duration: 110, easing: Easing.out(Easing.quad) }),
-            withDelay(300, withTiming(0, { duration: 260, easing: Easing.in(Easing.quad) })),
-        )
     }
 
     const iconStyle = useAnimatedStyle(() => ({
         transform: [{ scale: s.value }, { rotate: `${rot.value}deg` }],
-    }))
-    const badgeStyle = useAnimatedStyle(() => ({
-        opacity: badge.value,
-        transform: [{ translateY: -16 - badge.value * 14 }],
     }))
 
     return (
@@ -235,14 +225,6 @@ function BoutonSkip({ sens, onSkip }: { sens: 1 | -1; onSkip: () => void }) {
             onPress={press}
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
         >
-            <Animated.View
-                pointerEvents="none"
-                style={[{ position: 'absolute', left: 0, right: 0, top: 0, alignItems: 'center' }, badgeStyle]}
-            >
-                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 12, color: colors.or }}>
-                    {sens < 0 ? '-10 s' : '+10 s'}
-                </Text>
-            </Animated.View>
             <Animated.View style={iconStyle}>
                 {sens < 0 ? <IcoBack size={38} color="#fff" /> : <IcoFwd size={38} color="#fff" />}
             </Animated.View>
@@ -261,8 +243,8 @@ function Artwork({ enLecture, hidden, onSwipeSkip }: {
     const scale = useSharedValue(enLecture ? 1 : 0.78)
     const aura  = useSharedValue(0)
     const tx      = useSharedValue(0)
-    const badgeAv = useSharedValue(0)   // « +10 s » (swipe vers la gauche)
-    const badgeRe = useSharedValue(0)   // « -10 s » (swipe vers la droite)
+    const badgeAv = useSharedValue(0)   // « +10 s » (swipe vers la droite)
+    const badgeRe = useSharedValue(0)   // « -10 s » (swipe vers la gauche)
 
     useEffect(() => {
         scale.value = withSpring(enLecture ? 1 : 0.78, { damping: 14, stiffness: 140 })
@@ -295,10 +277,10 @@ function Artwork({ enLecture, hidden, onSwipeSkip }: {
                     withDelay(340, withTiming(0, { duration: 240 })),
                 )
             }
-            if (e.translationX < -56 || e.velocityX < -900) {
+            if (e.translationX > 56 || e.velocityX > 900) {
                 flash(badgeAv)
                 runOnJS(onSwipeSkip)(1)
-            } else if (e.translationX > 56 || e.velocityX > 900) {
+            } else if (e.translationX < -56 || e.velocityX < -900) {
                 flash(badgeRe)
                 runOnJS(onSwipeSkip)(-1)
             }
@@ -557,15 +539,6 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
         }
     })
 
-    // Palier de précision affiché pendant le scrub ralenti
-    const tierStyle = useAnimatedStyle(() => ({
-        opacity: scrubbing.value * (rateSV.value < 1 ? 1 : 0),
-    }))
-    const tierProps = useAnimatedProps(() => {
-        const r = rateSV.value
-        const t = r === 0.5 ? 'Vitesse ½' : r === 0.25 ? 'Vitesse ¼' : 'Précision fine'
-        return { text: t } as any
-    })
 
     // Temps 100 % UI thread — aucun re-render pendant scrub/tap
     const bubbleProps = useAnimatedProps(() => {
@@ -656,15 +629,6 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
                     animatedProps={gaucheProps}
                     style={[{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, fontVariant: ['tabular-nums'], padding: 0 }, gaucheStyle]}
                 />
-                {/* palier de précision (½ / ¼ / fine) au centre, pendant le scrub */}
-                <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }, tierStyle]}>
-                    <AnimatedTextInput
-                        editable={false}
-                        defaultValue=""
-                        animatedProps={tierProps}
-                        style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.or, padding: 0, textAlign: 'center' }}
-                    />
-                </Animated.View>
                 <AnimatedTextInput
                     editable={false}
                     defaultValue="-0:00"
