@@ -1,3 +1,4 @@
+import FondAurore from '@/components/FondAurore'
 import { QURAN_ICON_URI } from '@/constants/quranIcon'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -183,9 +184,8 @@ export default function Coran() {
           locations={[0, 0.55, 1]}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         />
-        {/* brume décorative */}
-        <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.13)', top: -140, right: -100 }} />
-        <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.08)', bottom: -110, left: -70 }} />
+        {/* fond « aurore » : nappes bleues en dérive lente */}
+        <FondAurore compact />
 
         <View style={{
           paddingTop: insets.top + spacing.sm,

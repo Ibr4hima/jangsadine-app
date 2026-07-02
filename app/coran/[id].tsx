@@ -1,3 +1,4 @@
+import FondAurore from '@/components/FondAurore'
 import Bismillah from '@/components/Bismillah'
 import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
@@ -495,9 +496,8 @@ export default function LectureSourate() {
                     locations={[0, 0.6, 1]}
                     style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                 />
-                {/* halos décoratifs du héros */}
-                <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.12)', top: -180, right: -100 }} />
-                <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.06)', bottom: -120, left: -70 }} />
+                {/* fond « aurore » : nappes bleues en dérive lente */}
+                <FondAurore compact />
 
                 <View style={{
                     paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 12,
