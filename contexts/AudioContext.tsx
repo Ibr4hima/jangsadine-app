@@ -400,6 +400,23 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     vitesseRef.current = v
     setVitesse(v)
     playerRef.current?.setPlaybackRate(v, 'high')
+    // Vitesse mémorisée : restaurée au prochain lancement de l'app
+    AsyncStorage.setItem('jsd_vitesse', String(v)).catch(() => {})
+  }, [])
+
+  // Restaure la vitesse choisie lors des écoutes précédentes. Elle est
+  // appliquée à chaque chargement de piste via vitesseRef (setPlaybackRate).
+  useEffect(() => {
+    AsyncStorage.getItem('jsd_vitesse')
+      .then(v => {
+        const n = v ? parseFloat(v) : NaN
+        if (!isNaN(n) && n >= 0.5 && n <= 3) {
+          vitesseRef.current = n
+          setVitesse(n)
+          playerRef.current?.setPlaybackRate(n, 'high')
+        }
+      })
+      .catch(() => {})
   }, [])
 
   const pistePrecedente = useCallback(async () => {

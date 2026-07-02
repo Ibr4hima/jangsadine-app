@@ -2,7 +2,10 @@ import { EnTeteSection, HerosDetail, PressableScale, W70 } from '@/components/Au
 import EditeurNote from '@/components/EditeurNote'
 import NoteRiche from '@/components/NoteRiche'
 import { colors, radius, spacing, typography } from '@/constants/theme'
+import { Piste, useAudio } from '@/contexts/AudioContext'
 import { Note, useNotes } from '@/contexts/NotesContext'
+import { useTelechargement } from '@/contexts/TelechargementContext'
+import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import React, { useState } from 'react'
 import { Alert, ScrollView, StatusBar, Text, View, Pressable } from 'react-native'
@@ -25,6 +28,13 @@ function IconCorbeille({ size = 16, color = '#cdd6e0' }: { size?: number; color?
         </Svg>
     )
 }
+function IconLectureMini({ size = 10, color = '#a8842a' }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 -960 960 960">
+            <Path d="M320-200v-560l440 280-440 280Z" fill={color} />
+        </Svg>
+    )
+}
 
 // ─── helpers ──────────────────────────────────────────────────
 function fmtTemps(s: number) {
@@ -44,7 +54,53 @@ function fmtDate(iso: string) {
 export default function Notes() {
     const insets = useSafeAreaInsets()
     const { notes, supprimerNote } = useNotes()
+    const { jouer, setLecteurOuvert } = useAudio()
+    const { getCheminLocal } = useTelechargement()
     const [noteEnEdition, setNoteEnEdition] = useState<Note | null>(null)
+
+    // Tap sur l'horodatage → relance l'épisode pile à l'instant de la note.
+    // La note ne stocke pas l'URL audio : on la retrouve via le fichier
+    // téléchargé s'il existe, sinon via Supabase (épisode ou livre audio).
+    const ecouterNote = async (note: Note) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        try {
+            let piste: Piste | null = null
+            const local = getCheminLocal(note.episode_id)
+
+            if (note.episode_id.startsWith('livre_')) {
+                const { data } = await supabase
+                    .from('livres')
+                    .select('id, titre, titre_arabe, sheikh, url_audio')
+                    .eq('id', note.episode_id.slice(6))
+                    .single()
+                if (data?.url_audio) {
+                    piste = { id: note.episode_id, titre: data.titre, sheikh: data.titre_arabe ?? data.sheikh ?? '', url: data.url_audio }
+                }
+            } else {
+                const { data } = await supabase
+                    .from('episodes')
+                    .select('id, titre, url_audio')
+                    .eq('id', note.episode_id)
+                    .single()
+                if (data?.url_audio) {
+                    piste = { id: data.id, titre: note.episode_titre || data.titre, sheikh: note.sheikh ?? '', url: data.url_audio }
+                }
+            }
+
+            // Version téléchargée : lecture hors-ligne prioritaire
+            if (piste && local) piste = { ...piste, url: local }
+            if (!piste && local) piste = { id: note.episode_id, titre: note.episode_titre, sheikh: note.sheikh ?? '', url: local }
+
+            if (!piste) {
+                Alert.alert('Épisode introuvable', "Impossible de retrouver l'audio de cette note.")
+                return
+            }
+            jouer(piste, [], { position: note.timestamp })
+            setLecteurOuvert(true)
+        } catch {
+            Alert.alert('Épisode introuvable', "Impossible de retrouver l'audio de cette note.")
+        }
+    }
 
     const confirmerSuppression = (note: Note) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
@@ -166,15 +222,23 @@ export default function Notes() {
                                                     }}
                                                 >
                                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-                                                        <View style={{
-                                                            backgroundColor: 'rgba(214,173,58,0.16)',
-                                                            borderRadius: radius.full,
-                                                            paddingHorizontal: 10, paddingVertical: 4,
-                                                        }}>
+                                                        {/* horodatage jouable : relance l'audio à cet instant */}
+                                                        <Pressable
+                                                            onPress={() => ecouterNote(note)}
+                                                            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                                                            style={({ pressed }) => ({
+                                                                flexDirection: 'row', alignItems: 'center', gap: 5,
+                                                                backgroundColor: 'rgba(214,173,58,0.16)',
+                                                                borderRadius: radius.full,
+                                                                paddingHorizontal: 10, paddingVertical: 4,
+                                                                transform: [{ scale: pressed ? 0.93 : 1 }],
+                                                            })}
+                                                        >
+                                                            <IconLectureMini size={10} color="#a8842a" />
                                                             <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xs, color: '#a8842a', fontVariant: ['tabular-nums'] }}>
                                                                 {fmtTemps(note.timestamp)}
                                                             </Text>
-                                                        </View>
+                                                        </Pressable>
                                                         <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: '#aab4c0', marginLeft: spacing.sm }}>
                                                             {fmtDate(note.created_at)}
                                                         </Text>

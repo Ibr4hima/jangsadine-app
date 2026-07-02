@@ -142,7 +142,7 @@ function IcoVolumeUp({ size = 22, color = '#fff' }: { size?: number; color?: str
 const { width: W, height: SCREEN_H } = Dimensions.get('window')
 const ART_SIZE = W - spacing.xl * 2
 
-const VITESSES = [1, 1.25, 1.5, 2, 0.75]
+const VITESSES = [1, 1.15, 1.25, 1.5, 2, 0.75]
 
 function fmt(s: number) {
     if (!s || isNaN(s) || s < 0) return '0:00'
