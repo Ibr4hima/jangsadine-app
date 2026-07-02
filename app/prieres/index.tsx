@@ -498,19 +498,6 @@ export default function Prieres() {
                 </Animated.View>
               )
             })}
-
-            {/* méthode de calcul — transparence sur la provenance des horaires */}
-            {methodeNom ? (
-              <Text style={{
-                textAlign: 'center',
-                marginTop: spacing.md,
-                fontFamily: typography.fontFamily.regular,
-                fontSize: typography.size.xs,
-                color: '#a8a29a',
-              }}>
-                Méthode de calcul : {methodeNom}
-              </Text>
-            ) : null}
           </View>
         )}
       </ScrollView>
