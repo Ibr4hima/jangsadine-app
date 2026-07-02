@@ -1,4 +1,5 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { geocoderInverse } from '@/lib/geo'
 import { getMethode, getNomMethode } from '@/lib/prieres'
 import * as adhan from 'adhan'
@@ -142,22 +143,8 @@ export default function Prieres() {
     return () => { clearInterval(ivTexte); clearInterval(ivProg) }
   }, [])
 
-  async function charger() {
-    const { status } = await Location.requestForegroundPermissionsAsync()
-    if (status !== 'granted') {
-      setErreur('Position refusée — veuillez autoriser la géolocalisation')
-      setLoading(false)
-      return
-    }
-
-    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-    const { latitude, longitude } = loc.coords
-
-    const geo = await geocoderInverse(latitude, longitude)
-    const countryCode = geo.isoCountryCode ?? 'FR'
-    const nomVille = geo.city ?? geo.region ?? ''
-    const nomPays = geo.country ?? ''
-    setVille(nomVille && nomPays ? `${nomVille}, ${nomPays}` : nomVille || nomPays)
+  // Calcul adhan pur et local : instantané dès qu'on a des coordonnées.
+  function calculer(latitude: number, longitude: number, countryCode: string) {
     setMethodeNom(getNomMethode(countryCode))
 
     const coords = new adhan.Coordinates(latitude, longitude)
@@ -190,7 +177,53 @@ export default function Prieres() {
     setLoading(false)
   }
 
+  // Rafraîchissement complet : position fraîche + géocodage, puis mémorisation
+  // pour que la prochaine ouverture soit instantanée.
+  async function charger() {
+    const { status } = await Location.requestForegroundPermissionsAsync()
+    if (status !== 'granted') {
+      setErreur('Position refusée — veuillez autoriser la géolocalisation')
+      setLoading(false)
+      return
+    }
+
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+    const { latitude, longitude } = loc.coords
+
+    const geo = await geocoderInverse(latitude, longitude)
+    const countryCode = geo.isoCountryCode ?? 'FR'
+    const nomVille = geo.city ?? geo.region ?? ''
+    const nomPays = geo.country ?? ''
+    const villeAffichee = nomVille && nomPays ? `${nomVille}, ${nomPays}` : nomVille || nomPays
+    setVille(villeAffichee)
+
+    calculer(latitude, longitude, countryCode)
+
+    AsyncStorage.setItem('jsd_derniere_pos', JSON.stringify({ lat: latitude, lng: longitude })).catch(() => { })
+    AsyncStorage.setItem('jsd_prieres_geo', JSON.stringify({ ville: villeAffichee, countryCode })).catch(() => { })
+  }
+
   useEffect(() => {
+    // Affichage instantané depuis le cache (position + ville/méthode) : le
+    // calcul adhan est local, seul le GPS/géocodage est lent. La version
+    // fraîche arrive ensuite et met à jour silencieusement.
+    AsyncStorage.multiGet(['jsd_derniere_pos', 'jsd_prieres_geo'])
+      .then(([[, posRaw], [, geoRaw]]) => {
+        if (!posRaw) return
+        try {
+          const p = JSON.parse(posRaw)
+          if (typeof p?.lat !== 'number' || typeof p?.lng !== 'number') return
+          let countryCode = 'FR'
+          if (geoRaw) {
+            const g = JSON.parse(geoRaw)
+            if (g?.ville) setVille(g.ville)
+            if (g?.countryCode) countryCode = g.countryCode
+          }
+          calculer(p.lat, p.lng, countryCode)
+        } catch { }
+      })
+      .catch(() => { })
+
     charger().catch(e => { console.warn('prieres:', e); setLoading(false) })
   }, [])
 
@@ -220,6 +253,19 @@ export default function Prieres() {
   const dashOffset = CIRCONF - prog * CIRCONF
 
   const IconeProchaine = prochaine ? (ICONES[prochaine.cle] ?? Sun) : Sun
+
+  // Date du jour (grégorienne + hijri) affichée sous la ville
+  const dateLigne = useMemo(() => {
+    const d = new Date()
+    const gregorien = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    const gregorienCap = gregorien.charAt(0).toUpperCase() + gregorien.slice(1)
+    try {
+      const hijri = new Intl.DateTimeFormat('fr-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' }).format(d)
+      return `${gregorienCap} · ${hijri}`
+    } catch {
+      return gregorienCap
+    }
+  }, [tickProg])
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
@@ -272,7 +318,7 @@ export default function Prieres() {
               <View style={{ width: 40 }} />
             </View>
 
-            {/* ville */}
+            {/* ville + date */}
             <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
               {ville ? (
                 <View style={{
@@ -284,6 +330,11 @@ export default function Prieres() {
                     {ville}
                   </Text>
                 </View>
+              ) : null}
+              {dateLigne ? (
+                <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: W55, marginTop: spacing.sm }}>
+                  {dateLigne}
+                </Text>
               ) : null}
             </View>
 
@@ -447,6 +498,19 @@ export default function Prieres() {
                 </Animated.View>
               )
             })}
+
+            {/* méthode de calcul — transparence sur la provenance des horaires */}
+            {methodeNom ? (
+              <Text style={{
+                textAlign: 'center',
+                marginTop: spacing.md,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.size.xs,
+                color: '#a8a29a',
+              }}>
+                Méthode de calcul : {methodeNom}
+              </Text>
+            ) : null}
           </View>
         )}
       </ScrollView>
