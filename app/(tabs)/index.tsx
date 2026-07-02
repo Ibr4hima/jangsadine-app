@@ -35,8 +35,6 @@ import TextTicker from 'react-native-text-ticker'
 
 const { width: W } = Dimensions.get('window')
 
-const sourates = require('../../assets/quran/sourates.json')
-
 // ─── palette héros (bleu logo) ────────────────────────────────
 const BG_TOP = '#3d6ba3'
 const BG_MID = '#2d578c'
