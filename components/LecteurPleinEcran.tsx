@@ -200,10 +200,69 @@ function SpringTap({ onPress, children, style, hitSlop = 14, pressedScale = 0.86
     )
 }
 
+// ─── Bouton ±10 s animé ───────────────────────────────────────
+// L'icône tourne d'un cran dans le sens du saut puis revient à ressort,
+// pendant qu'un badge « -10 s » / « +10 s » flotte vers le haut et s'évapore.
+function BoutonSkip({ sens, onSkip }: { sens: 1 | -1; onSkip: () => void }) {
+    const s     = useSharedValue(1)
+    const rot   = useSharedValue(0)
+    const badge = useSharedValue(0)
+
+    const press = () => {
+        onSkip()
+        rot.value = withSequence(
+            withTiming(sens * 42, { duration: 130, easing: Easing.out(Easing.quad) }),
+            withSpring(0, { damping: 9, stiffness: 150 }),
+        )
+        badge.value = withSequence(
+            withTiming(1, { duration: 110, easing: Easing.out(Easing.quad) }),
+            withDelay(300, withTiming(0, { duration: 260, easing: Easing.in(Easing.quad) })),
+        )
+    }
+
+    const iconStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: s.value }, { rotate: `${rot.value}deg` }],
+    }))
+    const badgeStyle = useAnimatedStyle(() => ({
+        opacity: badge.value,
+        transform: [{ translateY: -16 - badge.value * 14 }],
+    }))
+
+    return (
+        <AnimatedPressable
+            onPressIn={() => { s.value = withSpring(0.82, { damping: 16, stiffness: 480 }) }}
+            onPressOut={() => { s.value = withSpring(1, { damping: 13, stiffness: 300 }) }}
+            onPress={press}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+        >
+            <Animated.View
+                pointerEvents="none"
+                style={[{ position: 'absolute', left: 0, right: 0, top: 0, alignItems: 'center' }, badgeStyle]}
+            >
+                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 12, color: colors.or }}>
+                    {sens < 0 ? '-10 s' : '+10 s'}
+                </Text>
+            </Animated.View>
+            <Animated.View style={iconStyle}>
+                {sens < 0 ? <IcoBack size={38} color="#fff" /> : <IcoFwd size={38} color="#fff" />}
+            </Animated.View>
+        </AnimatedPressable>
+    )
+}
+
 // ─── Artwork (always mounted) ─────────────────────────────────
-function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean }) {
+// Swipe horizontal sur la pochette = ±10 s : elle suit le doigt avec
+// résistance et une légère inclinaison, un badge « ±10 s » apparaît sur le
+// bord, puis tout revient à ressort. Le glisser vertical n'est pas capturé
+// (il continue de fermer le lecteur via le geste parent).
+function Artwork({ enLecture, hidden, onSwipeSkip }: {
+    enLecture: boolean; hidden: boolean; onSwipeSkip: (sens: 1 | -1) => void
+}) {
     const scale = useSharedValue(enLecture ? 1 : 0.78)
     const aura  = useSharedValue(0)
+    const tx      = useSharedValue(0)
+    const badgeAv = useSharedValue(0)   // « +10 s » (swipe vers la gauche)
+    const badgeRe = useSharedValue(0)   // « -10 s » (swipe vers la droite)
 
     useEffect(() => {
         scale.value = withSpring(enLecture ? 1 : 0.78, { damping: 14, stiffness: 140 })
@@ -220,12 +279,56 @@ function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean })
         }
     }, [enLecture])
 
-    const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+    const swipe = Gesture.Pan()
+        .enabled(!hidden)
+        .activeOffsetX([-16, 16])
+        .failOffsetY([-24, 24])
+        .onUpdate(e => {
+            // résistance : la pochette ne suit qu'un tiers du doigt
+            tx.value = e.translationX * 0.35
+        })
+        .onEnd(e => {
+            const flash = (sv: typeof badgeAv) => {
+                'worklet'
+                sv.value = withSequence(
+                    withTiming(1, { duration: 110 }),
+                    withDelay(340, withTiming(0, { duration: 240 })),
+                )
+            }
+            if (e.translationX < -56 || e.velocityX < -900) {
+                flash(badgeAv)
+                runOnJS(onSwipeSkip)(1)
+            } else if (e.translationX > 56 || e.velocityX > 900) {
+                flash(badgeRe)
+                runOnJS(onSwipeSkip)(-1)
+            }
+            tx.value = withSpring(0, { damping: 15, stiffness: 240 })
+        })
+
+    const style = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: tx.value },
+            { rotate: `${tx.value / 30}deg` },
+            { scale: scale.value },
+        ],
+    }))
 
     // halo doré qui respire derrière la pochette pendant la lecture
     const auraStyle = useAnimatedStyle(() => ({
         opacity: 0.05 + aura.value * 0.09,
-        transform: [{ scale: (scale.value + 0.04) + aura.value * 0.05 }],
+        transform: [
+            { translateX: tx.value * 0.5 },
+            { scale: (scale.value + 0.04) + aura.value * 0.05 },
+        ],
+    }))
+
+    const badgeAvStyle = useAnimatedStyle(() => ({
+        opacity: badgeAv.value,
+        transform: [{ scale: 0.8 + badgeAv.value * 0.2 }],
+    }))
+    const badgeReStyle = useAnimatedStyle(() => ({
+        opacity: badgeRe.value,
+        transform: [{ scale: 0.8 + badgeRe.value * 0.2 }],
     }))
 
     return (
@@ -244,22 +347,44 @@ function Artwork({ enLecture, hidden }: { enLecture: boolean; hidden: boolean })
                 borderRadius: 32,
                 backgroundColor: colors.or,
             }, auraStyle]} />
-            <Animated.View style={[{
-                width: ART_SIZE, height: ART_SIZE,
-                borderRadius: 24,
-                backgroundColor: '#fff',
-                alignItems: 'center', justifyContent: 'center',
-                shadowColor: '#0A1B30',
-                shadowOffset: { width: 0, height: 26 },
-                shadowOpacity: 0.5,
-                shadowRadius: 40,
-                elevation: 24,
-            }, style]}>
-                <Image
-                    source={require('../assets/images/logo.png')}
-                    style={{ width: ART_SIZE * 0.63, height: ART_SIZE * 0.63 }}
-                    resizeMode="contain"
-                />
+            <GestureDetector gesture={swipe}>
+                <Animated.View style={[{
+                    width: ART_SIZE, height: ART_SIZE,
+                    borderRadius: 24,
+                    backgroundColor: '#fff',
+                    alignItems: 'center', justifyContent: 'center',
+                    shadowColor: '#0A1B30',
+                    shadowOffset: { width: 0, height: 26 },
+                    shadowOpacity: 0.5,
+                    shadowRadius: 40,
+                    elevation: 24,
+                }, style]}>
+                    <Image
+                        source={require('../assets/images/logo.png')}
+                        style={{ width: ART_SIZE * 0.63, height: ART_SIZE * 0.63 }}
+                        resizeMode="contain"
+                    />
+                </Animated.View>
+            </GestureDetector>
+
+            {/* badges ±10 s sur les bords */}
+            <Animated.View pointerEvents="none" style={[{
+                position: 'absolute', right: 16,
+                backgroundColor: colors.or, borderRadius: radius.full,
+                paddingHorizontal: 12, paddingVertical: 6,
+                shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
+            }, badgeAvStyle]}>
+                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 14, color: BG_BOT }}>+10 s</Text>
+            </Animated.View>
+            <Animated.View pointerEvents="none" style={[{
+                position: 'absolute', left: 16,
+                backgroundColor: colors.or, borderRadius: radius.full,
+                paddingHorizontal: 12, paddingVertical: 6,
+                shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
+            }, badgeReStyle]}>
+                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 14, color: BG_BOT }}>-10 s</Text>
             </Animated.View>
         </View>
     )
@@ -282,10 +407,26 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
     const tapPos    = useSharedValue(0)   // position du tap (0-1)
     const duree     = useSharedValue(dureeTotal)
 
+    // Scrub de précision : plus le doigt descend sous la barre, plus le
+    // défilement ralentit (paliers 1 → ½ → ¼ → fin) — façon Apple Music.
+    const lastX    = useSharedValue(0)
+    const rateSV   = useSharedValue(1)
+    const minuteSV = useSharedValue(-1)
+
     // Garde-fous côté JS : pas de lecture de shared values dans le
     // useEffect (peu fiable inter-threads) — un simple ref + deadline
     const dragJS     = useRef(false)
     const blockUntil = useRef(0)
+    const lastTickJS = useRef(0)
+
+    // Tic haptique à chaque minute franchie pendant le scrub (throttlé)
+    const ticMinute = () => {
+        const now = Date.now()
+        if (now - lastTickJS.current > 60) {
+            lastTickJS.current = now
+            Haptics.selectionAsync()
+        }
+    }
 
     useEffect(() => { duree.value = dureeTotal }, [dureeTotal])
 
@@ -327,6 +468,10 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
         })
 
     // ── pan : scrub fluide — n'active l'état visuel qu'après 4 px ─
+    // Précision progressive : le déplacement horizontal est appliqué de
+    // façon incrémentale, multiplié par un taux qui diminue quand le doigt
+    // s'éloigne verticalement de la barre (1 → ½ → ¼ → fin). Un tic
+    // haptique marque chaque minute franchie.
     const panGesture = Gesture.Pan()
         .minDistance(4)
         .onBegin(e => {
@@ -335,11 +480,24 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
         .onStart(e => {
             scrubbing.value = withTiming(1, { duration: 100 })
             scrub.value = clamp01(e.x / barW.value)
+            lastX.value = e.x
+            rateSV.value = 1
+            minuteSV.value = Math.floor((scrub.value * duree.value) / 60)
             runOnJS(setDragJS)(true)
             runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light)
         })
         .onUpdate(e => {
-            scrub.value = clamp01(e.x / barW.value)
+            const dy = Math.abs(e.translationY)
+            const rate = dy < 55 ? 1 : dy < 115 ? 0.5 : dy < 175 ? 0.25 : 0.1
+            rateSV.value = rate
+            const dx = e.x - lastX.value
+            lastX.value = e.x
+            scrub.value = clamp01(scrub.value + (dx / barW.value) * rate)
+            const m = Math.floor((scrub.value * duree.value) / 60)
+            if (m !== minuteSV.value) {
+                minuteSV.value = m
+                runOnJS(ticMinute)()
+            }
         })
         .onEnd(() => {
             prog.value = scrub.value
@@ -392,11 +550,21 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
         return {
             opacity: active,
             transform: [
-                { translateX: Math.max(0, Math.min(x - 34, barW.value - 68)) },
+                { translateX: Math.max(0, Math.min(x - 40, barW.value - 80)) },
                 { translateY: -4 + active * 4 },
                 { scale: 0.7 + active * 0.3 },
             ],
         }
+    })
+
+    // Palier de précision affiché pendant le scrub ralenti
+    const tierStyle = useAnimatedStyle(() => ({
+        opacity: scrubbing.value * (rateSV.value < 1 ? 1 : 0),
+    }))
+    const tierProps = useAnimatedProps(() => {
+        const r = rateSV.value
+        const t = r === 0.5 ? 'Vitesse ½' : r === 0.25 ? 'Vitesse ¼' : 'Précision fine'
+        return { text: t } as any
     })
 
     // Temps 100 % UI thread — aucun re-render pendant scrub/tap
@@ -425,7 +593,7 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
             <View style={{ height: 16 }}>
                 <Animated.View style={[{
                     position: 'absolute', bottom: 2,
-                    width: 68, paddingVertical: 4,
+                    width: 80, paddingVertical: 5,
                     borderRadius: radius.full,
                     backgroundColor: colors.or,
                     alignItems: 'center',
@@ -438,7 +606,7 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
                         animatedProps={bubbleProps}
                         style={{
                             fontFamily: typography.fontFamily.bold,
-                            fontSize: 13, color: BG_BOT,
+                            fontSize: 15, color: BG_BOT,
                             fontVariant: ['tabular-nums'],
                             padding: 0, textAlign: 'center',
                         }}
@@ -488,6 +656,15 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
                     animatedProps={gaucheProps}
                     style={[{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, fontVariant: ['tabular-nums'], padding: 0 }, gaucheStyle]}
                 />
+                {/* palier de précision (½ / ¼ / fine) au centre, pendant le scrub */}
+                <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }, tierStyle]}>
+                    <AnimatedTextInput
+                        editable={false}
+                        defaultValue=""
+                        animatedProps={tierProps}
+                        style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.or, padding: 0, textAlign: 'center' }}
+                    />
+                </Animated.View>
                 <AnimatedTextInput
                     editable={false}
                     defaultValue="-0:00"
@@ -915,6 +1092,11 @@ export default function LecteurPleinEcran() {
         fn(10)
     }
 
+    const swipeSkip = (sens: 1 | -1) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        sens > 0 ? avancer(10) : reculer(10)
+    }
+
     const panelOpen = panel === 'chapters'
 
     // Chapitre en cours d'écoute + encoches sur la barre de progression
@@ -963,7 +1145,7 @@ export default function LecteurPleinEcran() {
 
                                 {/* Artwork / panel */}
                                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-                                    <Artwork enLecture={enLecture} hidden={panelOpen} />
+                                    <Artwork enLecture={enLecture} hidden={panelOpen} onSwipeSkip={swipeSkip} />
 
                                     {panelOpen && (
                                         <ScrollView
@@ -1135,15 +1317,11 @@ export default function LecteurPleinEcran() {
                                         </View>
                                     </SpringTap>
 
-                                    <SpringTap onPress={() => skip(reculer)} hitSlop={16} pressedScale={0.82}>
-                                        <IcoBack size={38} color="#fff" />
-                                    </SpringTap>
+                                    <BoutonSkip sens={-1} onSkip={() => skip(reculer)} />
 
                                     <BoutonPlay enLecture={enLecture} onPress={togglePlay} />
 
-                                    <SpringTap onPress={() => skip(avancer)} hitSlop={16} pressedScale={0.82}>
-                                        <IcoFwd size={38} color="#fff" />
-                                    </SpringTap>
+                                    <BoutonSkip sens={1} onSkip={() => skip(avancer)} />
 
                                     {/* download */}
                                     <BoutonTelechargement piste={piste} />
