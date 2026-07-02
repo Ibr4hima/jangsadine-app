@@ -293,7 +293,7 @@ export default function Coran() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, height: 44, marginTop: spacing.md }}
+        style={{ flexGrow: 0, height: 44, marginTop: spacing.md, marginBottom: spacing.sm }}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, alignItems: 'center' }}
       >
         {JUZS.map(j => (
