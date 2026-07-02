@@ -3,13 +3,11 @@ import { colors, radius, spacing, typography } from '@/constants/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { Search } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Animated, FlatList, Pressable, ScrollView, StatusBar,
-  Text, TextInput, View
+  Animated, FlatList, Image, Pressable, ScrollView, StatusBar,
+  Text, View
 } from 'react-native'
-import RAnimated, { Extrapolation, interpolate, useAnimatedStyle, useSharedValue } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Rect } from 'react-native-svg'
 
@@ -24,12 +22,6 @@ const JUZS = Object.entries(divisions.juz)
     return { n, sora, aya }
   })
   .sort((a, b) => a.n - b.n)
-
-// Recherche tolérante : accents, apostrophes, tirets et espaces ignorés
-// (« maidah » trouve Al-Ma'idah).
-function normaliser(s: string) {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['’\-\s]/g, '')
-}
 
 type Sourate = {
   index: number
@@ -97,7 +89,7 @@ function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) 
         transform: [{ scale }],
         backgroundColor: colors.blanc,
         borderRadius: 22,
-        paddingVertical: 12,
+        paddingVertical: 14,
         paddingRight: spacing.lg,
         paddingLeft: spacing.sm,
         flexDirection: 'row',
@@ -133,7 +125,7 @@ function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) 
         {/* Nom calligraphique seul (sans le mot سورة) */}
         <Text style={{
           fontFamily: 'SuraNames',
-          fontSize: 27,
+          fontSize: 28,
           color: BG_MID,
           marginLeft: spacing.sm,
           writingDirection: 'ltr',
@@ -148,8 +140,6 @@ function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) 
 export default function Coran() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const [recherche, setRecherche] = useState('')
-  const [filtrees, setFiltrees] = useState<Sourate[]>(sourates)
   const [reprise, setReprise] = useState<{ sourate: Sourate; cle: string | null } | null>(null)
   const [riwaya, setRiwaya] = useState<string>('hafs')
 
@@ -163,19 +153,6 @@ export default function Coran() {
     setRiwaya(id)
     AsyncStorage.setItem('jsd_riwaya', id).catch(() => { })
   }
-
-  useEffect(() => {
-    if (!recherche.trim()) {
-      setFiltrees(sourates)
-    } else {
-      const q = normaliser(recherche)
-      setFiltrees(sourates.filter((s: Sourate) =>
-        normaliser(s.nom).includes(q) ||
-        s.nomAr.includes(recherche.trim()) ||
-        String(s.index).includes(recherche.trim())
-      ))
-    }
-  }, [recherche])
 
   // Recharge la position exacte de lecture à chaque retour sur la page
   useFocusEffect(useCallback(() => {
@@ -195,33 +172,6 @@ export default function Coran() {
     router.push(`/coran/${reprise.sourate.index}?riwaya=${riwaya}${suffixe}` as any)
   }
 
-  // ── Héros compactable ──
-  // Au défilement de la liste, l'eyebrow disparaît, les extras (riwaya +
-  // reprendre) se replient et la calligraphie rétrécit : le héros devient
-  // une barre compacte. Tout est piloté par la position de scroll.
-  const scrollY = useSharedValue(0)
-  const extrasH = useSharedValue(0)
-
-  const eyebrowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolation.CLAMP),
-    height: interpolate(scrollY.value, [0, 90], [18, 0], Extrapolation.CLAMP),
-    overflow: 'hidden',
-  }))
-  const extrasStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, 60], [1, 0], Extrapolation.CLAMP),
-    height: extrasH.value
-      ? interpolate(scrollY.value, [0, 110], [extrasH.value, 0], Extrapolation.CLAMP)
-      : undefined,
-    overflow: 'hidden',
-  }))
-  const calliStyle = useAnimatedStyle(() => {
-    const s = interpolate(scrollY.value, [0, 110], [92, 40], Extrapolation.CLAMP)
-    return { width: s, height: s }
-  })
-  const heroPadStyle = useAnimatedStyle(() => ({
-    paddingBottom: interpolate(scrollY.value, [0, 110], [spacing.xl + 26, 12 + 26], Extrapolation.CLAMP),
-  }))
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
       <StatusBar barStyle="light-content" />
@@ -237,24 +187,23 @@ export default function Coran() {
         <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(140,180,230,0.13)', top: -140, right: -100 }} />
         <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(214,173,58,0.08)', bottom: -110, left: -70 }} />
 
-        <RAnimated.View style={[{
+        <View style={{
           paddingTop: insets.top + spacing.sm,
           paddingHorizontal: spacing.xl,
+          paddingBottom: spacing.xl,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-        }, heroPadStyle]}>
+        }}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <RAnimated.View style={eyebrowStyle}>
-              <Text style={{
-                fontFamily: typography.fontFamily.bold,
-                fontSize: typography.size.xs,
-                letterSpacing: 2, color: colors.or,
-                textTransform: 'uppercase',
-              }}>
-                Lecture
-              </Text>
-            </RAnimated.View>
+            <Text style={{
+              fontFamily: typography.fontFamily.bold,
+              fontSize: typography.size.xs,
+              letterSpacing: 2, color: colors.or,
+              textTransform: 'uppercase', marginBottom: 4,
+            }}>
+              Lecture
+            </Text>
             <Text style={{
               fontFamily: typography.fontFamily.bold,
               fontSize: typography.size['2xl'],
@@ -263,121 +212,80 @@ export default function Coran() {
               Coran
             </Text>
 
-            {/* extras repliables au scroll : riwaya + reprendre */}
-            <RAnimated.View style={extrasStyle}>
-              <View onLayout={e => { extrasH.value = e.nativeEvent.layout.height }}>
-                {/* sélecteur de riwaya */}
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.sm }}>
-                  {RIWAYAS.map(r => {
-                    const active = r.id === riwaya
-                    return (
-                      <Pressable
-                        key={r.id}
-                        disabled={!r.dispo}
-                        onPress={() => choisirRiwaya(r.id)}
-                        style={({ pressed }) => ({
-                          flexDirection: 'row', alignItems: 'baseline', gap: 4,
-                          backgroundColor: active ? '#fff' : W12,
-                          borderRadius: radius.full,
-                          paddingHorizontal: 13,
-                          paddingVertical: 5,
-                          opacity: r.dispo ? 1 : 0.45,
-                          transform: [{ scale: pressed ? 0.94 : 1 }],
-                        })}
-                      >
-                        <Text style={{
-                          fontFamily: typography.fontFamily.semibold,
-                          fontSize: typography.size.xs,
-                          color: active ? BG_BOT : '#fff',
-                        }}>
-                          {r.nom}
-                        </Text>
-                        {!r.dispo && (
-                          <Text style={{
-                            fontFamily: typography.fontFamily.regular,
-                            fontSize: 9,
-                            color: W55,
-                          }}>
-                            bientôt
-                          </Text>
-                        )}
-                      </Pressable>
-                    )
-                  })}
-                </View>
-
-                {/* puce « Reprendre » — rouvre pile où on s'était arrêté */}
-                {reprise && (
+            {/* sélecteur de riwaya */}
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.sm }}>
+              {RIWAYAS.map(r => {
+                const active = r.id === riwaya
+                return (
                   <Pressable
-                    onPress={ouvrirReprise}
+                    key={r.id}
+                    disabled={!r.dispo}
+                    onPress={() => choisirRiwaya(r.id)}
                     style={({ pressed }) => ({
-                      alignSelf: 'flex-start',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      backgroundColor: colors.or,
+                      flexDirection: 'row', alignItems: 'baseline', gap: 4,
+                      backgroundColor: active ? '#fff' : W12,
                       borderRadius: radius.full,
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      marginTop: spacing.md,
-                      transform: [{ scale: pressed ? 0.95 : 1 }],
+                      paddingHorizontal: 13,
+                      paddingVertical: 5,
+                      opacity: r.dispo ? 1 : 0.45,
+                      transform: [{ scale: pressed ? 0.94 : 1 }],
                     })}
                   >
                     <Text style={{
                       fontFamily: typography.fontFamily.semibold,
                       fontSize: typography.size.xs,
-                      color: '#1c3d66',
+                      color: active ? BG_BOT : '#fff',
                     }}>
-                      Reprendre · {reprise.sourate.nom}  ›
+                      {r.nom}
                     </Text>
+                    {!r.dispo && (
+                      <Text style={{
+                        fontFamily: typography.fontFamily.regular,
+                        fontSize: 9,
+                        color: W55,
+                      }}>
+                        bientôt
+                      </Text>
+                    )}
                   </Pressable>
-                )}
-              </View>
-            </RAnimated.View>
+                )
+              })}
+            </View>
+
+            {/* puce « Reprendre » — rouvre pile où on s'était arrêté */}
+            {reprise && (
+              <Pressable
+                onPress={ouvrirReprise}
+                style={({ pressed }) => ({
+                  alignSelf: 'flex-start',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: colors.or,
+                  borderRadius: radius.full,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  marginTop: spacing.md,
+                  transform: [{ scale: pressed ? 0.95 : 1 }],
+                })}
+              >
+                <Text style={{
+                  fontFamily: typography.fontFamily.semibold,
+                  fontSize: typography.size.xs,
+                  color: '#1c3d66',
+                }}>
+                  Reprendre · {reprise.sourate.nom}  ›
+                </Text>
+              </Pressable>
+            )}
           </View>
 
-          {/* calligraphie القرآن الكريم — rétrécit au scroll */}
-          <RAnimated.Image
+          {/* calligraphie القرآن الكريم (blanche, inline base64) */}
+          <Image
             source={{ uri: QURAN_ICON_URI }}
-            style={[{ marginLeft: spacing.md, opacity: 0.95 }, calliStyle]}
+            style={{ width: 90, height: 90, marginLeft: spacing.md, opacity: 0.95 }}
             resizeMode="contain"
           />
-        </RAnimated.View>
-      </View>
-
-      {/* ─── recherche flottante (fixe, chevauche le héros) ── */}
-      <View style={{ marginTop: -26, paddingHorizontal: spacing.xl, zIndex: 2 }}>
-        <View style={{
-          flexDirection: 'row', alignItems: 'center',
-          backgroundColor: colors.blanc, borderRadius: radius.full,
-          paddingHorizontal: spacing.lg, gap: spacing.sm,
-          shadowColor: '#1c3d66',
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.14,
-          shadowRadius: 22,
-          elevation: 8,
-        }}>
-          <Search size={17} color={colors.bleu} />
-          <TextInput
-            value={recherche}
-            onChangeText={setRecherche}
-            placeholder="Rechercher une sourate..."
-            placeholderTextColor="#9aa3ad"
-            style={{
-              flex: 1, fontFamily: typography.fontFamily.regular,
-              fontSize: typography.size.base, color: colors.texte,
-              paddingVertical: 15,
-            }}
-          />
-          {recherche.length > 0 && (
-            <Pressable onPress={() => setRecherche('')} hitSlop={10} style={{
-              width: 20, height: 20, borderRadius: 10,
-              backgroundColor: 'rgba(45,87,140,0.10)',
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Text style={{ fontSize: 11, color: colors.bleu, fontFamily: typography.fontFamily.bold, lineHeight: 13 }}>✕</Text>
-            </Pressable>
-          )}
         </View>
       </View>
 
@@ -385,8 +293,8 @@ export default function Coran() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, marginTop: spacing.md }}
-        contentContainerStyle={{ paddingHorizontal: spacing.xl }}
+        style={{ flexGrow: 0, height: 44, marginTop: spacing.md }}
+        contentContainerStyle={{ paddingHorizontal: spacing.xl, alignItems: 'center' }}
       >
         {JUZS.map(j => (
           <Pressable
@@ -395,8 +303,8 @@ export default function Coran() {
             style={({ pressed }) => ({
               backgroundColor: colors.blanc,
               borderRadius: radius.full,
-              height: 32,
-              paddingHorizontal: 14,
+              height: 34,
+              paddingHorizontal: 15,
               marginRight: 8,
               alignItems: 'center',
               justifyContent: 'center',
@@ -409,7 +317,7 @@ export default function Coran() {
               numberOfLines={1}
               style={{
                 fontFamily: typography.fontFamily.semibold,
-                fontSize: typography.size.xs,
+                fontSize: typography.size.sm,
                 color: colors.bleu,
                 flexShrink: 0,
               }}
@@ -422,23 +330,11 @@ export default function Coran() {
 
       {/* ─── liste ───────────────────────────────────────────── */}
       <FlatList
-        data={filtrees}
+        data={sourates as Sourate[]}
         keyExtractor={item => String(item.index)}
         renderItem={({ item }) => <SourateCard sourate={item} riwaya={riwaya} />}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
-        scrollEventThrottle={16}
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 130 }}
-        ListEmptyComponent={
-          <Text style={{
-            textAlign: 'center', marginTop: spacing['2xl'],
-            fontFamily: typography.fontFamily.regular,
-            fontSize: typography.size.base, color: colors.texteMuted,
-          }}>
-            Aucune sourate trouvée
-          </Text>
-        }
       />
     </View>
   )
