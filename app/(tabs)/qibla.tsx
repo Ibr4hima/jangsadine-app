@@ -1,4 +1,5 @@
 import { colors, radius, spacing, typography } from '@/constants/theme'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import * as Location from 'expo-location'
@@ -208,20 +209,46 @@ export default function QiblaPage() {
     }
   }, [aligne])
 
-  // GPS + permission (une seule fois à l'initialisation)
+  // GPS + permission — affichage instantané, affinage en arrière-plan.
+  // La Qibla tolère largement une position approximative (à 6 000 km de La
+  // Mecque, 10 km d'erreur ≈ 0,1° d'angle) : on affiche donc immédiatement
+  // la dernière position (AsyncStorage puis cache système) et on met à jour
+  // silencieusement avec un fix frais. Le « Calcul en cours » ne reste que
+  // pour le tout premier lancement.
   useEffect(() => {
     let actif = true
-    async function getPos() {
-      const { status } = await Location.requestForegroundPermissionsAsync()
-      if (status !== 'granted') { setPerm('denied'); return }
+    const appliquer = (lat: number, lng: number) => {
       if (!actif) return
-      setPerm('granted')
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
-      if (!actif) return
-      const { latitude: lat, longitude: lng } = loc.coords
       setPos({ lat, lng })
       setQiblaAngle(qiblaFrom(lat, lng))
       setDistance(distanceTo(lat, lng))
+    }
+
+    // 1) dernière position mémorisée par l'app → boussole immédiate
+    AsyncStorage.getItem('jsd_derniere_pos')
+      .then(raw => {
+        if (!raw || !actif) return
+        try {
+          const p = JSON.parse(raw)
+          if (typeof p?.lat === 'number' && typeof p?.lng === 'number') appliquer(p.lat, p.lng)
+        } catch { }
+      })
+      .catch(() => { })
+
+    async function getPos() {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (!actif) return
+      if (status !== 'granted') { setPerm('denied'); return }
+      setPerm('granted')
+      // 2) cache système (répond tout de suite s'il existe)
+      const connu = await Location.getLastKnownPositionAsync().catch(() => null)
+      if (connu && actif) appliquer(connu.coords.latitude, connu.coords.longitude)
+      // 3) fix frais (Balanced suffit largement) puis mémorisation
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      if (!actif) return
+      const { latitude: lat, longitude: lng } = loc.coords
+      appliquer(lat, lng)
+      AsyncStorage.setItem('jsd_derniere_pos', JSON.stringify({ lat, lng })).catch(() => { })
     }
     getPos().catch(e => console.warn('qibla GPS:', e))
     return () => { actif = false }
