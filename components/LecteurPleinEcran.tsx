@@ -249,11 +249,15 @@ function Artwork({ enLecture, hidden, onSwipeSkip }: {
     useEffect(() => {
         scale.value = withSpring(enLecture ? 1 : 0.78, { damping: 14, stiffness: 140 })
         if (enLecture) {
+            // double battement organique (boum-boum … boum-boum), plus
+            // vivant qu'une respiration symétrique
             aura.value = withRepeat(
                 withSequence(
-                    withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.ease) }),
-                    withTiming(0, { duration: 2400, easing: Easing.inOut(Easing.ease) }),
-                ), -1, true
+                    withTiming(1,    { duration: 460,  easing: Easing.out(Easing.quad) }),
+                    withTiming(0.35, { duration: 680,  easing: Easing.inOut(Easing.ease) }),
+                    withTiming(0.78, { duration: 420,  easing: Easing.out(Easing.quad) }),
+                    withTiming(0,    { duration: 1040, easing: Easing.inOut(Easing.ease) }),
+                ), -1, false
             )
         } else {
             cancelAnimation(aura)
@@ -760,8 +764,12 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
 // ─── Play / Pause with pulsing glow ───────────────────────────
 function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () => void }) {
     const glow = useSharedValue(0)
+    // 0 = play, 1 = pause : le passage de l'un à l'autre est un morphing
+    // continu (rotation + fondu croisé), pas un simple échange d'icônes.
+    const mode = useSharedValue(enLecture ? 1 : 0)
 
     useEffect(() => {
+        mode.value = withTiming(enLecture ? 1 : 0, { duration: 240, easing: Easing.inOut(Easing.quad) })
         if (enLecture) {
             glow.value = withRepeat(
                 withSequence(
@@ -778,6 +786,15 @@ function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () =>
     const ringStyle = useAnimatedStyle(() => ({
         opacity: glow.value * 0.20,
         transform: [{ scale: 1 + glow.value * 0.14 }],
+    }))
+
+    const playStyle = useAnimatedStyle(() => ({
+        opacity: 1 - mode.value,
+        transform: [{ rotate: `${mode.value * 90}deg` }, { scale: 1 - mode.value * 0.35 }],
+    }))
+    const pauseStyle = useAnimatedStyle(() => ({
+        opacity: mode.value,
+        transform: [{ rotate: `${(mode.value - 1) * 90}deg` }, { scale: 0.65 + mode.value * 0.35 }],
     }))
 
     return (
@@ -798,13 +815,15 @@ function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () =>
                     shadowRadius: 16,
                     elevation: 12,
                 }}>
-                    {/* zoom subtil au changement play ↔ pause */}
-                    <Animated.View key={enLecture ? 'pause' : 'play'} entering={ZoomIn.duration(180)}>
-                        {enLecture
-                            ? <IcoPause size={36} color={BG_MID} />
-                            : <IcoPlay  size={36} color={BG_MID} />
-                        }
-                    </Animated.View>
+                    {/* morphing play ↔ pause : rotation + fondu croisé */}
+                    <View style={{ width: 36, height: 36 }}>
+                        <Animated.View style={[{ position: 'absolute' }, playStyle]}>
+                            <IcoPlay size={36} color={BG_MID} />
+                        </Animated.View>
+                        <Animated.View style={[{ position: 'absolute' }, pauseStyle]}>
+                            <IcoPause size={36} color={BG_MID} />
+                        </Animated.View>
+                    </View>
                 </View>
             </View>
         </SpringTap>
@@ -944,6 +963,72 @@ function BoutonTelechargement({ piste }: { piste: Piste }) {
                 )}
             </View>
         </SpringTap>
+    )
+}
+
+// ─── Fond « aurore » ──────────────────────────────────────────
+// Trois nappes bleues qui dérivent très lentement (17 s / 23 s / 29 s,
+// aller-retour) : le fond vit sans distraire. Transforms + opacité
+// uniquement, sur le thread UI — coût quasi nul. Les animations ne
+// tournent que lorsque le lecteur est ouvert.
+function FondAurore({ actif }: { actif: boolean }) {
+    const t1 = useSharedValue(0)
+    const t2 = useSharedValue(0)
+    const t3 = useSharedValue(0)
+
+    useEffect(() => {
+        if (actif) {
+            t1.value = withRepeat(withTiming(1, { duration: 17000, easing: Easing.inOut(Easing.ease) }), -1, true)
+            t2.value = withRepeat(withTiming(1, { duration: 23000, easing: Easing.inOut(Easing.ease) }), -1, true)
+            t3.value = withRepeat(withTiming(1, { duration: 29000, easing: Easing.inOut(Easing.ease) }), -1, true)
+        } else {
+            cancelAnimation(t1); cancelAnimation(t2); cancelAnimation(t3)
+        }
+    }, [actif])
+
+    const s1 = useAnimatedStyle(() => ({
+        opacity: 0.09 + t1.value * 0.07,
+        transform: [
+            { translateX: t1.value * 80 },
+            { translateY: t1.value * 55 },
+            { scale: 1 + t1.value * 0.12 },
+        ],
+    }))
+    const s2 = useAnimatedStyle(() => ({
+        opacity: 0.07 + t2.value * 0.07,
+        transform: [
+            { translateX: -t2.value * 70 },
+            { translateY: -t2.value * 45 },
+            { scale: 1 + t2.value * 0.10 },
+        ],
+    }))
+    const s3 = useAnimatedStyle(() => ({
+        opacity: 0.32 + t3.value * 0.14,
+        transform: [
+            { translateX: t3.value * 50 },
+            { scale: 1 + t3.value * 0.08 },
+        ],
+    }))
+
+    return (
+        <>
+            <Animated.View style={[{
+                position: 'absolute', width: 700, height: 700, borderRadius: 350,
+                backgroundColor: 'rgb(120,165,220)', top: -300, left: -220,
+            }, s1]} />
+            <Animated.View style={[{
+                position: 'absolute', width: 560, height: 560, borderRadius: 280,
+                backgroundColor: 'rgb(90,140,200)', top: 280, right: -240,
+            }, s2]} />
+            <Animated.View style={[{
+                position: 'absolute', width: 520, height: 520, borderRadius: 260,
+                backgroundColor: 'rgb(30,64,106)', bottom: -200, left: -160,
+            }, s3]} />
+            <View style={{
+                position: 'absolute', width: 300, height: 300, borderRadius: 150,
+                backgroundColor: 'rgba(150,190,235,0.07)', bottom: 240, right: -100,
+            }} />
+        </>
     )
 }
 
@@ -1089,10 +1174,7 @@ export default function LecteurPleinEcran() {
                         locations={[0, 0.5, 1]}
                         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                     />
-                    <View style={{ position: 'absolute', width: 700, height: 700, borderRadius: 350, backgroundColor: 'rgba(120,165,220,0.13)', top: -300, left: -220 }} />
-                    <View style={{ position: 'absolute', width: 560, height: 560, borderRadius: 280, backgroundColor: 'rgba(90,140,200,0.11)', top: 280, right: -240 }} />
-                    <View style={{ position: 'absolute', width: 520, height: 520, borderRadius: 260, backgroundColor: 'rgba(40,85,139,0.35)', bottom: -200, left: -160 }} />
-                    <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(150,190,235,0.07)', bottom: 240, right: -100 }} />
+                    <FondAurore actif={lecteurOuvert} />
 
                     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
                         <StatusBar barStyle="light-content" />
