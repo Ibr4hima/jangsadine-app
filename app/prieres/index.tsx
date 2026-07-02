@@ -254,19 +254,6 @@ export default function Prieres() {
 
   const IconeProchaine = prochaine ? (ICONES[prochaine.cle] ?? Sun) : Sun
 
-  // Date du jour (grégorienne + hijri) affichée sous la ville
-  const dateLigne = useMemo(() => {
-    const d = new Date()
-    const gregorien = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-    const gregorienCap = gregorien.charAt(0).toUpperCase() + gregorien.slice(1)
-    try {
-      const hijri = new Intl.DateTimeFormat('fr-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' }).format(d)
-      return `${gregorienCap} · ${hijri}`
-    } catch {
-      return gregorienCap
-    }
-  }, [tickProg])
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.fondCreme }}>
       <StatusBar barStyle="light-content" />
@@ -318,7 +305,7 @@ export default function Prieres() {
               <View style={{ width: 40 }} />
             </View>
 
-            {/* ville + date */}
+            {/* ville */}
             <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
               {ville ? (
                 <View style={{
@@ -330,11 +317,6 @@ export default function Prieres() {
                     {ville}
                   </Text>
                 </View>
-              ) : null}
-              {dateLigne ? (
-                <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.xs, color: W55, marginTop: spacing.sm }}>
-                  {dateLigne}
-                </Text>
               ) : null}
             </View>
 
