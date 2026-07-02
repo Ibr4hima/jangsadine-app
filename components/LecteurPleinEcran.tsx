@@ -645,7 +645,14 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
 }
 
 // ─── Volume bar — 100% UI thread while dragging ───────────────
-function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number) => void }) {
+// Même recette que la barre de progression : pendant la glisse, RIEN ne
+// passe par l'état React (le remplissage vit sur le thread UI, le volume
+// matériel est réglé via le canal « live » sans setState) → aucun
+// re-render du lecteur pendant le drag, fluidité parfaite. L'état n'est
+// resynchronisé qu'au relâché.
+function VolumeBar({ volume, onChange, onChangeLive }: {
+    volume: number; onChange: (v: number) => void; onChangeLive: (v: number) => void
+}) {
     const barW      = useSharedValue(W - spacing.xl * 2 - 72)
     const vol       = useSharedValue(volume)
     const scrubbing = useSharedValue(0)
@@ -658,9 +665,11 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
 
     const setDragging = (v: boolean) => { isDragging.current = v }
     const hapticLight = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    const sendThrottled = (v: number) => {
+    // Application « live » du volume matériel pendant le drag (sans état
+    // React), throttlée à ~30 ms pour rester réactif sans saturer le natif
+    const sendLive = (v: number) => {
         const now = Date.now()
-        if (now - lastChange.current > 50) { lastChange.current = now; onChange(v) }
+        if (now - lastChange.current > 30) { lastChange.current = now; onChangeLive(v) }
     }
 
     // tap : réponse visuelle dès le posé du doigt
@@ -683,12 +692,12 @@ function VolumeBar({ volume, onChange }: { volume: number; onChange: (v: number)
             const v = clamp01(e.x / barW.value)
             vol.value = v
             runOnJS(setDragging)(true)
-            runOnJS(onChange)(v)
+            runOnJS(sendLive)(v)
         })
         .onUpdate(e => {
             const v = clamp01(e.x / barW.value)
             vol.value = v
-            runOnJS(sendThrottled)(v)
+            runOnJS(sendLive)(v)
         })
         .onEnd(e => {
             const v = clamp01(e.x / barW.value)
@@ -1037,7 +1046,7 @@ export default function LecteurPleinEcran() {
     const {
         piste, enLecture,
         vitesse, volume, pause, reprendre, seeker, avancer, reculer,
-        changerVitesse, changerVolume, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
+        changerVitesse, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
     const { tempsActuel, dureeTotal } = useAudioProgress()
 
@@ -1374,7 +1383,7 @@ export default function LecteurPleinEcran() {
                                 </View>
 
                                 {/* Volume */}
-                                <VolumeBar volume={volume} onChange={changerVolume} />
+                                <VolumeBar volume={volume} onChange={changerVolume} onChangeLive={changerVolumeLive} />
 
                             </View>
                         ) : (

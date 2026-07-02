@@ -71,6 +71,7 @@ type AudioContextType = {
   reculer: (sec: number) => void
   changerVitesse: (v: number) => void
   changerVolume: (v: number) => void
+  changerVolumeLive: (v: number) => void
   pisterSuivante: () => void
   pistePrecedente: () => void
   file: Piste[]
@@ -396,6 +397,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     try { VolumeManager.setVolume(v, { showUI: false }).catch(() => {}) } catch {}
   }, [])
 
+  // Variante « live » pour le drag du curseur : règle le volume matériel SANS
+  // toucher à l'état React → aucun re-render du lecteur pendant la glisse
+  // (le curseur vit sur le thread UI). Appeler changerVolume au relâché pour
+  // resynchroniser l'état.
+  const changerVolumeLive = useCallback((v: number) => {
+    if (!VolumeManager) return
+    ignoreVolumeListenerRef.current = Date.now() + 400
+    try { VolumeManager.setVolume(v, { showUI: false }).catch(() => {}) } catch {}
+  }, [])
+
   const changerVitesse = useCallback(async (v: number) => {
     vitesseRef.current = v
     setVitesse(v)
@@ -436,12 +447,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     piste, enLecture, vitesse, volume,
     lecteurOuvert, setLecteurOuvert,
     jouer, pause, reprendre, seeker, avancer, reculer,
-    changerVitesse, changerVolume, pisterSuivante, pistePrecedente,
+    changerVitesse, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente,
     file, playlist, ajouterAFile,
   }), [
     piste, enLecture, vitesse, volume, lecteurOuvert, file, playlist,
     jouer, pause, reprendre, seeker, avancer, reculer,
-    changerVitesse, changerVolume, pisterSuivante, pistePrecedente, ajouterAFile,
+    changerVitesse, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente, ajouterAFile,
   ])
 
   const progressValue = useMemo<AudioProgressType>(
