@@ -435,84 +435,6 @@ function CarteReprendre() {
   )
 }
 
-// ─── continuer la lecture du Coran ────────────────────────────
-// Reprend la lecture pile où on s'était arrêté (position mémorisée par le
-// lecteur). Carte claire, pendant du « Reprendre l'écoute » bleu.
-function CarteLectureCoran({ onNav }: { onNav: (href: string) => void }) {
-  const [reprise, setReprise] = useState<{ index: number; nom: string; cle: string | null } | null>(null)
-  const [riwaya, setRiwaya] = useState('hafs')
-
-  useFocusEffect(useCallback(() => {
-    AsyncStorage.getItem('jsd_reprise_coran')
-      .then(raw => {
-        if (!raw) return setReprise(null)
-        const r = JSON.parse(raw) as { sourate: number; cle?: string }
-        const s = sourates.find((x: any) => x.index === r.sourate)
-        setReprise(s ? { index: s.index, nom: s.nom, cle: r.cle ?? null } : null)
-      })
-      .catch(() => setReprise(null))
-    AsyncStorage.getItem('jsd_riwaya')
-      .then(r => { if (r) setRiwaya(r) })
-      .catch(() => { })
-  }, []))
-
-  if (!reprise) return null
-
-  const ouvrir = () => {
-    const suffixe = reprise.cle ? `&cle=${reprise.cle}` : ''
-    onNav(`/coran/${reprise.index}?riwaya=${riwaya}${suffixe}`)
-  }
-
-  return (
-    <Animated.View entering={FadeInDown.duration(500).delay(110)}>
-      <PressableScale onPress={ouvrir} style={{
-        marginHorizontal: spacing.xl,
-        marginTop: spacing.md,
-        backgroundColor: colors.blanc,
-        borderRadius: radius.xl + 4,
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: spacing.md,
-        gap: spacing.md,
-        shadowColor: '#2a3b52',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 18,
-        elevation: 4,
-      }}>
-        {/* vignette calligraphie sur dégradé bleu */}
-        <View style={{
-          width: 52, height: 52, borderRadius: 17, overflow: 'hidden',
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          <LinearGradient
-            colors={[TUILE_G1, TUILE_G2]}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          />
-          <Image source={{ uri: QURAN_ICON_URI }} style={{ width: 36, height: 36 }} resizeMode="contain" />
-        </View>
-
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{
-            fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs,
-            color: colors.texteMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3,
-          }}>
-            Continuer la lecture
-          </Text>
-          <Text numberOfLines={1} style={{
-            fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: colors.texte,
-          }}>
-            {reprise.nom}
-          </Text>
-        </View>
-
-        <IcoChevron size={20} color="#c4c9d0" />
-      </PressableScale>
-    </Animated.View>
-  )
-}
-
 // ─── accès rapide ─────────────────────────────────────────────
 // Teinte unique, cohérente avec le bleu du logo / des héros
 const TUILE_G1 = '#3d6ba3'
@@ -641,22 +563,17 @@ function HadithDuJour() {
         shadowRadius: 18,
         elevation: 3,
       }}>
-        {/* filigrane décoratif */}
-        <View style={{ position: 'absolute', top: -14, right: -10, opacity: 0.07 }}>
-          <IcoQuote size={110} color={colors.or} />
-        </View>
-
         {/* en-tête : label + bouton partager */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
           <View style={{
             width: 30, height: 30, borderRadius: 15,
-            backgroundColor: 'rgba(214,173,58,0.14)',
+            backgroundColor: 'rgba(45,87,140,0.10)',
             alignItems: 'center', justifyContent: 'center',
             marginRight: spacing.sm,
           }}>
-            <IcoQuote size={16} color={colors.orFonce} />
+            <IcoQuote size={16} color={colors.bleu} />
           </View>
-          <Text style={{ flex: 1, fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.orFonce, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+          <Text style={{ flex: 1, fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: colors.bleu, letterSpacing: 1.2, textTransform: 'uppercase' }}>
             Hadith du jour
           </Text>
           <Pressable onPress={partager} hitSlop={10} style={({ pressed }) => ({
@@ -726,7 +643,6 @@ export default function Accueil() {
         </Animated.View>
 
         <CarteReprendre />
-        <CarteLectureCoran onNav={naviguer} />
         <AccesRapide onNav={naviguer} />
         <HadithDuJour />
       </ScrollView>
