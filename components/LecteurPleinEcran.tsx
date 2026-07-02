@@ -1,5 +1,6 @@
 import { MiniEgaliseur } from '@/components/AudioUI'
 import EditeurNote from '@/components/EditeurNote'
+import FondAurore from '@/components/FondAurore'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio, useAudioProgress } from '@/contexts/AudioContext'
 import type { Piste } from '@/contexts/AudioContext'
@@ -972,72 +973,6 @@ function BoutonTelechargement({ piste }: { piste: Piste }) {
                 )}
             </View>
         </SpringTap>
-    )
-}
-
-// ─── Fond « aurore » ──────────────────────────────────────────
-// Trois nappes bleues qui dérivent très lentement (17 s / 23 s / 29 s,
-// aller-retour) : le fond vit sans distraire. Transforms + opacité
-// uniquement, sur le thread UI — coût quasi nul. Les animations ne
-// tournent que lorsque le lecteur est ouvert.
-function FondAurore({ actif }: { actif: boolean }) {
-    const t1 = useSharedValue(0)
-    const t2 = useSharedValue(0)
-    const t3 = useSharedValue(0)
-
-    useEffect(() => {
-        if (actif) {
-            t1.value = withRepeat(withTiming(1, { duration: 17000, easing: Easing.inOut(Easing.ease) }), -1, true)
-            t2.value = withRepeat(withTiming(1, { duration: 23000, easing: Easing.inOut(Easing.ease) }), -1, true)
-            t3.value = withRepeat(withTiming(1, { duration: 29000, easing: Easing.inOut(Easing.ease) }), -1, true)
-        } else {
-            cancelAnimation(t1); cancelAnimation(t2); cancelAnimation(t3)
-        }
-    }, [actif])
-
-    const s1 = useAnimatedStyle(() => ({
-        opacity: 0.09 + t1.value * 0.07,
-        transform: [
-            { translateX: t1.value * 80 },
-            { translateY: t1.value * 55 },
-            { scale: 1 + t1.value * 0.12 },
-        ],
-    }))
-    const s2 = useAnimatedStyle(() => ({
-        opacity: 0.07 + t2.value * 0.07,
-        transform: [
-            { translateX: -t2.value * 70 },
-            { translateY: -t2.value * 45 },
-            { scale: 1 + t2.value * 0.10 },
-        ],
-    }))
-    const s3 = useAnimatedStyle(() => ({
-        opacity: 0.32 + t3.value * 0.14,
-        transform: [
-            { translateX: t3.value * 50 },
-            { scale: 1 + t3.value * 0.08 },
-        ],
-    }))
-
-    return (
-        <>
-            <Animated.View style={[{
-                position: 'absolute', width: 700, height: 700, borderRadius: 350,
-                backgroundColor: 'rgb(120,165,220)', top: -300, left: -220,
-            }, s1]} />
-            <Animated.View style={[{
-                position: 'absolute', width: 560, height: 560, borderRadius: 280,
-                backgroundColor: 'rgb(90,140,200)', top: 280, right: -240,
-            }, s2]} />
-            <Animated.View style={[{
-                position: 'absolute', width: 520, height: 520, borderRadius: 260,
-                backgroundColor: 'rgb(30,64,106)', bottom: -200, left: -160,
-            }, s3]} />
-            <View style={{
-                position: 'absolute', width: 300, height: 300, borderRadius: 150,
-                backgroundColor: 'rgba(150,190,235,0.07)', bottom: 240, right: -100,
-            }} />
-        </>
     )
 }
 

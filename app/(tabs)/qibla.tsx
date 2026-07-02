@@ -1,3 +1,4 @@
+import FondAurore from '@/components/FondAurore'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
@@ -180,10 +181,13 @@ export default function QiblaPage() {
   const glowOpacity = useSharedValue(0)
   const pulseScale = useSharedValue(1)
 
-  // plein écran : pas de barre de menu sur cette page
+  // plein écran : pas de barre de menu sur cette page. `focus` coupe aussi
+  // les animations du fond aurore quand on quitte l'onglet.
+  const [focus, setFocus] = useState(true)
   useFocusEffect(useCallback(() => {
     hideTabBar()
-    return () => showTabBar()
+    setFocus(true)
+    return () => { showTabBar(); setFocus(false) }
   }, []))
 
   // Glow + vibration quand aligné
@@ -352,10 +356,8 @@ export default function QiblaPage() {
     <LinearGradient colors={[BG_TOP, BG_MID, BG_BOT]} locations={[0, 0.5, 1]} style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" />
 
-      {/* brume décorative — même langage que le lecteur */}
-      <View style={{ position: 'absolute', width: 600, height: 600, borderRadius: 300, backgroundColor: 'rgba(120,165,220,0.13)', top: -260, left: -200 }} />
-      <View style={{ position: 'absolute', width: 480, height: 480, borderRadius: 240, backgroundColor: 'rgba(90,140,200,0.11)', top: 260, right: -220 }} />
-      <View style={{ position: 'absolute', width: 460, height: 460, borderRadius: 230, backgroundColor: 'rgba(28,61,102,0.45)', bottom: -180, left: -140 }} />
+      {/* fond « aurore » — même langage que le lecteur */}
+      <FondAurore actif={focus} />
 
       {/* ── Header ── */}
       <View style={{

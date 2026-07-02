@@ -1,3 +1,4 @@
+import FondAurore from '@/components/FondAurore'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { geocoderInverse } from '@/lib/geo'
@@ -271,8 +272,8 @@ export default function Prieres() {
             locations={[0, 0.55, 1]}
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
           />
-          <View style={{ position: 'absolute', width: 380, height: 380, borderRadius: 190, backgroundColor: 'rgba(140,180,230,0.13)', top: -160, right: -120 }} />
-          <View style={{ position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(214,173,58,0.07)', bottom: -100, left: -90 }} />
+          {/* fond « aurore » : nappes bleues en dérive lente */}
+          <FondAurore compact />
 
           <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl }}>
 
