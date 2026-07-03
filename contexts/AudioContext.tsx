@@ -195,7 +195,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       if (idx !== chapitreIdxRef.current) {
         chapitreIdxRef.current = idx
         const meta = construireMetadata(pisteRef.current)
-        if (idx >= 0) meta.artist = `Chapitre ${idx + 1} · ${ms[idx].titre}`
+        if (idx >= 0) meta.artist = ms[idx].titre
         try { playerRef.current?.updateLockScreenMetadata(meta) } catch {}
       }
     }

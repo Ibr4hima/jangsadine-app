@@ -68,6 +68,11 @@ export default function Marquee({
             horizontal
             scrollEnabled={false}
             showsHorizontalScrollIndicator={false}
+            // flexGrow 0 impératif : sinon le ScrollView s'étire pour remplir
+            // l'espace flexible de son parent (pilule de chapitre du lecteur →
+            // layout entier écrasé)
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={{ flexGrow: 0, alignItems: 'center' }}
             onLayout={e => setBoiteW(Math.round(e.nativeEvent.layout.width))}
         >
             <Animated.View style={[{ flexDirection: 'row' }, aStyle]}>
