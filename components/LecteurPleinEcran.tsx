@@ -422,6 +422,11 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
     const lastX    = useSharedValue(0)
     const rateSV   = useSharedValue(1)
     const minuteSV = useSharedValue(-1)
+    // Élastique de bord : position brute non bornée pendant le drag ; le
+    // surplus au-delà de [0,1] étire la barre avec résistance (rubber-band).
+    const brutSV  = useSharedValue(0)
+    const surSV   = useSharedValue(0)   // dépassement signé (au-delà du bord)
+    const buteeSV = useSharedValue(0)   // -1 / 0 / 1 : bord actuellement touché
 
     // Garde-fous côté JS : pas de lecture de shared values dans le
     // useEffect (peu fiable inter-threads) — un simple ref + deadline
@@ -437,6 +442,8 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
             Haptics.selectionAsync()
         }
     }
+    // Butée : claque au contact du bord (début/fin) pendant le scrub
+    const ticButee = () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium) }
 
     useEffect(() => { duree.value = dureeTotal }, [dureeTotal])
 
@@ -490,6 +497,9 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
         .onStart(e => {
             scrubbing.value = withTiming(1, { duration: 100 })
             scrub.value = clamp01(e.x / barW.value)
+            brutSV.value = scrub.value
+            surSV.value = 0
+            buteeSV.value = 0
             lastX.value = e.x
             rateSV.value = 1
             minuteSV.value = Math.floor((scrub.value * duree.value) / 60)
@@ -502,7 +512,14 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
             rateSV.value = rate
             const dx = e.x - lastX.value
             lastX.value = e.x
-            scrub.value = clamp01(scrub.value + (dx / barW.value) * rate)
+            // position brute non bornée → surplus élastique au-delà des bords
+            brutSV.value = brutSV.value + (dx / barW.value) * rate
+            scrub.value = clamp01(brutSV.value)
+            surSV.value = brutSV.value - scrub.value
+            // haptique de butée à l'instant où on touche un bord
+            const signe = surSV.value > 0.0005 ? 1 : surSV.value < -0.0005 ? -1 : 0
+            if (signe !== 0 && buteeSV.value === 0) runOnJS(ticButee)()
+            buteeSV.value = signe
             const m = Math.floor((scrub.value * duree.value) / 60)
             if (m !== minuteSV.value) {
                 minuteSV.value = m
@@ -515,6 +532,8 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
         })
         .onFinalize(() => {
             scrubbing.value = withTiming(0, { duration: 180 })
+            surSV.value = withSpring(0, { damping: 14, stiffness: 260 })
+            buteeSV.value = 0
             runOnJS(setDragJS)(false)
         })
 
@@ -531,6 +550,22 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
     const trackStyle = useAnimatedStyle(() => {
         const h = 5 + scrubbing.value * 9
         return { height: h, borderRadius: h / 2 }
+    })
+
+    // Rubber-band : le dépassement étire la barre (ancrée au bord opposé),
+    // avec une courbe de résistance qui sature vite — jamais plus de ~5 %.
+    const stretchStyle = useAnimatedStyle(() => {
+        const sur = surSV.value
+        if (sur === 0) return { transform: [{ translateX: 0 }, { scaleX: 1 }] }
+        const a = Math.abs(sur)
+        const k = Math.min(0.05, (a * 0.4) / (1 + a * 6))
+        const w = barW.value
+        return {
+            transform: [
+                { translateX: (sur > 0 ? -1 : 1) * (w * k) / 2 },
+                { scaleX: 1 + k },
+            ],
+        }
     })
 
     const fillStyle = useAnimatedStyle(() => {
@@ -616,9 +651,9 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
             </View>
 
             <GestureDetector gesture={gesture}>
-                <View
+                <Animated.View
                     onLayout={e => { barW.value = e.nativeEvent.layout.width }}
-                    style={{ height: 36, justifyContent: 'center' }}
+                    style={[{ height: 36, justifyContent: 'center' }, stretchStyle]}
                 >
                     <Animated.View style={[{ backgroundColor: W15, overflow: 'hidden' }, trackStyle]}>
                         <Animated.View style={[{ height: '100%', borderRadius: 8 }, fillStyle]} />
@@ -647,7 +682,7 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
                         shadowRadius: 8,
                         elevation: 8,
                     }, thumbStyle]} />
-                </View>
+                </Animated.View>
             </GestureDetector>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: -2 }}>
