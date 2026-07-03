@@ -44,6 +44,7 @@ const pagesParRiwaya: Record<Riwaya, () => Record<string, number>> = {
     qaloon: () => require('../../assets/quran/qaloon_pages.json'),
     doori: () => require('../../assets/quran/doori_pages.json'),
     shuba: () => require('../../assets/quran/shuba_pages.json'),
+    soosi: () => require('../../assets/quran/soosi_pages.json'),
 }
 const divisionsParRiwaya: Record<Riwaya, () => Divisions> = {
     hafs: () => require('../../assets/quran/divisions.json'),
@@ -51,6 +52,7 @@ const divisionsParRiwaya: Record<Riwaya, () => Divisions> = {
     qaloon: () => require('../../assets/quran/qaloon_divisions.json'),
     doori: () => require('../../assets/quran/doori_divisions.json'),
     shuba: () => require('../../assets/quran/shuba_divisions.json'),
+    soosi: () => require('../../assets/quran/soosi_divisions.json'),
 }
 // Polices KFGQPC par riwaya (génération moderne V18/V21 — rendu iOS correct)
 const policeParRiwaya: Record<Riwaya, string> = {
@@ -59,6 +61,7 @@ const policeParRiwaya: Record<Riwaya, string> = {
     qaloon: 'Qaloon',
     doori: 'Doori',
     shuba: 'Shuba',
+    soosi: 'Soosi',
 }
 // Riwayas au décompte kufi : la basmala EST le verset 1 de la Fatiha
 const BASMALA_VERSET_UN: Riwaya[] = ['hafs', 'shuba']

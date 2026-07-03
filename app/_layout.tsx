@@ -273,6 +273,7 @@ export default function RootLayout() {
     Qaloon: require('../assets/fonts/UthmanicQaloonV21.ttf'),
     Doori: require('../assets/fonts/UthmanicDouriV20.ttf'),
     Shuba: require('../assets/fonts/UthmanicShubaV20.ttf'),
+    Soosi: require('../assets/fonts/UthmanicSousiV20.ttf'),
     SuraNames: require('../assets/fonts/SuraNames.ttf'),
     MaterialSymbols: require('../assets/fonts/MaterialSymbols.ttf'),
   })
