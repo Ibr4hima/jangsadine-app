@@ -33,6 +33,7 @@ import Animated, {
     withRepeat,
     withSequence,
     withSpring,
+    FadeIn,
     withTiming,
     ZoomIn,
 } from 'react-native-reanimated'
@@ -253,12 +254,30 @@ function BoutonSkip({ sens, onSkip, onLongSkip }: {
 // résistance et une légère inclinaison, un badge « ±10 s » apparaît sur le
 // bord, puis tout revient à ressort. Le glisser vertical n'est pas capturé
 // (il continue de fermer le lecteur via le geste parent).
-function Artwork({ enLecture, hidden, onSwipeSkip, onDoubleTap }: {
+function Artwork({ enLecture, hidden, onSwipeSkip, onDoubleTap, transition }: {
     enLecture: boolean; hidden: boolean; onSwipeSkip: (sens: 1 | -1) => void; onDoubleTap: () => void
+    // Changement de piste directionnel : suivante → la pochette sort à
+    // gauche et la nouvelle entre de la droite (précédente : miroir)
+    transition: { id: string; dir: 1 | -1 } | null
 }) {
     const scale = useSharedValue(enLecture ? 1 : 0.78)
     const aura  = useSharedValue(0)
     const tx      = useSharedValue(0)
+    const opac    = useSharedValue(1)
+
+    useEffect(() => {
+        if (!transition) return
+        const dir = transition.dir
+        tx.value = withSequence(
+            withTiming(-dir * ART_SIZE * 0.55, { duration: 150, easing: Easing.in(Easing.quad) }),
+            withTiming(dir * ART_SIZE * 0.55, { duration: 0 }),
+            withSpring(0, { damping: 15, stiffness: 170 }),
+        )
+        opac.value = withSequence(
+            withTiming(0, { duration: 140 }),
+            withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) }),
+        )
+    }, [transition?.id])
     const badgeAv = useSharedValue(0)   // « +10 s » (swipe vers la droite)
     const badgeRe = useSharedValue(0)   // « -10 s » (swipe vers la gauche)
 
@@ -316,6 +335,7 @@ function Artwork({ enLecture, hidden, onSwipeSkip, onDoubleTap }: {
     const gestes = Gesture.Race(doubleTap, swipe)
 
     const style = useAnimatedStyle(() => ({
+        opacity: opac.value,
         transform: [
             { translateX: tx.value },
             { rotate: `${tx.value / 30}deg` },
@@ -1064,7 +1084,7 @@ export default function LecteurPleinEcran() {
     const {
         piste, enLecture,
         vitesse, volume, enChargement, pause, reprendre, seeker, avancer, reculer,
-        changerVitesse, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
+        changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
     const { tempsActuel, dureeTotal } = useAudioProgress()
 
@@ -1077,6 +1097,32 @@ export default function LecteurPleinEcran() {
     const garderPanelRef = useRef(false)
 
     const translateY = useSharedValue(SCREEN_H)
+
+    // ── Changement de piste directionnel ──
+    // Compare la position de l'ancienne et de la nouvelle piste dans la
+    // playlist : en avant → dir 1 (sort à gauche, entre de la droite).
+    const prevPisteIdRef = useRef<string | null>(null)
+    const [transitionPiste, setTransitionPiste] = useState<{ id: string; dir: 1 | -1 } | null>(null)
+    useEffect(() => {
+        if (!piste) return
+        if (prevPisteIdRef.current === null || prevPisteIdRef.current === piste.id) {
+            prevPisteIdRef.current = piste.id
+            return
+        }
+        const anc = playlist.findIndex(t => t.id === prevPisteIdRef.current)
+        const nouv = playlist.findIndex(t => t.id === piste.id)
+        prevPisteIdRef.current = piste.id
+        setTransitionPiste({ id: piste.id, dir: anc >= 0 && nouv >= 0 && nouv < anc ? -1 : 1 })
+    }, [piste?.id, playlist])
+
+    // ── Réglage de vitesse au glisser (long-press sur la pilule ×N) ──
+    // Long-press → HUD ; sans lever le doigt, glisser règle la vitesse au
+    // centième (0,75 → 2,00), appliquée en direct à l'audio. Relâcher valide.
+    const [reglageVitesse, setReglageVitesse] = useState(false)
+    const vitLiveSV = useSharedValue(1)
+    const vitDepartSV = useSharedValue(1)
+    const dernierApplyRef = useRef(0)
+    const dernierCranRef = useRef(0)
 
     useEffect(() => {
         translateY.value = lecteurOuvert
@@ -1184,6 +1230,67 @@ export default function LecteurPleinEcran() {
         changerVitesse(VITESSES[(i + 1) % VITESSES.length])
     }
 
+    const debutReglageVitesse = () => {
+        setReglageVitesse(true)
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    }
+    const liveReglageVitesse = (v: number) => {
+        // application audio en direct, throttlée (~80 ms)
+        const now = Date.now()
+        if (now - dernierApplyRef.current > 80) {
+            dernierApplyRef.current = now
+            changerVitesseLive(v)
+        }
+        // petit tic à chaque cran de 0,05
+        const cran = Math.round(v * 20)
+        if (cran !== dernierCranRef.current) {
+            dernierCranRef.current = cran
+            Haptics.selectionAsync()
+        }
+    }
+    const finReglageVitesse = (v: number) => {
+        setReglageVitesse(false)
+        changerVitesse(Math.round(v * 100) / 100)
+    }
+
+    const panVitesse = Gesture.Pan()
+        .activateAfterLongPress(350)
+        .onStart(() => {
+            vitDepartSV.value = vitesse
+            vitLiveSV.value = vitesse
+            runOnJS(debutReglageVitesse)()
+        })
+        .onUpdate(e => {
+            // 220 px de course ≈ toute la plage 0,75 → 2,00
+            const v = Math.min(2, Math.max(0.75, vitDepartSV.value + (e.translationX / 220) * 1.25))
+            const arrondi = Math.round(v * 100) / 100
+            if (arrondi !== vitLiveSV.value) {
+                vitLiveSV.value = arrondi
+                runOnJS(liveReglageVitesse)(arrondi)
+            }
+        })
+        .onEnd(() => {
+            runOnJS(finReglageVitesse)(vitLiveSV.value)
+        })
+        .onFinalize((_e, reussi) => {
+            if (!reussi) runOnJS(finReglageVitesse)(vitLiveSV.value)
+        })
+    const tapVitesse = Gesture.Tap()
+        .maxDuration(330)
+        .onEnd((_e, reussi) => { if (reussi) runOnJS(cyclerVitesse)() })
+    const gesteVitesse = Gesture.Race(panVitesse, tapVitesse)
+
+    // HUD : libellé ×N,NN + jauge, pilotés sur le thread UI
+    const vitesseProps = useAnimatedProps(() => {
+        const cent = Math.round(vitLiveSV.value * 100)
+        const ent = Math.floor(cent / 100)
+        const dec = cent % 100
+        return { text: '×' + ent + ',' + (dec < 10 ? '0' + dec : '' + dec) } as any
+    })
+    const remplissageVitesse = useAnimatedStyle(() => ({
+        width: ((vitLiveSV.value - 0.75) / 1.25) * 210,
+    }))
+
     const togglePlay = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
         enLecture ? pause() : reprendre()
@@ -1268,7 +1375,7 @@ export default function LecteurPleinEcran() {
                                 {/* Artwork / panel */}
                                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                                     <Animated.View style={artEntree}>
-                                        <Artwork enLecture={enLecture} hidden={panelOpen} onSwipeSkip={swipeSkip} onDoubleTap={togglePlay} />
+                                        <Artwork enLecture={enLecture} hidden={panelOpen} onSwipeSkip={swipeSkip} onDoubleTap={togglePlay} transition={transitionPiste} />
                                     </Animated.View>
 
                                     {panelOpen && (
@@ -1421,25 +1528,55 @@ export default function LecteurPleinEcran() {
                                     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                                     marginTop: spacing.md, marginBottom: spacing.md,
                                 }}>
-                                    {/* speed pill */}
-                                    <SpringTap
-                                        onPress={cyclerVitesse}
-                                        hitSlop={12}
-                                        pressedScale={0.88}
-                                        style={{ width: 56, alignItems: 'center' }}
-                                    >
-                                        <View style={{
-                                            paddingHorizontal: 10, paddingVertical: 6,
-                                            borderRadius: radius.full,
-                                            backgroundColor: vitesse !== 1 ? OR_DIM : W08,
-                                            borderWidth: 1,
-                                            borderColor: vitesse !== 1 ? colors.or : W35,
-                                        }}>
-                                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 13, color: vitesse !== 1 ? colors.or : W85 }}>
-                                                ×{fmtVitesse(vitesse)}
-                                            </Text>
+                                    {/* HUD de réglage fin de la vitesse (long-press + glisser) */}
+                                    {reglageVitesse && (
+                                        <Animated.View
+                                            entering={FadeIn.duration(120)}
+                                            pointerEvents="none"
+                                            style={{ position: 'absolute', top: -74, left: 0, right: 0, alignItems: 'center', zIndex: 10 }}
+                                        >
+                                            <View style={{
+                                                backgroundColor: 'rgba(10,27,48,0.90)',
+                                                borderRadius: radius.full,
+                                                borderWidth: 1, borderColor: W15,
+                                                paddingHorizontal: 20, paddingVertical: 10,
+                                                alignItems: 'center', gap: 7,
+                                                shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+                                                shadowOpacity: 0.35, shadowRadius: 16, elevation: 10,
+                                            }}>
+                                                <AnimatedTextInput
+                                                    editable={false}
+                                                    defaultValue="×1,00"
+                                                    animatedProps={vitesseProps}
+                                                    style={{
+                                                        fontFamily: typography.fontFamily.bold,
+                                                        fontSize: 20, color: colors.or,
+                                                        fontVariant: ['tabular-nums'],
+                                                        padding: 0, textAlign: 'center',
+                                                    }}
+                                                />
+                                                <View style={{ width: 210, height: 4, borderRadius: 2, backgroundColor: W15, overflow: 'hidden' }}>
+                                                    <Animated.View style={[{ height: '100%', borderRadius: 2, backgroundColor: colors.or }, remplissageVitesse]} />
+                                                </View>
+                                            </View>
+                                        </Animated.View>
+                                    )}
+                                    {/* speed pill — tap : cycle ; long-press + glisser : réglage fin */}
+                                    <GestureDetector gesture={gesteVitesse}>
+                                        <View style={{ width: 56, alignItems: 'center' }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                                            <View style={{
+                                                paddingHorizontal: 10, paddingVertical: 6,
+                                                borderRadius: radius.full,
+                                                backgroundColor: vitesse !== 1 ? OR_DIM : W08,
+                                                borderWidth: 1,
+                                                borderColor: vitesse !== 1 ? colors.or : W35,
+                                            }}>
+                                                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 13, color: vitesse !== 1 ? colors.or : W85 }}>
+                                                    ×{fmtVitesse(vitesse)}
+                                                </Text>
+                                            </View>
                                         </View>
-                                    </SpringTap>
+                                    </GestureDetector>
 
                                     <BoutonSkip sens={-1} onSkip={() => skip(reculer)} onLongSkip={() => allerChapitre(-1)} />
 
