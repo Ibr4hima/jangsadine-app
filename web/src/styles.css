@@ -1,0 +1,628 @@
+/* Jàng Araab — design system (même famille visuelle que Jàng sa Diné) */
+
+:root {
+  --bleu: #2d578c;
+  --bleu-fonce: #22436d;
+  --bleu-pale: #e8f0f8;
+  --or: #d6ad3a;
+  --or-fonce: #b8911f;
+  --or-pale: #faf3dc;
+  --fond: #f4f1ea;
+  --carte: #ffffff;
+  --bordure: #e8e4da;
+  --texte: #1a1a2e;
+  --muted: #6b7280;
+  --vert: #2d7a4f;
+  --vert-pale: #eaf4ee;
+  --rouge: #b4443c;
+  --rouge-pale: #fbeceb;
+  --rayon: 16px;
+  --ombre: 0 1px 3px rgb(26 26 46 / 0.06), 0 6px 18px rgb(26 26 46 / 0.05);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ar {
+  font-family: 'Noto Naskh Arabic', 'Geeza Pro', 'Traditional Arabic', serif;
+  direction: rtl;
+  line-height: 1.9;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+}
+
+.coquille {
+  width: 100%;
+  max-width: 560px;
+  padding: 0 18px calc(28px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- entête ---------- */
+
+.entete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 0 14px;
+}
+
+.entete .logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--bleu);
+  color: var(--or);
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.entete h1 {
+  font-size: 1.25rem;
+  margin: 0;
+  color: var(--bleu);
+}
+
+.entete p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.retour {
+  appearance: none;
+  border: 1px solid var(--bordure);
+  background: var(--carte);
+  color: var(--bleu);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 14px 0 4px;
+  align-self: flex-start;
+  transition: background 0.15s;
+}
+
+.retour:active {
+  background: var(--bleu-pale);
+}
+
+/* ---------- cartes ---------- */
+
+.carte {
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon);
+  box-shadow: var(--ombre);
+  padding: 18px;
+}
+
+.carte-clic {
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  text-align: inherit;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.carte-clic:active {
+  transform: scale(0.98);
+}
+
+.carte-verrouillee {
+  opacity: 0.62;
+}
+
+.liste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--or-pale);
+  color: var(--or-fonce);
+}
+
+.badge-bleu {
+  background: var(--bleu-pale);
+  color: var(--bleu);
+}
+
+.badge-vert {
+  background: var(--vert-pale);
+  color: var(--vert);
+}
+
+/* ---------- accueil ---------- */
+
+.hero {
+  background: linear-gradient(135deg, var(--bleu) 0%, var(--bleu-fonce) 100%);
+  color: #fff;
+  border-radius: 20px;
+  padding: 24px 22px;
+  margin-top: 6px;
+}
+
+.hero .basmala {
+  color: var(--or);
+  font-size: 1.5rem;
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+.hero h2 {
+  margin: 0 0 6px;
+  font-size: 1.3rem;
+}
+
+.hero p {
+  margin: 0;
+  font-size: 0.92rem;
+  opacity: 0.92;
+}
+
+.palier {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.palier .numero {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--bleu-pale);
+  color: var(--bleu);
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.palier .contenu {
+  flex: 1;
+  min-width: 0;
+}
+
+.palier h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--bleu);
+}
+
+.nom-ar {
+  /* le span est en RTL : une marge logique se résoudrait du mauvais côté */
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
+.palier .nom-ar {
+  color: var(--or-fonce);
+  font-size: 1.05rem;
+}
+
+.palier p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.palier .sources {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--or-fonce);
+}
+
+/* ---------- niveaux & leçons ---------- */
+
+.titre-section {
+  margin: 22px 0 0;
+  font-size: 1.15rem;
+  color: var(--bleu);
+}
+
+.sous-titre {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.jauge {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bordure);
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.jauge > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--or);
+  transition: width 0.4s ease;
+}
+
+.lecon-ligne {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.lecon-ligne .pastille {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: var(--bleu-pale);
+  color: var(--bleu);
+  flex-shrink: 0;
+}
+
+.lecon-ligne .pastille.faite {
+  background: var(--or);
+  color: #fff;
+}
+
+.lecon-ligne .titre-ar {
+  font-size: 1.3rem;
+  color: var(--texte);
+}
+
+.lecon-ligne .titre-fr {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* ---------- lecteur de leçon ---------- */
+
+.lecteur-entete {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 0 10px;
+}
+
+.fermer {
+  appearance: none;
+  border: none;
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  color: var(--muted);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.lecteur-jauge {
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bordure);
+  overflow: hidden;
+}
+
+.lecteur-jauge > div {
+  height: 100%;
+  background: var(--or);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.etape {
+  animation: apparition 0.3s ease;
+  padding-top: 10px;
+}
+
+@keyframes apparition {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.etape h2 {
+  font-size: 1.15rem;
+  color: var(--bleu);
+  margin: 6px 0 2px;
+}
+
+.etape .consigne {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 16px;
+}
+
+/* découverte : grille de cartes à écouter */
+
+.grille-cartes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.carte-lettre {
+  background: var(--carte);
+  border: 1.5px solid var(--bordure);
+  border-radius: var(--rayon);
+  box-shadow: var(--ombre);
+  padding: 16px 12px;
+  text-align: center;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: transform 0.12s ease, border-color 0.2s ease;
+}
+
+.carte-lettre:active {
+  transform: scale(0.96);
+}
+
+.carte-lettre.ecoutee {
+  border-color: var(--or);
+}
+
+.carte-lettre .glyphe {
+  font-size: 3.1rem;
+  color: var(--bleu);
+  display: block;
+}
+
+.carte-lettre .legende {
+  display: block;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.carte-lettre .sous-legende {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* QCM */
+
+.enonce-audio {
+  display: grid;
+  place-items: center;
+  margin: 8px auto 18px;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bleu);
+  color: #fff;
+  font-size: 2.2rem;
+  cursor: pointer;
+  box-shadow: var(--ombre);
+  transition: transform 0.12s ease;
+}
+
+.enonce-audio:active {
+  transform: scale(0.94);
+}
+
+.enonce-visuel {
+  text-align: center;
+  font-size: 4rem;
+  color: var(--bleu);
+  margin: 4px 0 14px;
+  cursor: pointer;
+}
+
+.grille-choix {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.choix {
+  border: 1.5px solid var(--bordure);
+  background: var(--carte);
+  border-radius: var(--rayon);
+  box-shadow: var(--ombre);
+  padding: 16px 10px;
+  font: inherit;
+  color: var(--texte);
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.12s ease, border-color 0.15s, background 0.15s;
+}
+
+.choix:active {
+  transform: scale(0.96);
+}
+
+.choix.grand-ar {
+  font-size: 2.6rem;
+  color: var(--bleu);
+  line-height: 1.6;
+}
+
+.choix.correct {
+  border-color: var(--vert);
+  background: var(--vert-pale);
+  color: var(--vert);
+}
+
+.choix.incorrect {
+  border-color: var(--rouge);
+  background: var(--rouge-pale);
+  color: var(--rouge);
+  animation: secousse 0.35s ease;
+}
+
+.choix.attendu {
+  border-color: var(--vert);
+}
+
+@keyframes secousse {
+  20% { transform: translateX(-6px); }
+  45% { transform: translateX(5px); }
+  70% { transform: translateX(-3px); }
+  100% { transform: none; }
+}
+
+.verdict {
+  margin-top: 16px;
+  border-radius: var(--rayon);
+  padding: 12px 16px;
+  font-weight: 700;
+  animation: apparition 0.25s ease;
+}
+
+.verdict.bon {
+  background: var(--vert-pale);
+  color: var(--vert);
+}
+
+.verdict.mauvais {
+  background: var(--rouge-pale);
+  color: var(--rouge);
+}
+
+/* paires */
+
+.colonnes-paires {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.colonnes-paires .choix {
+  min-height: 64px;
+  display: grid;
+  place-items: center;
+}
+
+.choix.selectionne {
+  border-color: var(--bleu);
+  background: var(--bleu-pale);
+}
+
+.choix.apparie {
+  opacity: 0.45;
+  pointer-events: none;
+  border-color: var(--vert);
+}
+
+/* info & fin */
+
+.encart-ar {
+  text-align: center;
+  font-size: 2.6rem;
+  color: var(--bleu);
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon);
+  padding: 18px;
+  margin-top: 16px;
+}
+
+.ecran-fin {
+  text-align: center;
+  padding: 36px 0;
+}
+
+.ecran-fin .titre-ar {
+  font-size: 2.4rem;
+  color: var(--or-fonce);
+  margin: 0;
+}
+
+.ecran-fin .score {
+  font-size: 2.6rem;
+  font-weight: 800;
+  color: var(--bleu);
+  margin: 14px 0 2px;
+}
+
+/* pied de leçon */
+
+.pied-lecon {
+  position: sticky;
+  bottom: 0;
+  padding: 14px 0 calc(14px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--fond) 65%, transparent);
+  margin-top: 22px;
+}
+
+.bouton {
+  width: 100%;
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 15px 22px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--bleu);
+  color: #fff;
+  box-shadow: var(--ombre);
+  transition: transform 0.12s ease, opacity 0.15s;
+}
+
+.bouton:active {
+  transform: scale(0.98);
+}
+
+.bouton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bouton.or {
+  background: var(--or);
+  color: #fff;
+}
+
+.pied-page {
+  margin-top: 34px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
