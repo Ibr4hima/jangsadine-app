@@ -439,7 +439,15 @@ export default function LectureSourate() {
 
     return (
         <View style={{ flex: 1, backgroundColor: BG }}>
-            <StatusBar barStyle={chromeVisible ? 'light-content' : 'dark-content'} />
+            {/* Immersion totale : quand le chrome est masqué (tap), la barre
+                d'état système (heure, batterie…) disparaît aussi — page pleine,
+                uniquement le Coran. */}
+            <StatusBar
+                barStyle={chromeVisible ? 'light-content' : 'dark-content'}
+                hidden={!chromeVisible}
+                animated
+                showHideTransition="fade"
+            />
 
             {/* Lecture « au fil » : toutes les sourates s'enchaînent, virtualisé */}
             {!loading && (
