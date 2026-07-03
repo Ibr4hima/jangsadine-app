@@ -270,6 +270,7 @@ export default function RootLayout() {
     IBMPlexSansArabic: require('../assets/fonts/IBMPlexSansArabic-Regular.ttf'),
     UthmanicHafs: require('../assets/fonts/UthmanicHafs1Ver18.ttf'),
     Warsh: require('../assets/fonts/UthmanicWarshV21.ttf'),
+    Qaloon: require('../assets/fonts/UthmanicQaloonV21.ttf'),
     SuraNames: require('../assets/fonts/SuraNames.ttf'),
     MaterialSymbols: require('../assets/fonts/MaterialSymbols.ttf'),
   })

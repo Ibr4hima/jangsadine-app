@@ -17,10 +17,12 @@ import Svg, { Rect } from 'react-native-svg'
 const souratesParRiwaya: Record<string, any[]> = {
   hafs: require('../../assets/quran/sourates.json'),
   warsh: require('../../assets/quran/warsh_sourates.json'),
+  qaloon: require('../../assets/quran/qaloon_sourates.json'),
 }
 const divisionsParRiwaya: Record<string, { juz: Record<string, number> }> = {
   hafs: require('../../assets/quran/divisions.json'),
   warsh: require('../../assets/quran/warsh_divisions.json'),
+  qaloon: require('../../assets/quran/qaloon_divisions.json'),
 }
 
 // Débuts des 30 juz : « sora:aya » → n°, triés. Chaque chip ouvre le lecteur
@@ -50,11 +52,10 @@ const W55 = 'rgba(255,255,255,0.55)'
 const W12 = 'rgba(255,255,255,0.12)'
 
 // ─── riwayas ──────────────────────────────────────────────────
-// Hafs et Warsh disponibles ; Qaloon arrive.
 const RIWAYAS = [
   { id: 'hafs', nom: 'Hafs', dispo: true },
   { id: 'warsh', nom: 'Warsh', dispo: true },
-  { id: 'qaloon', nom: 'Qaloon', dispo: false },
+  { id: 'qaloon', nom: 'Qaloon', dispo: true },
 ] as const
 
 // ─── badge octogramme ۞ (deux carrés superposés à 45°) ───────
@@ -178,7 +179,7 @@ export default function Coran() {
       .then(raw => {
         if (!raw) return setReprise(null)
         const r = JSON.parse(raw) as { sourate: number; cle?: string; riwaya?: string }
-        const riw = r.riwaya === 'warsh' ? 'warsh' : 'hafs'
+        const riw = r.riwaya === 'warsh' || r.riwaya === 'qaloon' ? r.riwaya : 'hafs'
         const s = (souratesParRiwaya[riw]).find((x: Sourate) => x.index === r.sourate)
         setReprise(s ? { sourate: s, cle: r.cle ?? null, riwaya: riw } : null)
       })
