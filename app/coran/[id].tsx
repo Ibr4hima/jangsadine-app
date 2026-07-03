@@ -45,11 +45,7 @@ const divisions: { juz: Record<string, number>; hizb: Record<string, number> } =
 // Taille de lecture fixe : confortable et régulière, comme un Mushaf
 // imprimé (le zoom est volontairement désactivé pour préserver la mise
 // en page).
-const TAILLE_LECTURE = 28
-// On regroupe les versets en blocs d'environ ce nombre de caractères : le texte
-// reste un flux justifié continu DANS un bloc, et la FlatList ne rend que les
-// blocs visibles → fluide même sur al-Baqarah (286 versets).
-const BLOC_CARACTERES = 480
+const TAILLE_LECTURE = 32
 
 
 type Verset = { numero: number; texte: string }
@@ -282,32 +278,28 @@ export default function LectureSourate() {
         const out: Item[] = [
             { type: 'entete', cle: `s${idx}_e`, sourate: idx, basmala: basm, nbVersets: info?.versets ?? versets.length, premier: idx === index },
         ]
-        // On découpe en blocs (pour la virtualisation) ET on coupe à chaque fin de
-        // page pour intercaler un bandeau « numéro de page », comme dans un Mushaf
-        // imprimé — y compris quand la page se termine à la fin d'une sourate
-        // (ex. la page 1 juste après al-Fatiha).
+        // Un bloc = le contenu d'UNE page du Mushaf : on ne coupe qu'aux fins
+        // de pages (bandeau « numéro de page » intercalé). Chaque page est donc
+        // un seul paragraphe justifié — toutes les lignes remplissent la
+        // largeur, seule la dernière ligne de la page peut être courte, comme
+        // dans un Mushaf imprimé. La virtualisation opère par page.
         let courant: Verset[] = []
-        let nbCar = 0
         let blocIdx = 0
         const fermerBloc = () => {
             if (courant.length) {
                 out.push({ type: 'bloc', cle: `s${idx}_b${blocIdx++}`, sourate: idx, versets: courant })
                 courant = []
-                nbCar = 0
             }
         }
         for (let i = 0; i < versets.length; i++) {
             const v = versets[i]
             courant.push(v)
-            nbCar += v.texte.length
             // Fin de page : le bandeau s'affiche APRÈS le dernier verset de la page.
             // (Juz/Hizb sont gérés en ligne dans BlocTexte, au début du verset.)
             const page = pageEnds[`${idx}:${v.numero}`]
             if (page) {
                 fermerBloc()
                 out.push({ type: 'page', cle: `s${idx}_p${v.numero}`, sourate: idx, page })
-            } else if (nbCar >= BLOC_CARACTERES) {
-                fermerBloc()
             }
         }
         fermerBloc()
@@ -503,13 +495,13 @@ export default function LectureSourate() {
                         onEndReachedThreshold={1.5}
                         onViewableItemsChanged={onViewable}
                         viewabilityConfig={viewabilityConfig}
-                        // Assez d'items dès le premier rendu pour couvrir l'écran
-                        // (sinon le bas de page reste vide 1-2 s le temps des lots),
-                        // et des lots rapides pour la suite du remplissage.
-                        initialNumToRender={14}
-                        maxToRenderPerBatch={12}
+                        // Les items sont désormais à l'échelle d'une page de Mushaf :
+                        // peu d'items suffisent à couvrir l'écran, le voile d'ouverture
+                        // masque le remplissage initial.
+                        initialNumToRender={6}
+                        maxToRenderPerBatch={4}
                         updateCellsBatchingPeriod={30}
-                        windowSize={13}
+                        windowSize={7}
                     />
                 </GestureDetector>
             )}
