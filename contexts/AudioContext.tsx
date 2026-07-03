@@ -135,6 +135,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     // À moins de 20s de la fin on considère l'épisode terminé → on repart de 0.
     const pos = (duree > 0 && duree - temps < 20) ? 0 : Math.max(0, temps)
     AsyncStorage.setItem('jsd_derniere_position', String(pos)).catch(() => {})
+    // « Quasi fini » (< 30 s restantes) : l'accueil masque alors « Reprendre
+    // l'écoute » et propose « Continuer la lecture » du Coran à la place.
+    const quasiFini = duree > 0 && duree - temps < 30
+    AsyncStorage.setItem('jsd_audio_quasi_fini', quasiFini ? '1' : '0').catch(() => {})
   }, [])
 
   // Métadonnées de l'écran verrouillé : jaquette propre à la piste si fournie,

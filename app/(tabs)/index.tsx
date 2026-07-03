@@ -36,6 +36,8 @@ import TextTicker from 'react-native-text-ticker'
 
 const { width: W } = Dimensions.get('window')
 
+const sourates = require('../../assets/quran/sourates.json')
+
 // ─── palette héros (bleu logo) ────────────────────────────────
 const BG_TOP = '#3d6ba3'
 const BG_MID = '#2d578c'
@@ -193,14 +195,8 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
   }, [])
 
   useEffect(() => {
-    async function init() {
-      const { status } = await Location.requestForegroundPermissionsAsync()
-      if (status !== 'granted') return
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-      const { latitude, longitude } = loc.coords
-      const geo = await geocoderInverse(latitude, longitude)
-      if (geo.city) setVille(geo.city)
-      const countryCode = geo.isoCountryCode ?? 'FR'
+    // Calcul adhan pur et local : instantané dès qu'on a des coordonnées
+    const calculer = (latitude: number, longitude: number, countryCode: string) => {
       const coords = new adhan.Coordinates(latitude, longitude)
       const params = getMethode(countryCode)
       const times = new adhan.PrayerTimes(coords, new Date(), params)
@@ -211,6 +207,44 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
         { nom: 'Maghrib', heure: fmtH(times.maghrib) },
         { nom: 'Isha', heure: fmtH(times.isha) },
       ])
+    }
+
+    // Affichage instantané depuis le cache (position + ville partagées avec
+    // les pages Prières et Qibla). Le GPS/géocodage frais met à jour ensuite.
+    AsyncStorage.multiGet(['jsd_derniere_pos', 'jsd_prieres_geo'])
+      .then(([[, posRaw], [, geoRaw]]) => {
+        if (!posRaw) return
+        try {
+          const p = JSON.parse(posRaw)
+          if (typeof p?.lat !== 'number' || typeof p?.lng !== 'number') return
+          let countryCode = 'FR'
+          if (geoRaw) {
+            const g = JSON.parse(geoRaw)
+            if (g?.ville) setVille(String(g.ville).split(',')[0].trim())
+            if (g?.countryCode) countryCode = g.countryCode
+          }
+          calculer(p.lat, p.lng, countryCode)
+        } catch { }
+      })
+      .catch(() => { })
+
+    async function init() {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status !== 'granted') return
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      const { latitude, longitude } = loc.coords
+      const geo = await geocoderInverse(latitude, longitude)
+      if (geo.city) setVille(geo.city)
+      const countryCode = geo.isoCountryCode ?? 'FR'
+      calculer(latitude, longitude, countryCode)
+      // Mémorise pour la prochaine ouverture (clés partagées Prières/Qibla)
+      const nomVille = geo.city ?? geo.region ?? ''
+      const nomPays = geo.country ?? ''
+      AsyncStorage.setItem('jsd_derniere_pos', JSON.stringify({ lat: latitude, lng: longitude })).catch(() => { })
+      AsyncStorage.setItem('jsd_prieres_geo', JSON.stringify({
+        ville: nomVille && nomPays ? `${nomVille}, ${nomPays}` : nomVille || nomPays,
+        countryCode,
+      })).catch(() => { })
     }
     init().catch(e => console.warn('prieres accueil:', e))
   }, [])
@@ -340,6 +374,7 @@ function CarteReprendre() {
   const { piste, enLecture, jouer, pause, reprendre, setLecteurOuvert } = useAudio()
   const [derniere, setDerniere] = useState<Piste | null>(null)
   const [dernierePlaylist, setDernierePlaylist] = useState<Piste[] | null>(null)
+  const [quasiFini, setQuasiFini] = useState(false)
   const dernierePositionRef = useRef(0)
 
   useEffect(() => {
@@ -349,13 +384,25 @@ function CarteReprendre() {
     AsyncStorage.getItem('jsd_derniere_playlist')
       .then(raw => { if (raw) setDernierePlaylist(JSON.parse(raw)) })
       .catch(() => { })
+  }, [])
+
+  // Rafraîchi à chaque retour sur l'accueil : position de reprise + indicateur
+  // « quasi fini » (moins de 30 s restantes au moment où on a quitté l'audio).
+  useFocusEffect(useCallback(() => {
     AsyncStorage.getItem('jsd_derniere_position')
       .then(raw => { dernierePositionRef.current = raw ? Number(raw) || 0 : 0 })
       .catch(() => { })
-  }, [])
+    AsyncStorage.getItem('jsd_audio_quasi_fini')
+      .then(v => setQuasiFini(v === '1'))
+      .catch(() => { })
+  }, []))
 
   const affichee = piste ?? derniere
   if (!affichee) return null
+  // Audio quasi terminé (< 30 s restantes) et pas de lecture en cours :
+  // on ne propose pas de le reprendre — « Continuer la lecture » du Coran
+  // prend le relais.
+  if (!piste && quasiFini) return null
 
   // Relance la dernière piste en restaurant sa playlist complète (pour la File du lecteur)
   const reprendreDerniere = (options?: { ouvrirLecteur?: boolean }) => {
@@ -428,6 +475,92 @@ function CarteReprendre() {
           </View>
           <IcoChevron size={20} color="rgba(255,255,255,0.5)" />
         </LinearGradient>
+      </PressableScale>
+    </Animated.View>
+  )
+}
+
+// ─── continuer la lecture du Coran ────────────────────────────
+// Ne s'affiche QUE lorsque le dernier audio écouté est quasi terminé
+// (< 30 s restantes) : elle remplace alors « Reprendre l'écoute » et
+// rouvre le Coran pile où on s'était arrêté.
+function CarteLectureCoran({ onNav }: { onNav: (href: string) => void }) {
+  const { piste } = useAudio()
+  const [reprise, setReprise] = useState<{ index: number; nom: string; cle: string | null } | null>(null)
+  const [riwaya, setRiwaya] = useState('hafs')
+  const [quasiFini, setQuasiFini] = useState(false)
+
+  useFocusEffect(useCallback(() => {
+    AsyncStorage.getItem('jsd_audio_quasi_fini')
+      .then(v => setQuasiFini(v === '1'))
+      .catch(() => { })
+    AsyncStorage.getItem('jsd_reprise_coran')
+      .then(raw => {
+        if (!raw) return setReprise(null)
+        const r = JSON.parse(raw) as { sourate: number; cle?: string }
+        const s = sourates.find((x: any) => x.index === r.sourate)
+        setReprise(s ? { index: s.index, nom: s.nom, cle: r.cle ?? null } : null)
+      })
+      .catch(() => setReprise(null))
+    AsyncStorage.getItem('jsd_riwaya')
+      .then(r => { if (r) setRiwaya(r) })
+      .catch(() => { })
+  }, []))
+
+  // Visible seulement quand la carte audio s'est effacée (audio quasi fini,
+  // pas de lecture en cours) et qu'une lecture du Coran est en attente.
+  if (!quasiFini || piste || !reprise) return null
+
+  const ouvrir = () => {
+    const suffixe = reprise.cle ? `&cle=${reprise.cle}` : ''
+    onNav(`/coran/${reprise.index}?riwaya=${riwaya}${suffixe}`)
+  }
+
+  return (
+    <Animated.View entering={FadeInDown.duration(500).delay(80)}>
+      <PressableScale onPress={ouvrir} style={{
+        marginHorizontal: spacing.xl,
+        marginTop: spacing.lg,
+        backgroundColor: colors.blanc,
+        borderRadius: radius.xl + 4,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.md,
+        gap: spacing.md,
+        shadowColor: '#2a3b52',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 18,
+        elevation: 4,
+      }}>
+        {/* vignette calligraphie sur dégradé bleu */}
+        <View style={{
+          width: 52, height: 52, borderRadius: 17, overflow: 'hidden',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <LinearGradient
+            colors={[TUILE_G1, TUILE_G2]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+          <Image source={{ uri: QURAN_ICON_URI }} style={{ width: 36, height: 36 }} resizeMode="contain" />
+        </View>
+
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{
+            fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs,
+            color: colors.texteMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3,
+          }}>
+            Continuer la lecture
+          </Text>
+          <Text numberOfLines={1} style={{
+            fontFamily: typography.fontFamily.semibold, fontSize: typography.size.md, color: colors.texte,
+          }}>
+            {reprise.nom}
+          </Text>
+        </View>
+
+        <IcoChevron size={20} color="#c4c9d0" />
       </PressableScale>
     </Animated.View>
   )
@@ -641,6 +774,7 @@ export default function Accueil() {
         </Animated.View>
 
         <CarteReprendre />
+        <CarteLectureCoran onNav={naviguer} />
         <AccesRapide onNav={naviguer} />
         <HadithDuJour />
       </ScrollView>
