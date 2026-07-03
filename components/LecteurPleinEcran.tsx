@@ -869,21 +869,8 @@ function VolumeBar({ volume, onChange, onChangeLive }: {
 }
 
 // ─── Play / Pause with pulsing glow ───────────────────────────
-// `chargement` : anneau doré tournant autour du bouton pendant le
-// buffering — l'app ne paraît jamais figée sur un réseau lent.
-function BoutonPlay({ enLecture, chargement, onPress }: { enLecture: boolean; chargement: boolean; onPress: () => void }) {
+function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () => void }) {
     const glow = useSharedValue(0)
-    const spin = useSharedValue(0)
-
-    useEffect(() => {
-        if (chargement) {
-            spin.value = 0
-            spin.value = withRepeat(withTiming(360, { duration: 900, easing: Easing.linear }), -1, false)
-        } else {
-            cancelAnimation(spin)
-        }
-    }, [chargement])
-    const spinStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${spin.value}deg` }] }))
     // 0 = play, 1 = pause : le passage de l'un à l'autre est un morphing
     // continu (rotation + fondu croisé), pas un simple échange d'icônes.
     const mode = useSharedValue(enLecture ? 1 : 0)
@@ -925,18 +912,6 @@ function BoutonPlay({ enLecture, chargement, onPress }: { enLecture: boolean; ch
                     width: 90, height: 90, borderRadius: 45,
                     backgroundColor: '#fff',
                 }, ringStyle]} />
-                {/* anneau de chargement (buffering) */}
-                {chargement && (
-                    <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: 96, height: 96 }, spinStyle]}>
-                        <Svg width={96} height={96}>
-                            <SvgCircle
-                                cx={48} cy={48} r={45}
-                                stroke={colors.or} strokeWidth={3} fill="none"
-                                strokeDasharray="80 203" strokeLinecap="round"
-                            />
-                        </Svg>
-                    </Animated.View>
-                )}
                 <View style={{
                     width: 82, height: 82, borderRadius: 41,
                     backgroundColor: '#fff',
@@ -1102,7 +1077,7 @@ function BoutonTelechargement({ piste }: { piste: Piste }) {
 export default function LecteurPleinEcran() {
     const {
         piste, enLecture,
-        vitesse, volume, enChargement, pause, reprendre, seeker, avancer, reculer,
+        vitesse, volume, pause, reprendre, seeker, avancer, reculer,
         changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
     const { tempsActuel, dureeTotal } = useAudioProgress()
@@ -1603,7 +1578,7 @@ export default function LecteurPleinEcran() {
 
                                     <BoutonSkip sens={-1} onSkip={() => skip(reculer)} onLongSkip={() => allerChapitre(-1)} />
 
-                                    <BoutonPlay enLecture={enLecture} chargement={enChargement} onPress={togglePlay} />
+                                    <BoutonPlay enLecture={enLecture} onPress={togglePlay} />
 
                                     <BoutonSkip sens={1} onSkip={() => skip(avancer)} onLongSkip={() => allerChapitre(1)} />
 

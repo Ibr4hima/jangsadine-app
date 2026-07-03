@@ -75,8 +75,6 @@ type AudioContextType = {
   changerVitesseLive: (v: number) => void
   changerVolume: (v: number) => void
   changerVolumeLive: (v: number) => void
-  // true pendant le chargement/buffering de la piste (réseau lent…)
-  enChargement: boolean
   pisterSuivante: () => void
   pistePrecedente: () => void
   file: Piste[]
@@ -123,7 +121,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [file, setFile] = useState<Piste[]>([])
   const [playlist, setPlaylist] = useState<Piste[]>([])
   const [enLecture, setEnLecture] = useState(false)
-  const [enChargement, setEnChargement] = useState(false)
   const [progression, setProgression] = useState(0)
   const [tempsActuel, setTempsActuel] = useState(0)
   const [dureeTotal, setDureeTotal] = useState(0)
@@ -172,10 +169,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   // Reçoit les mises à jour du lecteur (~2×/s). Stable : ne lit que des refs.
   const onUpdate = useCallback((status: AudioStatus) => {
-    if (!status.isLoaded) { setEnChargement(true); return }
+    if (!status.isLoaded) return
     annulerWatchdog()
-    // Buffering en cours de lecture (réseau lent) ou fin de chargement
-    setEnChargement(status.isBuffering)
 
     const t = status.currentTime ?? 0
     const d = status.duration ?? 0
@@ -286,7 +281,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const chargerEtJouer = useCallback((p: Piste, suivantes: Piste[] = [], options?: OptionsLecture) => {
-    setEnChargement(true)
     const player = playerRef.current
     if (!player) return
     const generation = ++generationRef.current
@@ -462,13 +456,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // vitesse…). Toutes les fonctions sont useCallback-stables, donc cette valeur
   // garde la même identité pendant les mises à jour de progression.
   const controlValue = useMemo<AudioContextType>(() => ({
-    piste, enLecture, enChargement, vitesse, volume,
+    piste, enLecture, vitesse, volume,
     lecteurOuvert, setLecteurOuvert,
     jouer, pause, reprendre, seeker, avancer, reculer,
     changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente,
     file, playlist, ajouterAFile,
   }), [
-    piste, enLecture, enChargement, vitesse, volume, lecteurOuvert, file, playlist,
+    piste, enLecture, vitesse, volume, lecteurOuvert, file, playlist,
     jouer, pause, reprendre, seeker, avancer, reculer,
     changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente, ajouterAFile,
   ])
