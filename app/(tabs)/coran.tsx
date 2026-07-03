@@ -12,17 +12,27 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Rect } from 'react-native-svg'
 
-const sourates = require('../../assets/quran/sourates.json')
-const divisions: { juz: Record<string, number> } = require('../../assets/quran/divisions.json')
+// Listes de sourates et divisions par riwaya (versets, pages et débuts de
+// juz diffèrent entre Hafs et Warsh)
+const souratesParRiwaya: Record<string, any[]> = {
+  hafs: require('../../assets/quran/sourates.json'),
+  warsh: require('../../assets/quran/warsh_sourates.json'),
+}
+const divisionsParRiwaya: Record<string, { juz: Record<string, number> }> = {
+  hafs: require('../../assets/quran/divisions.json'),
+  warsh: require('../../assets/quran/warsh_divisions.json'),
+}
 
 // Débuts des 30 juz : « sora:aya » → n°, triés. Chaque chip ouvre le lecteur
 // pile au premier verset du juz (param `verset`).
-const JUZS = Object.entries(divisions.juz)
-  .map(([cle, n]) => {
-    const [sora, aya] = cle.split(':').map(Number)
-    return { n, sora, aya }
-  })
-  .sort((a, b) => a.n - b.n)
+function construireJuzs(divisions: { juz: Record<string, number> }) {
+  return Object.entries(divisions.juz)
+    .map(([cle, n]) => {
+      const [sora, aya] = cle.split(':').map(Number)
+      return { n, sora, aya }
+    })
+    .sort((a, b) => a.n - b.n)
+}
 
 type Sourate = {
   index: number
@@ -40,11 +50,10 @@ const W55 = 'rgba(255,255,255,0.55)'
 const W12 = 'rgba(255,255,255,0.12)'
 
 // ─── riwayas ──────────────────────────────────────────────────
-// Hafs disponible ; Warsh et Qaloon arrivent — le sélecteur prépare la
-// navigation entre les trois.
+// Hafs et Warsh disponibles ; Qaloon arrive.
 const RIWAYAS = [
   { id: 'hafs', nom: 'Hafs', dispo: true },
-  { id: 'warsh', nom: 'Warsh', dispo: false },
+  { id: 'warsh', nom: 'Warsh', dispo: true },
   { id: 'qaloon', nom: 'Qaloon', dispo: false },
 ] as const
 
@@ -146,8 +155,11 @@ export default function Coran() {
   // Coupe les animations du fond aurore quand l'onglet n'est pas visible
   const [focus, setFocus] = useState(true)
   useFocusEffect(useCallback(() => { setFocus(true); return () => setFocus(false) }, []))
-  const [reprise, setReprise] = useState<{ sourate: Sourate; cle: string | null } | null>(null)
+  const [reprise, setReprise] = useState<{ sourate: Sourate; cle: string | null; riwaya: string } | null>(null)
   const [riwaya, setRiwaya] = useState<string>('hafs')
+
+  const sourates = souratesParRiwaya[riwaya] ?? souratesParRiwaya.hafs
+  const juzs = construireJuzs(divisionsParRiwaya[riwaya] ?? divisionsParRiwaya.hafs)
 
   // Riwaya choisie, persistée
   useEffect(() => {
@@ -165,9 +177,10 @@ export default function Coran() {
     AsyncStorage.getItem('jsd_reprise_coran')
       .then(raw => {
         if (!raw) return setReprise(null)
-        const r = JSON.parse(raw) as { sourate: number; cle?: string }
-        const s = sourates.find((x: Sourate) => x.index === r.sourate)
-        setReprise(s ? { sourate: s, cle: r.cle ?? null } : null)
+        const r = JSON.parse(raw) as { sourate: number; cle?: string; riwaya?: string }
+        const riw = r.riwaya === 'warsh' ? 'warsh' : 'hafs'
+        const s = (souratesParRiwaya[riw]).find((x: Sourate) => x.index === r.sourate)
+        setReprise(s ? { sourate: s, cle: r.cle ?? null, riwaya: riw } : null)
       })
       .catch(() => setReprise(null))
   }, []))
@@ -175,7 +188,8 @@ export default function Coran() {
   const ouvrirReprise = () => {
     if (!reprise) return
     const suffixe = reprise.cle ? `&cle=${reprise.cle}` : ''
-    router.push(`/coran/${reprise.sourate.index}?riwaya=${riwaya}${suffixe}` as any)
+    // rouvre dans la riwaya où la lecture avait eu lieu (clé de bloc liée)
+    router.push(`/coran/${reprise.sourate.index}?riwaya=${reprise.riwaya}${suffixe}` as any)
   }
 
   return (
@@ -301,7 +315,7 @@ export default function Coran() {
         style={{ flexGrow: 0, height: 44, marginTop: spacing.md, marginBottom: spacing.sm }}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, alignItems: 'center' }}
       >
-        {JUZS.map(j => (
+        {juzs.map(j => (
           <Pressable
             key={j.n}
             onPress={() => router.push(`/coran/${j.sora}?riwaya=${riwaya}&verset=${j.aya}` as any)}

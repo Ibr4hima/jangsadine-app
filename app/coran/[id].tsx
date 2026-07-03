@@ -2,11 +2,11 @@ import FondAurore from '@/components/FondAurore'
 import Bismillah from '@/components/Bismillah'
 import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
-import { getSourate } from '@/lib/quran'
+import { getSourate, Riwaya } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft } from 'lucide-react-native'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ActivityIndicator, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -31,15 +31,21 @@ const HERO_MID = '#2d578c'
 const HERO_BOT = '#234a7a'
 
 const sourates = require('../../assets/quran/sourates.json')
-// Délimitations des pages du Mushaf Madani (KFGQPC v18) : « sora:aya » → numéro
-// de la page qui se TERMINE à cet ayah. Sert à insérer un bandeau de numéro de
-// page au fil de la lecture, comme dans un vrai Mushaf.
-const pageEnds: Record<string, number> = require('../../assets/quran/pages.json')
-// Délimitations Juz (30) et Hizb (les 30 mi-juz). « sora:aya » → numéro. Le début
-// d'un juz est aussi le début d'un hizb impair : on n'affiche donc en plus que les
-// hizb pairs (milieu de juz) pour éviter les doublons.
-const divisions: { juz: Record<string, number>; hizb: Record<string, number> } =
-    require('../../assets/quran/divisions.json')
+
+type Divisions = { juz: Record<string, number>; hizb: Record<string, number> }
+
+// Données par riwaya, chargées paresseusement :
+// - pages : « sora:aya » → n° de la page qui se TERMINE à cet ayah (bandeaux)
+// - divisions : débuts de Juz (et Hizb pairs pour Hafs ; pas de source Hizb
+//   fiable pour Warsh → juz seulement)
+const pagesParRiwaya: Record<Riwaya, () => Record<string, number>> = {
+    hafs: () => require('../../assets/quran/pages.json'),
+    warsh: () => require('../../assets/quran/warsh_pages.json'),
+}
+const divisionsParRiwaya: Record<Riwaya, () => Divisions> = {
+    hafs: () => require('../../assets/quran/divisions.json'),
+    warsh: () => require('../../assets/quran/warsh_divisions.json'),
+}
 
 // Taille de lecture fixe : confortable et régulière, comme un Mushaf
 // imprimé (le zoom est volontairement désactivé pour préserver la mise
@@ -70,7 +76,7 @@ function chiffresArabes(n: number) {
 
 // Étiquette inline d'un début de Juz / Hizb (sans voyelles). Renvoie le libellé
 // arabe ou null.
-function libelleDivision(sourate: number, numero: number): string | null {
+function libelleDivision(divisions: Divisions, sourate: number, numero: number): string | null {
     const cle = `${sourate}:${numero}`
     const j = divisions.juz[cle]
     if (j) return `الجزء ${j}`
@@ -83,11 +89,14 @@ function libelleDivision(sourate: number, numero: number): string | null {
 // (chiffre arabe, même couleur que le texte) est dimensionné à 110% de la taille.
 // Au début d'un Juz/Hizb, on remplace l'ornement ۞ du texte par un badge bleu
 // en ligne (même police, même taille que le Coran).
-function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate: number; taille: number; lineHeight: number }) {
+function BlocTexte({ item, sourate, taille, lineHeight, divisions, police }: {
+    item: Bloc; sourate: number; taille: number; lineHeight: number
+    divisions: Divisions; police: string
+}) {
     return (
         <Text
             style={{
-                fontFamily: typography.fontFamily.coran,
+                fontFamily: police,
                 fontSize: taille,
                 lineHeight,
                 color: TEXTE,
@@ -101,7 +110,7 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
             }}
         >
             {item.versets.map(v => {
-                const badge = libelleDivision(sourate, v.numero)
+                const badge = libelleDivision(divisions, sourate, v.numero)
                 // ۞ (U+06DE) en tête de verset = marque rub-el-hizb : on l'enlève
                 // uniquement aux débuts de Juz/Hizb (remplacée par le badge).
                 const texte = badge && v.texte.charCodeAt(0) === 0x06DE ? v.texte.slice(1) : v.texte
@@ -114,13 +123,13 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
                                     {/* Ast\u00e9risque ancr\u00e9 en bas de la ligne */}
                                     <Text style={{ fontFamily: 'MaterialSymbols', fontSize: taille * 0.88, color: '#000000', lineHeight: taille * 0.95 }}>{'\ue3ac'}</Text>
                                     {/* Libell\u00e9 exposant : en haut + d\u00e9cal\u00e9 \u00e0 droite */}
-                                    <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 0.44, color: '#80838A', alignSelf: 'flex-start', paddingLeft: taille * 0.14, lineHeight: taille * 0.5, writingDirection: 'rtl' } as any}>{badge}</Text>
+                                    <Text style={{ fontFamily: police, fontSize: taille * 0.44, color: '#80838A', alignSelf: 'flex-start', paddingLeft: taille * 0.14, lineHeight: taille * 0.5, writingDirection: 'rtl' } as any}>{badge}</Text>
                                 </View>
                                 {'  '}
                             </Text>
                         )}
                         {texte}{' '}
-                        <Text style={{ fontFamily: typography.fontFamily.coran, fontSize: taille * 1.1, color: TEXTE }}>
+                        <Text style={{ fontFamily: police, fontSize: taille * 1.1, color: TEXTE }}>
                             {chiffresArabes(v.numero)}
                         </Text>
                         {'  '}
@@ -170,10 +179,15 @@ function BordureMushaf({ cote }: { cote: 'gauche' | 'droite' }) {
 export default function LectureSourate() {
     // `cle` (optionnel) : clé du bloc où reprendre la lecture exactement.
     // `verset` (optionnel) : numéro de verset où s'ouvrir (ex. début d'un juz).
-    const { id, cle, verset } = useLocalSearchParams<{ id: string; cle?: string; verset?: string }>()
+    // `riwaya` : hafs (défaut) ou warsh — texte, pages, divisions et police.
+    const { id, cle, verset, riwaya } = useLocalSearchParams<{ id: string; cle?: string; verset?: string; riwaya?: string }>()
     const router = useRouter()
     const insets = useSafeAreaInsets()
     const index = parseInt(id)
+    const riw: Riwaya = riwaya === 'warsh' ? 'warsh' : 'hafs'
+    const pageEnds = useMemo(() => pagesParRiwaya[riw](), [riw])
+    const divisions = useMemo(() => divisionsParRiwaya[riw](), [riw])
+    const policeCoran = riw === 'warsh' ? 'Warsh' : typography.fontFamily.coran
 
     const [items, setItems] = useState<Item[]>([])
     const [sourateActive, setSourateActive] = useState(index)
@@ -184,7 +198,7 @@ export default function LectureSourate() {
     // Coran rouvre alors le lecteur pile à cet endroit via le param `cle`.
     // Les clés de blocs sont déterministes (indépendantes de la taille de police).
     const listeRef = useRef<FlatList<Item>>(null)
-    const repriseRef = useRef<{ sourate: number; cle: string } | null>(null)
+    const repriseRef = useRef<{ sourate: number; cle: string; riwaya: Riwaya } | null>(null)
     const derniereSauvegardeRef = useRef(0)
     const cibleRef = useRef<string | null>(cle ? String(cle) : null)
 
@@ -237,7 +251,7 @@ export default function LectureSourate() {
     // Construit (et met en cache) les items d'une sourate : en-tête (basmala) + blocs
     const construireSourate = useCallback((idx: number): Item[] => {
         if (itemsCacheRef.current[idx]) return itemsCacheRef.current[idx]
-        const data = getSourate(idx)
+        const data = getSourate(idx, riw)
         if (!data) return []
         const info = sourates.find((s: any) => s.index === idx)
         const versets: Verset[] = []
@@ -246,8 +260,9 @@ export default function LectureSourate() {
             const num = parseInt(cle.replace('verse_', ''))
             // verse_0 = basmala séparée → affichée en en-tête, hors flux numéroté.
             if (num === 0) { basm = texte as string; continue }
-            // al-Fatiha : la basmala EST le verset 1 → en en-tête, versets 2→7 restent.
-            if (idx === 1 && num === 1) { basm = texte as string; continue }
+            // al-Fatiha en Hafs : la basmala EST le verset 1 → en en-tête,
+            // versets 2→7 restent. En Warsh elle n'est pas comptée (verse_0).
+            if (riw === 'hafs' && idx === 1 && num === 1) { basm = texte as string; continue }
             versets.push({ numero: num, texte: texte as string })
         }
         const out: Item[] = [
@@ -280,7 +295,7 @@ export default function LectureSourate() {
         fermerBloc()
         itemsCacheRef.current[idx] = out
         return out
-    }, [index])
+    }, [index, riw, pageEnds])
 
     const recomposer = useCallback((indices: number[]) => {
         setItems(indices.flatMap(idx => construireSourate(idx)))
@@ -335,7 +350,7 @@ export default function LectureSourate() {
         if (haut.item?.sourate) setSourateActive(haut.item.sourate)
         // Position exacte de lecture (throttlée à ~1,5 s pour ménager le stockage)
         if (haut.item?.cle) {
-            repriseRef.current = { sourate: haut.item.sourate, cle: haut.item.cle }
+            repriseRef.current = { sourate: haut.item.sourate, cle: haut.item.cle, riwaya: riw }
             const maintenant = Date.now()
             if (maintenant - derniereSauvegardeRef.current > 1500) {
                 derniereSauvegardeRef.current = maintenant
@@ -387,9 +402,9 @@ export default function LectureSourate() {
                             flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
                             gap: taille * 0.4,
                         }}>
-                            {item.sourate === 1 && (
+                            {item.sourate === 1 && riw === 'hafs' && (
                                 <Text style={{
-                                    fontFamily: typography.fontFamily.coran,
+                                    fontFamily: policeCoran,
                                     fontSize: taille * 1.1,
                                     color: TEXTE,
                                     lineHeight: taille * 1.5,
@@ -426,8 +441,8 @@ export default function LectureSourate() {
                 </View>
             )
         }
-        return <BlocTexte item={item} sourate={item.sourate} taille={taille} lineHeight={lineHeight} />
-    }, [taille, lineHeight, insets.top])
+        return <BlocTexte item={item} sourate={item.sourate} taille={taille} lineHeight={lineHeight} divisions={divisions} police={policeCoran} />
+    }, [taille, lineHeight, insets.top, divisions, policeCoran, riw])
 
     return (
         <View style={{ flex: 1, backgroundColor: BG }}>

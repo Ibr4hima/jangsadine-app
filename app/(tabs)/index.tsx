@@ -493,8 +493,7 @@ function CarteReprendre() {
 // rouvre le Coran pile où on s'était arrêté.
 function CarteLectureCoran({ onNav }: { onNav: (href: string) => void }) {
   const { piste } = useAudio()
-  const [reprise, setReprise] = useState<{ index: number; nom: string; cle: string | null } | null>(null)
-  const [riwaya, setRiwaya] = useState('hafs')
+  const [reprise, setReprise] = useState<{ index: number; nom: string; cle: string | null; riwaya: string } | null>(null)
   const [quasiFini, setQuasiFini] = useState(false)
 
   useFocusEffect(useCallback(() => {
@@ -504,14 +503,14 @@ function CarteLectureCoran({ onNav }: { onNav: (href: string) => void }) {
     AsyncStorage.getItem('jsd_reprise_coran')
       .then(raw => {
         if (!raw) return setReprise(null)
-        const r = JSON.parse(raw) as { sourate: number; cle?: string }
+        const r = JSON.parse(raw) as { sourate: number; cle?: string; riwaya?: string }
         const s = sourates.find((x: any) => x.index === r.sourate)
-        setReprise(s ? { index: s.index, nom: s.nom, cle: r.cle ?? null } : null)
+        setReprise(s ? {
+          index: s.index, nom: s.nom, cle: r.cle ?? null,
+          riwaya: r.riwaya === 'warsh' ? 'warsh' : 'hafs',
+        } : null)
       })
       .catch(() => setReprise(null))
-    AsyncStorage.getItem('jsd_riwaya')
-      .then(r => { if (r) setRiwaya(r) })
-      .catch(() => { })
   }, []))
 
   // Visible seulement quand la carte audio s'est effacée (audio quasi fini,
@@ -520,7 +519,7 @@ function CarteLectureCoran({ onNav }: { onNav: (href: string) => void }) {
 
   const ouvrir = () => {
     const suffixe = reprise.cle ? `&cle=${reprise.cle}` : ''
-    onNav(`/coran/${reprise.index}?riwaya=${riwaya}${suffixe}`)
+    onNav(`/coran/${reprise.index}?riwaya=${reprise.riwaya}${suffixe}`)
   }
 
   return (
