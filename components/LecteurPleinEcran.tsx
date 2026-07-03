@@ -554,9 +554,9 @@ function Progress({ tempsActuel, dureeTotal, onSeek, marks = [] }: {
         const p = pEff(scrubbing.value, scrub.value, tapping.value, tapPos.value, prog.value)
         return { text: fmtW(p * duree.value) } as any
     })
+    // Droite : durée totale, fixe — simple indicateur, pas de décompte
     const droiteProps = useAnimatedProps(() => {
-        const p = pEff(scrubbing.value, scrub.value, tapping.value, tapPos.value, prog.value)
-        return { text: '-' + fmtW(Math.max(0, duree.value - p * duree.value)) } as any
+        return { text: fmtW(duree.value) } as any
     })
     const gaucheStyle = useAnimatedStyle(() => {
         const active = Math.max(scrubbing.value, tapping.value)
