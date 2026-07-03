@@ -12,7 +12,6 @@ import { ActivityIndicator, Dimensions, FlatList, Pressable, StatusBar, Text, Vi
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Svg, { Line, Path } from 'react-native-svg'
 
 // Couleurs fixes — pas de mode nuit/jour
 const BG = '#F2F0EF'
@@ -45,7 +44,7 @@ const divisions: { juz: Record<string, number>; hizb: Record<string, number> } =
 // Taille de lecture fixe : confortable et régulière, comme un Mushaf
 // imprimé (le zoom est volontairement désactivé pour préserver la mise
 // en page).
-const TAILLE_LECTURE = 32
+const TAILLE_LECTURE = 35
 
 
 type Verset = { numero: number; texte: string }
@@ -92,10 +91,12 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
                 fontSize: taille,
                 lineHeight,
                 color: TEXTE,
-                // Justifié : chaque ligne remplit la largeur comme dans un
-                // Mushaf imprimé (fini les petits mots seuls centrés en fin
-                // de bloc — la dernière ligne s'aligne à droite, naturel).
-                textAlign: 'justify',
+                // Centré : le justify de RN casse le façonnage arabe en fin
+                // de ligne (ligatures/harakat déformées). Un bloc étant une
+                // page entière, les lignes pleines se remplissent d'elles-
+                // mêmes et la dernière ligne de page est centrée, comme dans
+                // un Mushaf.
+                textAlign: 'center',
                 writingDirection: 'rtl',
             }}
         >
@@ -131,66 +132,36 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
 }
 
 // ─── Bordure de mushaf ────────────────────────────────────────
-// Cadre d'enluminure des côtés gauche/droit, comme un Mushaf imprimé :
-// une chaîne de marquises (ovales pointus, motif classique du tazhib)
-// ponctuée de petits losanges, entre deux rails dorés continus. Les
-// extrémités se fondent dans la page (dégradé couleur du fond).
+// Cadre minimaliste : un double filet doré continu de chaque côté (ligne
+// principale à l'extérieur, hairline plus douce à l'intérieur), fondu dans
+// la page aux extrémités. Sobre, précis, sans ornement.
 const HAUTEUR_ECRAN = Dimensions.get('window').height
 
 function BordureMushaf({ cote }: { cote: 'gauche' | 'droite' }) {
-    const H = HAUTEUR_ECRAN
-    const cx = 8
-    const PAS = 64          // distance verticale entre deux marquises
-    const DEMI = 12         // demi-hauteur d'une marquise
-    const VENTRE = 4.6      // largeur du ventre de la marquise
-
-    const motifs: React.ReactElement[] = []
-    for (let y = 54; y < H - 54; y += PAS) {
-        // marquise : ovale pointu, contour fin + cœur très léger
-        motifs.push(
-            <Path
-                key={`m${y}`}
-                d={`M ${cx} ${y - DEMI} Q ${cx + VENTRE} ${y} ${cx} ${y + DEMI} Q ${cx - VENTRE} ${y} ${cx} ${y - DEMI} Z`}
-                stroke={OR} strokeWidth={0.9} strokeOpacity={0.6}
-                fill={OR} fillOpacity={0.10}
-            />
-        )
-        // petit losange plein entre deux marquises
-        const yd = y + PAS / 2
-        if (yd < H - 54) {
-            motifs.push(
-                <Path
-                    key={`d${y}`}
-                    d={`M ${cx} ${yd - 2.8} L ${cx + 2.8} ${yd} L ${cx} ${yd + 2.8} L ${cx - 2.8} ${yd} Z`}
-                    fill={OR} fillOpacity={0.55}
-                />
-            )
-        }
-    }
-
+    const ext = cote === 'gauche' ? 'left' : 'right'
     return (
         <View
             pointerEvents="none"
-            style={{
-                position: 'absolute', top: 0, bottom: 0,
-                ...(cote === 'gauche' ? { left: 2 } : { right: 2 }),
-                width: 16,
-            }}
+            style={{ position: 'absolute', top: 0, bottom: 0, [ext]: 7, width: 7 } as any}
         >
-            <Svg width={16} height={H}>
-                {/* rails continus de part et d'autre de la chaîne */}
-                <Line x1={2.2} y1={0} x2={2.2} y2={H} stroke={OR} strokeWidth={1.1} strokeOpacity={0.40} />
-                <Line x1={13.8} y1={0} x2={13.8} y2={H} stroke={OR} strokeWidth={1.1} strokeOpacity={0.40} />
-                {motifs}
-            </Svg>
+            {/* filet principal (extérieur) */}
+            <View style={{
+                position: 'absolute', top: 0, bottom: 0, [ext]: 0,
+                width: 1.4, backgroundColor: OR, opacity: 0.40,
+            } as any} />
+            {/* hairline intérieure, plus douce */}
+            <View style={{
+                position: 'absolute', top: 0, bottom: 0, [ext]: 5,
+                width: 0.7, backgroundColor: OR, opacity: 0.22,
+            } as any} />
             {/* fondu des extrémités dans la couleur de page */}
             <LinearGradient
                 colors={[BG, 'rgba(242,240,239,0)']}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120 }}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 110 }}
             />
             <LinearGradient
                 colors={['rgba(242,240,239,0)', BG]}
-                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120 }}
+                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 110 }}
             />
         </View>
     )
