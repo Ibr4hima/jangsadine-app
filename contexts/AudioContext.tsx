@@ -75,9 +75,6 @@ type AudioContextType = {
   avancer: (sec: number) => void
   reculer: (sec: number) => void
   changerVitesse: (v: number) => void
-  // Variante « live » pour le glisser de réglage : applique le taux sans
-  // état React ni persistance (appeler changerVitesse au relâché)
-  changerVitesseLive: (v: number) => void
   changerVolume: (v: number) => void
   changerVolumeLive: (v: number) => void
   pisterSuivante: () => void
@@ -473,11 +470,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     try { VolumeManager.setVolume(v, { showUI: false }).catch(() => {}) } catch {}
   }, [])
 
-  const changerVitesseLive = useCallback((v: number) => {
-    vitesseRef.current = v
-    playerRef.current?.setPlaybackRate(v, 'high')
-  }, [])
-
   const changerVitesse = useCallback(async (v: number) => {
     vitesseRef.current = v
     setVitesse(v)
@@ -518,12 +510,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     piste, enLecture, vitesse, volume,
     lecteurOuvert, setLecteurOuvert,
     jouer, pause, reprendre, seeker, avancer, reculer,
-    changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente,
+    changerVitesse, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente,
     file, playlist, ajouterAFile, marqueurs,
   }), [
     piste, enLecture, vitesse, volume, lecteurOuvert, file, playlist,
     jouer, pause, reprendre, seeker, avancer, reculer,
-    changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente, ajouterAFile, marqueurs,
+    changerVitesse, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente, ajouterAFile, marqueurs,
   ])
 
   const progressValue = useMemo<AudioProgressType>(

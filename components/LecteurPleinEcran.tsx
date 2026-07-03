@@ -146,8 +146,6 @@ const ART_SIZE = W - spacing.xl * 2
 
 const VITESSES = [1, 1.15, 1.25, 1.5, 2, 0.75]
 
-// Cadran de vitesse (long-press + glisser) : 0,5 → 2,0 par pas de 0,1
-const VITESSE_CRANS = Array.from({ length: 16 }, (_, i) => Math.round((0.5 + i * 0.1) * 10) / 10)
 
 function fmt(s: number) {
     if (!s || isNaN(s) || s < 0) return '0:00'
@@ -203,21 +201,6 @@ function SpringTap({ onPress, children, style, hitSlop = 14, pressedScale = 0.86
             {children}
         </AnimatedPressable>
     )
-}
-
-// ─── Cran du cadran de vitesse ────────────────────────────────
-// Un trait vertical : or jusqu'à la vitesse courante, blanc et surélevé
-// pour le cran actif, gris au-delà — tout sur le thread UI.
-function CranVitesse({ v, sv }: { v: number; sv: SharedValue<number> }) {
-    const st = useAnimatedStyle(() => {
-        const courant = Math.abs(sv.value - v) < 0.05
-        const actif = sv.value >= v - 0.001
-        return {
-            height: courant ? 22 : 13,
-            backgroundColor: courant ? '#ffffff' : actif ? colors.or : 'rgba(255,255,255,0.22)',
-        }
-    })
-    return <Animated.View style={[{ width: 2.5, borderRadius: 1.5 }, st]} />
 }
 
 // ─── Bouton ±10 s animé ───────────────────────────────────────
@@ -1040,7 +1023,7 @@ export default function LecteurPleinEcran() {
     const {
         piste, enLecture,
         vitesse, volume, pause, reprendre, seeker, avancer, reculer, pistePrecedente,
-        changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert, marqueurs,
+        changerVitesse, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert, marqueurs,
     } = useAudio()
     const { tempsActuel, dureeTotal } = useAudioProgress()
 
@@ -1073,20 +1056,6 @@ export default function LecteurPleinEcran() {
         setTransitionPiste({ id: piste.id, dir: anc >= 0 && nouv >= 0 && nouv < anc ? -1 : 1 })
     }, [piste?.id, playlist])
 
-    // ── Réglage de vitesse au glisser (long-press sur la pilule ×N) ──
-    // Long-press → HUD ; sans lever le doigt, glisser règle la vitesse au
-    // centième (0,75 → 2,00), appliquée en direct à l'audio. Relâcher valide.
-    const [reglageVitesse, setReglageVitesse] = useState(false)
-    const vitLiveSV = useSharedValue(1)
-    const vitDepartSV = useSharedValue(1)
-    const dernierApplyRef = useRef(0)
-    const dernierCranRef = useRef(0)
-    // HUD : libellé ×N,N piloté sur le thread UI (hook → impérativement AVANT
-    // le return conditionnel du composant)
-    const vitesseProps = useAnimatedProps(() => {
-        const dix = Math.round(vitLiveSV.value * 10)
-        return { text: '×' + Math.floor(dix / 10) + ',' + (dix % 10) } as any
-    })
 
     useEffect(() => {
         translateY.value = lecteurOuvert
@@ -1170,59 +1139,6 @@ export default function LecteurPleinEcran() {
         const i = VITESSES.indexOf(vitesse)
         changerVitesse(VITESSES[(i + 1) % VITESSES.length])
     }
-
-    const debutReglageVitesse = () => {
-        setReglageVitesse(true)
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    }
-    const liveReglageVitesse = (v: number) => {
-        // application audio en direct, throttlée (~80 ms)
-        const now = Date.now()
-        if (now - dernierApplyRef.current > 80) {
-            dernierApplyRef.current = now
-            changerVitesseLive(v)
-        }
-        // petit tic à chaque cran de 0,1
-        const cran = Math.round(v * 10)
-        if (cran !== dernierCranRef.current) {
-            dernierCranRef.current = cran
-            Haptics.selectionAsync()
-        }
-    }
-    const finReglageVitesse = (v: number) => {
-        setReglageVitesse(false)
-        changerVitesse(Math.round(v * 10) / 10)
-    }
-
-    const panVitesse = Gesture.Pan()
-        .activateAfterLongPress(350)
-        .onStart(() => {
-            // départ calé sur le cran de 0,1 le plus proche
-            const d = Math.min(2, Math.max(0.5, Math.round(vitesse * 10) / 10))
-            vitDepartSV.value = d
-            vitLiveSV.value = d
-            runOnJS(debutReglageVitesse)()
-        })
-        .onUpdate(e => {
-            // ~14 px par cran de 0,1 (plage 0,5 → 2,0)
-            const v = Math.min(2, Math.max(0.5, vitDepartSV.value + (e.translationX / 14) * 0.1))
-            const arrondi = Math.round(v * 10) / 10
-            if (arrondi !== vitLiveSV.value) {
-                vitLiveSV.value = arrondi
-                runOnJS(liveReglageVitesse)(arrondi)
-            }
-        })
-        .onEnd(() => {
-            runOnJS(finReglageVitesse)(vitLiveSV.value)
-        })
-        .onFinalize((_e, reussi) => {
-            if (!reussi) runOnJS(finReglageVitesse)(vitLiveSV.value)
-        })
-    const tapVitesse = Gesture.Tap()
-        .maxDuration(330)
-        .onEnd((_e, reussi) => { if (reussi) runOnJS(cyclerVitesse)() })
-    const gesteVitesse = Gesture.Race(panVitesse, tapVitesse)
-
 
     const togglePlay = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
@@ -1475,62 +1391,25 @@ export default function LecteurPleinEcran() {
                                     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                                     marginTop: spacing.md, marginBottom: spacing.md,
                                 }}>
-                                    {/* HUD de réglage fin de la vitesse (long-press + glisser) */}
-                                    {reglageVitesse && (
-                                        <Animated.View
-                                            entering={FadeIn.duration(120)}
-                                            pointerEvents="none"
-                                            style={{ position: 'absolute', top: -74, left: 0, right: 0, alignItems: 'center', zIndex: 10 }}
-                                        >
-                                            <View style={{
-                                                backgroundColor: 'rgba(10,27,48,0.90)',
-                                                borderRadius: radius.full,
-                                                borderWidth: 1, borderColor: W15,
-                                                paddingHorizontal: 20, paddingVertical: 10,
-                                                alignItems: 'center', gap: 7,
-                                                shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-                                                shadowOpacity: 0.35, shadowRadius: 16, elevation: 10,
-                                            }}>
-                                                <AnimatedTextInput
-                                                    editable={false}
-                                                    defaultValue="×1,0"
-                                                    animatedProps={vitesseProps}
-                                                    style={{
-                                                        fontFamily: typography.fontFamily.bold,
-                                                        fontSize: 20, color: colors.or,
-                                                        fontVariant: ['tabular-nums'],
-                                                        padding: 0, textAlign: 'center',
-                                                    }}
-                                                />
-                                                {/* règle à crans 0,5 → 2,0 */}
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 24 }}>
-                                                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: 11, color: W60, fontVariant: ['tabular-nums'] }}>0,5</Text>
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-                                                        {VITESSE_CRANS.map(v => (
-                                                            <CranVitesse key={v} v={v} sv={vitLiveSV} />
-                                                        ))}
-                                                    </View>
-                                                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: 11, color: W60, fontVariant: ['tabular-nums'] }}>2,0</Text>
-                                                </View>
-                                            </View>
-                                        </Animated.View>
-                                    )}
-                                    {/* speed pill — tap : cycle ; long-press + glisser : réglage fin */}
-                                    <GestureDetector gesture={gesteVitesse}>
-                                        <View style={{ width: 56, alignItems: 'center' }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                                            <View style={{
-                                                paddingHorizontal: 10, paddingVertical: 6,
-                                                borderRadius: radius.full,
-                                                backgroundColor: vitesse !== 1 ? OR_DIM : W08,
-                                                borderWidth: 1,
-                                                borderColor: vitesse !== 1 ? colors.or : W35,
-                                            }}>
-                                                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 13, color: vitesse !== 1 ? colors.or : W85 }}>
-                                                    ×{fmtVitesse(vitesse)}
-                                                </Text>
-                                            </View>
+                                    {/* speed pill */}
+                                    <SpringTap
+                                        onPress={cyclerVitesse}
+                                        hitSlop={12}
+                                        pressedScale={0.88}
+                                        style={{ width: 56, alignItems: 'center' }}
+                                    >
+                                        <View style={{
+                                            paddingHorizontal: 10, paddingVertical: 6,
+                                            borderRadius: radius.full,
+                                            backgroundColor: vitesse !== 1 ? OR_DIM : W08,
+                                            borderWidth: 1,
+                                            borderColor: vitesse !== 1 ? colors.or : W35,
+                                        }}>
+                                            <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 13, color: vitesse !== 1 ? colors.or : W85 }}>
+                                                ×{fmtVitesse(vitesse)}
+                                            </Text>
                                         </View>
-                                    </GestureDetector>
+                                    </SpringTap>
 
                                     <BoutonSkip sens={-1} onSkip={() => skip(reculer)} onLongSkip={() => allerChapitre(-1)} />
 
