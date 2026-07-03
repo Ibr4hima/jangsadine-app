@@ -32,7 +32,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
-import TextTicker from 'react-native-text-ticker'
+import TextTicker from '@/components/Marquee'
 
 const { width: W } = Dimensions.get('window')
 

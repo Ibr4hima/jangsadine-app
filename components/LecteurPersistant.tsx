@@ -17,7 +17,7 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated'
 import Svg, { Path } from 'react-native-svg'
-import TextTicker from 'react-native-text-ticker'
+import TextTicker from '@/components/Marquee'
 
 // ─── palette (identique aux héros de l'app) ───────────────────
 const BG_L = '#3d6ba3'

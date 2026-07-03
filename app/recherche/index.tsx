@@ -10,7 +10,7 @@ import { Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-n
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
-import TextTicker from 'react-native-text-ticker'
+import TextTicker from '@/components/Marquee'
 
 // ─── icônes ───────────────────────────────────────────────────
 function IcoBack({ size = 18, color = '#5b6675' }: { size?: number; color?: string }) {

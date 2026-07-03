@@ -16,7 +16,7 @@ import { Alert, Pressable, ScrollView, StatusBar, Text, View } from 'react-nativ
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
-import TextTicker from 'react-native-text-ticker'
+import TextTicker from '@/components/Marquee'
 
 // ─── icônes ───────────────────────────────────────────────────
 function IconDownloadDone({ size = 20, color = 'white' }: { size?: number, color?: string }) {

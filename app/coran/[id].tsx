@@ -252,11 +252,15 @@ export default function LectureSourate() {
     const chargeesRef = useRef<number[]>([])
     const itemsCacheRef = useRef<Record<number, Item[]>>({})
 
-    // Masque la barre d'onglets du bas pendant la lecture (immersif), la restaure en sortant
+    // Masque la barre d'onglets du bas pendant la lecture (immersif), la
+    // restaure en sortant. `focus` coupe aussi l'aurore du chrome quand le
+    // lecteur est couvert par un autre écran.
     const { hideTabBar, showTabBar } = useTabBar()
+    const [focus, setFocus] = useState(true)
     useFocusEffect(useCallback(() => {
         hideTabBar()
-        return () => showTabBar()
+        setFocus(true)
+        return () => { showTabBar(); setFocus(false) }
     }, []))
 
     // Construit (et met en cache) les items d'une sourate : en-tête (basmala) + blocs
@@ -525,7 +529,7 @@ export default function LectureSourate() {
                     style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                 />
                 {/* fond « aurore » : nappes bleues en dérive lente */}
-                <FondAurore compact />
+                <FondAurore compact actif={focus} />
 
                 <View style={{
                     paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 12,

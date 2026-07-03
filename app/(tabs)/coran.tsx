@@ -4,7 +4,7 @@ import { colors, radius, spacing, typography } from '@/constants/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import {
   Animated, FlatList, Image, Pressable, ScrollView, StatusBar,
   Text, View
@@ -76,7 +76,9 @@ function BadgeNumero({ n }: { n: number }) {
 }
 
 // ─── carte sourate ────────────────────────────────────────────
-function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) {
+// Mémoïsée : les états de la page (reprise, focus…) ne re-rendent plus
+// les 114 cartes — seules les props (sourate, riwaya) comptent.
+const SourateCard = memo(function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) {
   const scale = useRef(new Animated.Value(1)).current
   const router = useRouter()
 
@@ -136,7 +138,7 @@ function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) 
       </Animated.View>
     </Pressable>
   )
-}
+})
 
 export default function Coran() {
   const insets = useSafeAreaInsets()

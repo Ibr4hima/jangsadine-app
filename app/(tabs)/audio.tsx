@@ -28,7 +28,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
-import TextTicker from 'react-native-text-ticker'
+import TextTicker from '@/components/Marquee'
 
 // ─── palette héros (cohérente accueil / prières) ──────────────
 const BG_TOP = '#3d6ba3'

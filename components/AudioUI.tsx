@@ -2,7 +2,8 @@ import FondAurore from '@/components/FondAurore'
 import { colors, spacing, typography } from '@/constants/theme'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
-import { ReactNode, useEffect } from 'react'
+import { useFocusEffect } from 'expo-router'
+import { ReactNode, useCallback, useEffect, useState } from 'react'
 import { Pressable, Text, View, ViewStyle } from 'react-native'
 import Animated, {
     cancelAnimation,
@@ -228,6 +229,10 @@ export function Squelettes({ n = 4, h = 76 }: { n?: number, h?: number }) {
 
 // ─── héros dégradé ────────────────────────────────────────────
 export function HerosDetail({ paddingTop, children }: { paddingTop: number, children: ReactNode }) {
+    // Coupe les animations du fond aurore quand l'écran est couvert par une
+    // sous-page ou que l'onglet n'est pas visible.
+    const [focus, setFocus] = useState(true)
+    useFocusEffect(useCallback(() => { setFocus(true); return () => setFocus(false) }, []))
     return (
         <View style={{ borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden' }}>
             <LinearGradient
@@ -236,7 +241,7 @@ export function HerosDetail({ paddingTop, children }: { paddingTop: number, chil
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
             />
             {/* fond « aurore » : nappes bleues en dérive lente */}
-            <FondAurore compact />
+            <FondAurore compact actif={focus} />
 
             <View style={{ paddingTop, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl }}>
                 {children}

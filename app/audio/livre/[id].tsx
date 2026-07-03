@@ -22,7 +22,7 @@ import { useEffect, useState } from 'react'
 import { ScrollView, StatusBar, Text, View } from 'react-native'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import TextTicker from 'react-native-text-ticker'
+import TextTicker from '@/components/Marquee'
 
 export default function PageLivre() {
     const { id } = useLocalSearchParams<{ id: string }>()

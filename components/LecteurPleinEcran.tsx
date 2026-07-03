@@ -38,7 +38,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg'
-import TextTicker from 'react-native-text-ticker'
+import TextTicker from '@/components/Marquee'
 
 // ─── palette : bleu du logo (#2d578c) ─────────────────────────
 const BG_TOP  = '#3d6ba3'

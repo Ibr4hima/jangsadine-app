@@ -23,7 +23,7 @@ import {
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
-import TextTicker from 'react-native-text-ticker'
+import TextTicker from '@/components/Marquee'
 
 const VERT = '#2d7a4f'
 const VERT_BG = '#eaf4ee'
