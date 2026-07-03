@@ -12,6 +12,7 @@ import { ActivityIndicator, Dimensions, FlatList, Pressable, StatusBar, Text, Vi
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import Svg, { Line, Path } from 'react-native-svg'
 
 // Couleurs fixes — pas de mode nuit/jour
 const BG = '#F2F0EF'
@@ -134,57 +135,67 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
 }
 
 // ─── Bordure de mushaf ────────────────────────────────────────
-// Cadre doré des côtés gauche/droit, comme un Mushaf imprimé : un double
-// filet en dégradé (fondu aux extrémités) rythmé de petits losanges
-// alternés. Fixe au-dessus du texte, jamais interactif.
+// Cadre d'enluminure des côtés gauche/droit, comme un Mushaf imprimé :
+// une chaîne de marquises (ovales pointus, motif classique du tazhib)
+// ponctuée de petits losanges, entre deux rails dorés continus. Les
+// extrémités se fondent dans la page (dégradé couleur du fond).
+const HAUTEUR_ECRAN = Dimensions.get('window').height
+
 function BordureMushaf({ cote }: { cote: 'gauche' | 'droite' }) {
-    const filet = (opacite: number) => [
-        'rgba(184,147,42,0)',
-        `rgba(184,147,42,${opacite})`,
-        `rgba(184,147,42,${opacite})`,
-        'rgba(184,147,42,0)',
-    ] as const
+    const H = HAUTEUR_ECRAN
+    const cx = 8
+    const PAS = 64          // distance verticale entre deux marquises
+    const DEMI = 12         // demi-hauteur d'une marquise
+    const VENTRE = 4.6      // largeur du ventre de la marquise
+
+    const motifs: React.ReactElement[] = []
+    for (let y = 54; y < H - 54; y += PAS) {
+        // marquise : ovale pointu, contour fin + cœur très léger
+        motifs.push(
+            <Path
+                key={`m${y}`}
+                d={`M ${cx} ${y - DEMI} Q ${cx + VENTRE} ${y} ${cx} ${y + DEMI} Q ${cx - VENTRE} ${y} ${cx} ${y - DEMI} Z`}
+                stroke={OR} strokeWidth={0.9} strokeOpacity={0.6}
+                fill={OR} fillOpacity={0.10}
+            />
+        )
+        // petit losange plein entre deux marquises
+        const yd = y + PAS / 2
+        if (yd < H - 54) {
+            motifs.push(
+                <Path
+                    key={`d${y}`}
+                    d={`M ${cx} ${yd - 2.8} L ${cx + 2.8} ${yd} L ${cx} ${yd + 2.8} L ${cx - 2.8} ${yd} Z`}
+                    fill={OR} fillOpacity={0.55}
+                />
+            )
+        }
+    }
+
     return (
         <View
             pointerEvents="none"
             style={{
                 position: 'absolute', top: 0, bottom: 0,
-                ...(cote === 'gauche' ? { left: 5 } : { right: 5 }),
-                width: 12,
+                ...(cote === 'gauche' ? { left: 2 } : { right: 2 }),
+                width: 16,
             }}
         >
-            {/* filet principal (extérieur) */}
+            <Svg width={16} height={H}>
+                {/* rails continus de part et d'autre de la chaîne */}
+                <Line x1={2.2} y1={0} x2={2.2} y2={H} stroke={OR} strokeWidth={1.1} strokeOpacity={0.40} />
+                <Line x1={13.8} y1={0} x2={13.8} y2={H} stroke={OR} strokeWidth={1.1} strokeOpacity={0.40} />
+                {motifs}
+            </Svg>
+            {/* fondu des extrémités dans la couleur de page */}
             <LinearGradient
-                colors={filet(0.50)}
-                locations={[0, 0.10, 0.90, 1]}
-                style={{ position: 'absolute', top: 0, bottom: 0, width: 1.2, ...(cote === 'gauche' ? { left: 2 } : { right: 2 }) }}
+                colors={[BG, 'rgba(242,240,239,0)']}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 120 }}
             />
-            {/* filet secondaire (intérieur, plus doux) */}
             <LinearGradient
-                colors={filet(0.26)}
-                locations={[0, 0.10, 0.90, 1]}
-                style={{ position: 'absolute', top: 0, bottom: 0, width: 0.8, ...(cote === 'gauche' ? { left: 6.5 } : { right: 6.5 }) }}
+                colors={['rgba(242,240,239,0)', BG]}
+                style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120 }}
             />
-            {/* losanges dorés alternés le long du filet */}
-            <View style={{
-                position: 'absolute', top: 0, bottom: 0,
-                ...(cote === 'gauche' ? { left: 0 } : { right: 0 }),
-                width: 5.6, justifyContent: 'space-evenly', alignItems: 'center',
-                paddingVertical: 90,
-            }}>
-                {Array.from({ length: 9 }).map((_, i) => {
-                    const grand = i % 2 === 0
-                    const t = grand ? 5.6 : 3.6
-                    return (
-                        <View key={i} style={{
-                            width: t, height: t,
-                            backgroundColor: OR,
-                            opacity: grand ? 0.55 : 0.35,
-                            transform: [{ rotate: '45deg' }],
-                        }} />
-                    )
-                })}
-            </View>
         </View>
     )
 }
