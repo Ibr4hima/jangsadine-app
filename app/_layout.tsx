@@ -275,6 +275,7 @@ export default function RootLayout() {
     Shuba: require('../assets/fonts/UthmanicShubaV20.ttf'),
     Soosi: require('../assets/fonts/UthmanicSousiV20.ttf'),
     Bazzi: require('../assets/fonts/UthmanicBazziV20.ttf'),
+    Qumbul: require('../assets/fonts/UthmanicQunbulV20.ttf'),
     SuraNames: require('../assets/fonts/SuraNames.ttf'),
     MaterialSymbols: require('../assets/fonts/MaterialSymbols.ttf'),
   })

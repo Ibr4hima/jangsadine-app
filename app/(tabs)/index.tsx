@@ -507,7 +507,7 @@ function CarteLectureCoran({ onNav }: { onNav: (href: string) => void }) {
         const s = sourates.find((x: any) => x.index === r.sourate)
         setReprise(s ? {
           index: s.index, nom: s.nom, cle: r.cle ?? null,
-          riwaya: r.riwaya === 'warsh' || r.riwaya === 'qaloon' || r.riwaya === 'doori' || r.riwaya === 'shuba' || r.riwaya === 'soosi' || r.riwaya === 'bazzi' ? r.riwaya : 'hafs',
+          riwaya: r.riwaya === 'warsh' || r.riwaya === 'qaloon' || r.riwaya === 'doori' || r.riwaya === 'shuba' || r.riwaya === 'soosi' || r.riwaya === 'bazzi' || r.riwaya === 'qumbul' ? r.riwaya : 'hafs',
         } : null)
       })
       .catch(() => setReprise(null))
