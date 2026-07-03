@@ -20,6 +20,7 @@ const souratesParRiwaya: Record<string, any[]> = {
   doori: require('../../assets/quran/doori_sourates.json'),
   shuba: require('../../assets/quran/shuba_sourates.json'),
   soosi: require('../../assets/quran/soosi_sourates.json'),
+  bazzi: require('../../assets/quran/bazzi_sourates.json'),
 }
 const divisionsParRiwaya: Record<string, { juz: Record<string, number> }> = {
   hafs: require('../../assets/quran/divisions.json'),
@@ -28,6 +29,7 @@ const divisionsParRiwaya: Record<string, { juz: Record<string, number> }> = {
   doori: require('../../assets/quran/doori_divisions.json'),
   shuba: require('../../assets/quran/shuba_divisions.json'),
   soosi: require('../../assets/quran/soosi_divisions.json'),
+  bazzi: require('../../assets/quran/bazzi_divisions.json'),
 }
 
 // Débuts des 30 juz : « sora:aya » → n°, triés. Chaque chip ouvre le lecteur
@@ -64,6 +66,7 @@ const RIWAYAS = [
   { id: 'doori', nom: 'Doori', dispo: true },
   { id: 'shuba', nom: "Shu'bah", dispo: true },
   { id: 'soosi', nom: 'Soosi', dispo: true },
+  { id: 'bazzi', nom: 'Bazzi', dispo: true },
 ] as const
 
 // ─── badge octogramme ۞ (deux carrés superposés à 45°) ───────
@@ -187,7 +190,7 @@ export default function Coran() {
       .then(raw => {
         if (!raw) return setReprise(null)
         const r = JSON.parse(raw) as { sourate: number; cle?: string; riwaya?: string }
-        const riw = r.riwaya === 'warsh' || r.riwaya === 'qaloon' || r.riwaya === 'doori' || r.riwaya === 'shuba' || r.riwaya === 'soosi' ? r.riwaya : 'hafs'
+        const riw = r.riwaya === 'warsh' || r.riwaya === 'qaloon' || r.riwaya === 'doori' || r.riwaya === 'shuba' || r.riwaya === 'soosi' || r.riwaya === 'bazzi' ? r.riwaya : 'hafs'
         const s = (souratesParRiwaya[riw]).find((x: Sourate) => x.index === r.sourate)
         setReprise(s ? { sourate: s, cle: r.cle ?? null, riwaya: riw } : null)
       })

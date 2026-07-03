@@ -45,6 +45,7 @@ const pagesParRiwaya: Record<Riwaya, () => Record<string, number>> = {
     doori: () => require('../../assets/quran/doori_pages.json'),
     shuba: () => require('../../assets/quran/shuba_pages.json'),
     soosi: () => require('../../assets/quran/soosi_pages.json'),
+    bazzi: () => require('../../assets/quran/bazzi_pages.json'),
 }
 const divisionsParRiwaya: Record<Riwaya, () => Divisions> = {
     hafs: () => require('../../assets/quran/divisions.json'),
@@ -53,6 +54,7 @@ const divisionsParRiwaya: Record<Riwaya, () => Divisions> = {
     doori: () => require('../../assets/quran/doori_divisions.json'),
     shuba: () => require('../../assets/quran/shuba_divisions.json'),
     soosi: () => require('../../assets/quran/soosi_divisions.json'),
+    bazzi: () => require('../../assets/quran/bazzi_divisions.json'),
 }
 // Polices KFGQPC par riwaya (génération moderne V18/V21 — rendu iOS correct)
 const policeParRiwaya: Record<Riwaya, string> = {
@@ -62,9 +64,10 @@ const policeParRiwaya: Record<Riwaya, string> = {
     doori: 'Doori',
     shuba: 'Shuba',
     soosi: 'Soosi',
+    bazzi: 'Bazzi',
 }
 // Riwayas au décompte kufi : la basmala EST le verset 1 de la Fatiha
-const BASMALA_VERSET_UN: Riwaya[] = ['hafs', 'shuba']
+const BASMALA_VERSET_UN: Riwaya[] = ['hafs', 'shuba', 'bazzi']
 
 // Taille de lecture fixe : confortable et régulière, comme un Mushaf
 // imprimé (le zoom est volontairement désactivé pour préserver la mise
