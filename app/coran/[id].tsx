@@ -2,7 +2,7 @@ import FondAurore from '@/components/FondAurore'
 import Bismillah from '@/components/Bismillah'
 import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
-import { getSourate, Riwaya } from '@/lib/quran'
+import { getSourate, Riwaya, versRiwaya } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft } from 'lucide-react-native'
@@ -43,12 +43,14 @@ const pagesParRiwaya: Record<Riwaya, () => Record<string, number>> = {
     warsh: () => require('../../assets/quran/warsh_pages.json'),
     qaloon: () => require('../../assets/quran/qaloon_pages.json'),
     doori: () => require('../../assets/quran/doori_pages.json'),
+    shuba: () => require('../../assets/quran/shuba_pages.json'),
 }
 const divisionsParRiwaya: Record<Riwaya, () => Divisions> = {
     hafs: () => require('../../assets/quran/divisions.json'),
     warsh: () => require('../../assets/quran/warsh_divisions.json'),
     qaloon: () => require('../../assets/quran/qaloon_divisions.json'),
     doori: () => require('../../assets/quran/doori_divisions.json'),
+    shuba: () => require('../../assets/quran/shuba_divisions.json'),
 }
 // Polices KFGQPC par riwaya (génération moderne V18/V21 — rendu iOS correct)
 const policeParRiwaya: Record<Riwaya, string> = {
@@ -56,7 +58,10 @@ const policeParRiwaya: Record<Riwaya, string> = {
     warsh: 'Warsh',
     qaloon: 'Qaloon',
     doori: 'Doori',
+    shuba: 'Shuba',
 }
+// Riwayas au décompte kufi : la basmala EST le verset 1 de la Fatiha
+const BASMALA_VERSET_UN: Riwaya[] = ['hafs', 'shuba']
 
 // Taille de lecture fixe : confortable et régulière, comme un Mushaf
 // imprimé (le zoom est volontairement désactivé pour préserver la mise
@@ -195,7 +200,7 @@ export default function LectureSourate() {
     const router = useRouter()
     const insets = useSafeAreaInsets()
     const index = parseInt(id)
-    const riw: Riwaya = riwaya === 'warsh' || riwaya === 'qaloon' || riwaya === 'doori' ? riwaya : 'hafs'
+    const riw: Riwaya = versRiwaya(riwaya)
     const pageEnds = useMemo(() => pagesParRiwaya[riw](), [riw])
     const divisions = useMemo(() => divisionsParRiwaya[riw](), [riw])
     const policeCoran = policeParRiwaya[riw]
@@ -271,9 +276,10 @@ export default function LectureSourate() {
             const num = parseInt(cle.replace('verse_', ''))
             // verse_0 = basmala séparée → affichée en en-tête, hors flux numéroté.
             if (num === 0) { basm = texte as string; continue }
-            // al-Fatiha en Hafs : la basmala EST le verset 1 → en en-tête,
-            // versets 2→7 restent. En Warsh elle n'est pas comptée (verse_0).
-            if (riw === 'hafs' && idx === 1 && num === 1) { basm = texte as string; continue }
+            // al-Fatiha en décompte kufi (Hafs, Shu'bah) : la basmala EST le
+            // verset 1 → en en-tête, versets 2→7 restent. En décompte madani
+            // (Warsh, Qaloon, Doori) elle n'est pas comptée (verse_0).
+            if (BASMALA_VERSET_UN.includes(riw) && idx === 1 && num === 1) { basm = texte as string; continue }
             versets.push({ numero: num, texte: texte as string })
         }
         const out: Item[] = [
@@ -413,7 +419,7 @@ export default function LectureSourate() {
                             flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
                             gap: taille * 0.4,
                         }}>
-                            {item.sourate === 1 && riw === 'hafs' && (
+                            {item.sourate === 1 && BASMALA_VERSET_UN.includes(riw) && (
                                 <Text style={{
                                     fontFamily: policeCoran,
                                     fontSize: taille * 1.1,

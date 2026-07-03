@@ -1,12 +1,11 @@
 import FondAurore from '@/components/FondAurore'
-import { QURAN_ICON_URI } from '@/constants/quranIcon'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Animated, FlatList, Image, Pressable, ScrollView, StatusBar,
+  Animated, FlatList, Pressable, ScrollView, StatusBar,
   Text, View
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -19,12 +18,14 @@ const souratesParRiwaya: Record<string, any[]> = {
   warsh: require('../../assets/quran/warsh_sourates.json'),
   qaloon: require('../../assets/quran/qaloon_sourates.json'),
   doori: require('../../assets/quran/doori_sourates.json'),
+  shuba: require('../../assets/quran/shuba_sourates.json'),
 }
 const divisionsParRiwaya: Record<string, { juz: Record<string, number> }> = {
   hafs: require('../../assets/quran/divisions.json'),
   warsh: require('../../assets/quran/warsh_divisions.json'),
   qaloon: require('../../assets/quran/qaloon_divisions.json'),
   doori: require('../../assets/quran/doori_divisions.json'),
+  shuba: require('../../assets/quran/shuba_divisions.json'),
 }
 
 // Débuts des 30 juz : « sora:aya » → n°, triés. Chaque chip ouvre le lecteur
@@ -59,6 +60,7 @@ const RIWAYAS = [
   { id: 'warsh', nom: 'Warsh', dispo: true },
   { id: 'qaloon', nom: 'Qaloon', dispo: true },
   { id: 'doori', nom: 'Doori', dispo: true },
+  { id: 'shuba', nom: "Shu'bah", dispo: true },
 ] as const
 
 // ─── badge octogramme ۞ (deux carrés superposés à 45°) ───────
@@ -182,7 +184,7 @@ export default function Coran() {
       .then(raw => {
         if (!raw) return setReprise(null)
         const r = JSON.parse(raw) as { sourate: number; cle?: string; riwaya?: string }
-        const riw = r.riwaya === 'warsh' || r.riwaya === 'qaloon' || r.riwaya === 'doori' ? r.riwaya : 'hafs'
+        const riw = r.riwaya === 'warsh' || r.riwaya === 'qaloon' || r.riwaya === 'doori' || r.riwaya === 'shuba' ? r.riwaya : 'hafs'
         const s = (souratesParRiwaya[riw]).find((x: Sourate) => x.index === r.sourate)
         setReprise(s ? { sourate: s, cle: r.cle ?? null, riwaya: riw } : null)
       })
@@ -213,102 +215,96 @@ export default function Coran() {
         <View style={{
           paddingTop: insets.top + spacing.sm,
           paddingHorizontal: spacing.xl,
-          paddingBottom: spacing.xl,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          paddingBottom: spacing.lg,
         }}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{
-              fontFamily: typography.fontFamily.bold,
-              fontSize: typography.size.xs,
-              letterSpacing: 2, color: colors.or,
-              textTransform: 'uppercase', marginBottom: 4,
-            }}>
-              Lecture
-            </Text>
-            <Text style={{
-              fontFamily: typography.fontFamily.bold,
-              fontSize: typography.size['2xl'],
-              color: '#fff',
-            }}>
-              Coran
-            </Text>
+          <Text style={{
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.size.xs,
+            letterSpacing: 2, color: colors.or,
+            textTransform: 'uppercase', marginBottom: 4,
+          }}>
+            Lecture
+          </Text>
+          <Text style={{
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.size['2xl'],
+            color: '#fff',
+          }}>
+            Coran
+          </Text>
 
-            {/* sélecteur de riwaya */}
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.sm }}>
-              {RIWAYAS.map(r => {
-                const active = r.id === riwaya
-                return (
-                  <Pressable
-                    key={r.id}
-                    disabled={!r.dispo}
-                    onPress={() => choisirRiwaya(r.id)}
-                    style={({ pressed }) => ({
-                      flexDirection: 'row', alignItems: 'baseline', gap: 4,
-                      backgroundColor: active ? '#fff' : W12,
-                      borderRadius: radius.full,
-                      paddingHorizontal: 13,
-                      paddingVertical: 5,
-                      opacity: r.dispo ? 1 : 0.45,
-                      transform: [{ scale: pressed ? 0.94 : 1 }],
-                    })}
-                  >
+          {/* sélecteur de riwaya — rangée défilante bord à bord */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0, marginTop: spacing.md, marginHorizontal: -spacing.xl }}
+            contentContainerStyle={{ paddingHorizontal: spacing.xl, alignItems: 'center' }}
+          >
+            {RIWAYAS.map(r => {
+              const active = r.id === riwaya
+              return (
+                <Pressable
+                  key={r.id}
+                  disabled={!r.dispo}
+                  onPress={() => choisirRiwaya(r.id)}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row', alignItems: 'baseline', gap: 4,
+                    backgroundColor: active ? '#fff' : W12,
+                    borderRadius: radius.full,
+                    paddingHorizontal: 13,
+                    paddingVertical: 6,
+                    marginRight: 8,
+                    opacity: r.dispo ? 1 : 0.45,
+                    transform: [{ scale: pressed ? 0.94 : 1 }],
+                  })}
+                >
+                  <Text style={{
+                    fontFamily: typography.fontFamily.semibold,
+                    fontSize: typography.size.xs,
+                    color: active ? BG_BOT : '#fff',
+                  }}>
+                    {r.nom}
+                  </Text>
+                  {!r.dispo && (
                     <Text style={{
-                      fontFamily: typography.fontFamily.semibold,
-                      fontSize: typography.size.xs,
-                      color: active ? BG_BOT : '#fff',
+                      fontFamily: typography.fontFamily.regular,
+                      fontSize: 9,
+                      color: W55,
                     }}>
-                      {r.nom}
+                      bientôt
                     </Text>
-                    {!r.dispo && (
-                      <Text style={{
-                        fontFamily: typography.fontFamily.regular,
-                        fontSize: 9,
-                        color: W55,
-                      }}>
-                        bientôt
-                      </Text>
-                    )}
-                  </Pressable>
-                )
+                  )}
+                </Pressable>
+              )
+            })}
+          </ScrollView>
+
+          {/* puce « Reprendre » — rouvre pile où on s'était arrêté */}
+          {reprise && (
+            <Pressable
+              onPress={ouvrirReprise}
+              style={({ pressed }) => ({
+                alignSelf: 'flex-start',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: colors.or,
+                borderRadius: radius.full,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                marginTop: spacing.md,
+                transform: [{ scale: pressed ? 0.95 : 1 }],
               })}
-            </View>
-
-            {/* puce « Reprendre » — rouvre pile où on s'était arrêté */}
-            {reprise && (
-              <Pressable
-                onPress={ouvrirReprise}
-                style={({ pressed }) => ({
-                  alignSelf: 'flex-start',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.or,
-                  borderRadius: radius.full,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  marginTop: spacing.md,
-                  transform: [{ scale: pressed ? 0.95 : 1 }],
-                })}
-              >
-                <Text style={{
-                  fontFamily: typography.fontFamily.semibold,
-                  fontSize: typography.size.xs,
-                  color: '#1c3d66',
-                }}>
-                  Reprendre · {reprise.sourate.nom}  ›
-                </Text>
-              </Pressable>
-            )}
-          </View>
-
-          {/* calligraphie القرآن الكريم (blanche, inline base64) */}
-          <Image
-            source={{ uri: QURAN_ICON_URI }}
-            style={{ width: 90, height: 90, marginLeft: spacing.md, opacity: 0.95 }}
-            resizeMode="contain"
-          />
+            >
+              <Text style={{
+                fontFamily: typography.fontFamily.semibold,
+                fontSize: typography.size.xs,
+                color: '#1c3d66',
+              }}>
+                Reprendre · {reprise.sourate.nom}  ›
+              </Text>
+            </Pressable>
+          )}
         </View>
       </View>
 

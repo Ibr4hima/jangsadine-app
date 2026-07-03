@@ -1095,27 +1095,6 @@ export default function LecteurPleinEcran() {
         transform: [{ translateY: translateY.value }],
     }))
 
-    // Transition « liquide » : l'artwork arrive de plus bas et plus petit que
-    // la feuille (croissance + parallaxe) comme s'il grandissait depuis le
-    // mini-lecteur ; le titre suit avec une parallaxe plus douce. Piloté par
-    // translateY → le drag de fermeture rejoue la transition en miroir.
-    const artEntree = useAnimatedStyle(() => {
-        const t = Math.min(1, Math.max(0, translateY.value / SCREEN_H))
-        return {
-            opacity: 1 - t * 0.25,
-            transform: [
-                { translateY: t * SCREEN_H * 0.35 },
-                { scale: 1 - t * 0.45 },
-            ],
-        }
-    })
-    const titreEntree = useAnimatedStyle(() => {
-        const t = Math.min(1, Math.max(0, translateY.value / SCREEN_H))
-        return {
-            opacity: 1 - t * 0.5,
-            transform: [{ translateY: t * SCREEN_H * 0.12 }],
-        }
-    })
 
     // Changement de piste : referme le panneau (sauf lancement depuis la File)
     useEffect(() => {
@@ -1237,9 +1216,7 @@ export default function LecteurPleinEcran() {
 
                                 {/* Artwork / panel */}
                                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-                                    <Animated.View style={artEntree}>
-                                        <Artwork enLecture={enLecture} hidden={panelOpen} onSwipePiste={swipePiste} onDoubleTap={togglePlay} transition={transitionPiste} />
-                                    </Animated.View>
+                                    <Artwork enLecture={enLecture} hidden={panelOpen} onSwipePiste={swipePiste} onDoubleTap={togglePlay} transition={transitionPiste} />
 
                                     {panelOpen && (
                                         <ScrollView
@@ -1334,7 +1311,7 @@ export default function LecteurPleinEcran() {
                                 </View>
 
                                 {/* Title + Sheikh */}
-                                <Animated.View style={[{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 6 : spacing.md }, titreEntree]}>
+                                <View style={{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 6 : spacing.md }}>
                                     <TextTicker
                                         style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: '#fff', lineHeight: 28 }}
                                         loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
@@ -1347,7 +1324,7 @@ export default function LecteurPleinEcran() {
                                     >
                                         {piste.sheikh}
                                     </TextTicker>
-                                </Animated.View>
+                                </View>
 
                                 {/* Chapitre en cours — centré, au-dessus de la barre */}
                                 {chapitreActuel && (
