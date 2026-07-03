@@ -23,6 +23,7 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
     cancelAnimation,
+    type SharedValue,
     Easing,
     interpolateColor,
     runOnJS,
@@ -146,6 +147,9 @@ const ART_SIZE = W - spacing.xl * 2
 
 const VITESSES = [1, 1.15, 1.25, 1.5, 2, 0.75]
 
+// Cadran de vitesse (long-press + glisser) : 0,5 → 2,0 par pas de 0,1
+const VITESSE_CRANS = Array.from({ length: 16 }, (_, i) => Math.round((0.5 + i * 0.1) * 10) / 10)
+
 function fmt(s: number) {
     if (!s || isNaN(s) || s < 0) return '0:00'
     const h = Math.floor(s / 3600)
@@ -200,6 +204,21 @@ function SpringTap({ onPress, children, style, hitSlop = 14, pressedScale = 0.86
             {children}
         </AnimatedPressable>
     )
+}
+
+// ─── Cran du cadran de vitesse ────────────────────────────────
+// Un trait vertical : or jusqu'à la vitesse courante, blanc et surélevé
+// pour le cran actif, gris au-delà — tout sur le thread UI.
+function CranVitesse({ v, sv }: { v: number; sv: SharedValue<number> }) {
+    const st = useAnimatedStyle(() => {
+        const courant = Math.abs(sv.value - v) < 0.05
+        const actif = sv.value >= v - 0.001
+        return {
+            height: courant ? 22 : 13,
+            backgroundColor: courant ? '#ffffff' : actif ? colors.or : 'rgba(255,255,255,0.22)',
+        }
+    })
+    return <Animated.View style={[{ width: 2.5, borderRadius: 1.5 }, st]} />
 }
 
 // ─── Bouton ±10 s animé ───────────────────────────────────────
@@ -1241,8 +1260,8 @@ export default function LecteurPleinEcran() {
             dernierApplyRef.current = now
             changerVitesseLive(v)
         }
-        // petit tic à chaque cran de 0,05
-        const cran = Math.round(v * 20)
+        // petit tic à chaque cran de 0,1
+        const cran = Math.round(v * 10)
         if (cran !== dernierCranRef.current) {
             dernierCranRef.current = cran
             Haptics.selectionAsync()
@@ -1250,20 +1269,22 @@ export default function LecteurPleinEcran() {
     }
     const finReglageVitesse = (v: number) => {
         setReglageVitesse(false)
-        changerVitesse(Math.round(v * 100) / 100)
+        changerVitesse(Math.round(v * 10) / 10)
     }
 
     const panVitesse = Gesture.Pan()
         .activateAfterLongPress(350)
         .onStart(() => {
-            vitDepartSV.value = vitesse
-            vitLiveSV.value = vitesse
+            // départ calé sur le cran de 0,1 le plus proche
+            const d = Math.min(2, Math.max(0.5, Math.round(vitesse * 10) / 10))
+            vitDepartSV.value = d
+            vitLiveSV.value = d
             runOnJS(debutReglageVitesse)()
         })
         .onUpdate(e => {
-            // 220 px de course ≈ toute la plage 0,75 → 2,00
-            const v = Math.min(2, Math.max(0.75, vitDepartSV.value + (e.translationX / 220) * 1.25))
-            const arrondi = Math.round(v * 100) / 100
+            // ~14 px par cran de 0,1 (plage 0,5 → 2,0)
+            const v = Math.min(2, Math.max(0.5, vitDepartSV.value + (e.translationX / 14) * 0.1))
+            const arrondi = Math.round(v * 10) / 10
             if (arrondi !== vitLiveSV.value) {
                 vitLiveSV.value = arrondi
                 runOnJS(liveReglageVitesse)(arrondi)
@@ -1280,16 +1301,11 @@ export default function LecteurPleinEcran() {
         .onEnd((_e, reussi) => { if (reussi) runOnJS(cyclerVitesse)() })
     const gesteVitesse = Gesture.Race(panVitesse, tapVitesse)
 
-    // HUD : libellé ×N,NN + jauge, pilotés sur le thread UI
+    // HUD : libellé ×N,N piloté sur le thread UI
     const vitesseProps = useAnimatedProps(() => {
-        const cent = Math.round(vitLiveSV.value * 100)
-        const ent = Math.floor(cent / 100)
-        const dec = cent % 100
-        return { text: '×' + ent + ',' + (dec < 10 ? '0' + dec : '' + dec) } as any
+        const dix = Math.round(vitLiveSV.value * 10)
+        return { text: '×' + Math.floor(dix / 10) + ',' + (dix % 10) } as any
     })
-    const remplissageVitesse = useAnimatedStyle(() => ({
-        width: ((vitLiveSV.value - 0.75) / 1.25) * 210,
-    }))
 
     const togglePlay = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
@@ -1546,7 +1562,7 @@ export default function LecteurPleinEcran() {
                                             }}>
                                                 <AnimatedTextInput
                                                     editable={false}
-                                                    defaultValue="×1,00"
+                                                    defaultValue="×1,0"
                                                     animatedProps={vitesseProps}
                                                     style={{
                                                         fontFamily: typography.fontFamily.bold,
@@ -1555,8 +1571,15 @@ export default function LecteurPleinEcran() {
                                                         padding: 0, textAlign: 'center',
                                                     }}
                                                 />
-                                                <View style={{ width: 210, height: 4, borderRadius: 2, backgroundColor: W15, overflow: 'hidden' }}>
-                                                    <Animated.View style={[{ height: '100%', borderRadius: 2, backgroundColor: colors.or }, remplissageVitesse]} />
+                                                {/* règle à crans 0,5 → 2,0 */}
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 24 }}>
+                                                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: 11, color: W60, fontVariant: ['tabular-nums'] }}>0,5</Text>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                                                        {VITESSE_CRANS.map(v => (
+                                                            <CranVitesse key={v} v={v} sv={vitLiveSV} />
+                                                        ))}
+                                                    </View>
+                                                    <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: 11, color: W60, fontVariant: ['tabular-nums'] }}>2,0</Text>
                                                 </View>
                                             </View>
                                         </Animated.View>
