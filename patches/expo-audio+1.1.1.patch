@@ -1,0 +1,15 @@
+diff --git a/node_modules/expo-audio/ios/MediaController.swift b/node_modules/expo-audio/ios/MediaController.swift
+index 2dd3fb2..c6c23a1 100644
+--- a/node_modules/expo-audio/ios/MediaController.swift
++++ b/node_modules/expo-audio/ios/MediaController.swift
+@@ -39,7 +39,9 @@ class MediaController {
+ 
+     nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = player.duration
+     nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = player.currentTime
+-    nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = player.isPlaying ? player.ref.rate : 1.0
++    // Paused → rate MUST be 0, otherwise iOS keeps advancing the elapsed
++    // time in Control Center / Lock Screen while the audio is paused.
++    nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = player.isPlaying ? player.ref.rate : 0.0
+     nowPlayingInfo[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
+ 
+     if let userMetadata = player.metadata {
