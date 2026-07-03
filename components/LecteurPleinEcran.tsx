@@ -1063,7 +1063,11 @@ export default function LecteurPleinEcran() {
         return () => { annule = true }
     }, [piste?.id])
 
-    if (!piste) return null
+    // Fermé → complètement démonté : sans cela, le lecteur (translaté hors
+    // écran) continuait de se re-rendre 2×/s (progression) et ses marquees /
+    // animations tournaient en permanence. Le drag de fermeture anime d'abord,
+    // puis setLecteurOuvert(false) démonte ; l'ouverture remonte et glisse.
+    if (!piste || !lecteurOuvert) return null
 
     // Le champ sheikh peut contenir le titre arabe du livre : on le rend
     // alors avec la police arabe de l'app

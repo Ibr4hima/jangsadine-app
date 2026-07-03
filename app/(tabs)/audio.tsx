@@ -8,8 +8,8 @@ import { normaliser } from '@/lib/recherche'
 import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useRouter } from 'expo-router'
-import { ReactNode, useEffect, useRef, useState } from 'react'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import {
   Modal, Platform, Pressable, ScrollView,
   StatusBar, Text, TextInput, View, ViewStyle,
@@ -827,6 +827,9 @@ function SegmentsSections({ actif, onSelect }: { actif: string, onSelect: (key: 
 // ─── page ─────────────────────────────────────────────────────
 export default function Audio() {
   const insets = useSafeAreaInsets()
+  // Coupe les animations du fond aurore quand l'onglet n'est pas visible
+  const [focus, setFocus] = useState(true)
+  useFocusEffect(useCallback(() => { setFocus(true); return () => setFocus(false) }, []))
   const [sectionActive, setSectionActive] = useState('cours')
   const [recherche, setRecherche] = useState('')
   const { onScroll, cachéTabBar } = useScroll()
@@ -848,7 +851,7 @@ export default function Audio() {
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         />
         {/* fond « aurore » : nappes bleues en dérive lente */}
-        <FondAurore compact />
+        <FondAurore compact actif={focus} />
 
         <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.md }}>
           <View>

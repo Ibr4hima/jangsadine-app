@@ -7,7 +7,7 @@ import * as adhan from 'adhan'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import * as Location from 'expo-location'
-import { useRouter } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import {
   ArrowLeft,
   CloudMoon,
@@ -19,7 +19,7 @@ import {
   Sunrise,
   Sunset,
 } from 'lucide-react-native'
-import { ComponentType, useEffect, useMemo, useState } from 'react'
+import { ComponentType, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -126,6 +126,9 @@ const TAILLE_SVG = 210
 export default function Prieres() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  // Coupe les animations du fond aurore quand la page n'est pas visible
+  const [focus, setFocus] = useState(true)
+  useFocusEffect(useCallback(() => { setFocus(true); return () => setFocus(false) }, []))
   const [horaires, setHoraires] = useState<PriereInfo[]>([])
   const [ville, setVille] = useState('')
   const [loading, setLoading] = useState(true)
@@ -273,7 +276,7 @@ export default function Prieres() {
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
           />
           {/* fond « aurore » : nappes bleues en dérive lente */}
-          <FondAurore compact />
+          <FondAurore compact actif={focus} />
 
           <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl }}>
 

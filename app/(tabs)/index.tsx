@@ -179,6 +179,9 @@ function PressableScale({ onPress, children, style, haptic = true }: {
 // ─── héros : salutation + carte prière ────────────────────────
 function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
   const insets = useSafeAreaInsets()
+  // Coupe les animations du fond aurore quand l'onglet n'est pas visible
+  const [focus, setFocus] = useState(true)
+  useFocusEffect(useCallback(() => { setFocus(true); return () => setFocus(false) }, []))
   const [prieres, setPrieres] = useState<Priere[]>([])
   const [ville, setVille] = useState<string | null>(null)
   const [, setTickTexte] = useState(0)
@@ -280,7 +283,7 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
       />
       {/* fond « aurore » : nappes bleues en dérive lente */}
-      <FondAurore compact />
+      <FondAurore compact actif={focus} />
 
       <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl + 26 }}>
 
@@ -375,6 +378,9 @@ function CarteReprendre() {
   const [derniere, setDerniere] = useState<Piste | null>(null)
   const [dernierePlaylist, setDernierePlaylist] = useState<Piste[] | null>(null)
   const [quasiFini, setQuasiFini] = useState(false)
+  // Stoppe le défilement des titres quand l'onglet n'est pas visible
+  const [focus, setFocus] = useState(true)
+  useFocusEffect(useCallback(() => { setFocus(true); return () => setFocus(false) }, []))
   const dernierePositionRef = useRef(0)
 
   useEffect(() => {
@@ -466,6 +472,7 @@ function CarteReprendre() {
             <TextTicker
               style={{ fontFamily: /[؀-ۿ]/.test(affichee.titre) ? typography.fontFamily.arabic : typography.fontFamily.semibold, fontSize: typography.size.md, color: '#fff' }}
               loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+              disabled={!focus}
             >
               {affichee.titre}
             </TextTicker>

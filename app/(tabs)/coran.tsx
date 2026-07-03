@@ -141,6 +141,9 @@ function SourateCard({ sourate, riwaya }: { sourate: Sourate; riwaya: string }) 
 export default function Coran() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  // Coupe les animations du fond aurore quand l'onglet n'est pas visible
+  const [focus, setFocus] = useState(true)
+  useFocusEffect(useCallback(() => { setFocus(true); return () => setFocus(false) }, []))
   const [reprise, setReprise] = useState<{ sourate: Sourate; cle: string | null } | null>(null)
   const [riwaya, setRiwaya] = useState<string>('hafs')
 
@@ -185,7 +188,7 @@ export default function Coran() {
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         />
         {/* fond « aurore » : nappes bleues en dérive lente */}
-        <FondAurore compact />
+        <FondAurore compact actif={focus} />
 
         <View style={{
           paddingTop: insets.top + spacing.sm,
