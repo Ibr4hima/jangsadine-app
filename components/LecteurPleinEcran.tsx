@@ -269,12 +269,13 @@ function BoutonSkip({ sens, onSkip, onLongSkip }: {
 }
 
 // ─── Artwork (always mounted) ─────────────────────────────────
-// Swipe horizontal sur la pochette = ±10 s : elle suit le doigt avec
-// résistance et une légère inclinaison, un badge « ±10 s » apparaît sur le
-// bord, puis tout revient à ressort. Le glisser vertical n'est pas capturé
-// (il continue de fermer le lecteur via le geste parent).
-function Artwork({ enLecture, hidden, onSwipeSkip, onDoubleTap, transition }: {
-    enLecture: boolean; hidden: boolean; onSwipeSkip: (sens: 1 | -1) => void; onDoubleTap: () => void
+// Swipe horizontal sur la pochette = piste suivante/précédente : elle suit
+// le doigt avec résistance et inclinaison, puis l'animation directionnelle
+// de changement de piste prend le relais (jetée à gauche → la suivante
+// entre de la droite). Le glisser vertical n'est pas capturé (il continue
+// de fermer le lecteur via le geste parent).
+function Artwork({ enLecture, hidden, onSwipePiste, onDoubleTap, transition }: {
+    enLecture: boolean; hidden: boolean; onSwipePiste: (sens: 1 | -1) => void; onDoubleTap: () => void
     // Changement de piste directionnel : suivante → la pochette sort à
     // gauche et la nouvelle entre de la droite (précédente : miroir)
     transition: { id: string; dir: 1 | -1 } | null
@@ -297,8 +298,6 @@ function Artwork({ enLecture, hidden, onSwipeSkip, onDoubleTap, transition }: {
             withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) }),
         )
     }, [transition?.id])
-    const badgeAv = useSharedValue(0)   // « +10 s » (swipe vers la droite)
-    const badgeRe = useSharedValue(0)   // « -10 s » (swipe vers la gauche)
 
     useEffect(() => {
         scale.value = withSpring(enLecture ? 1 : 0.78, { damping: 14, stiffness: 140 })
@@ -328,19 +327,11 @@ function Artwork({ enLecture, hidden, onSwipeSkip, onDoubleTap, transition }: {
             tx.value = e.translationX * 0.35
         })
         .onEnd(e => {
-            const flash = (sv: typeof badgeAv) => {
-                'worklet'
-                sv.value = withSequence(
-                    withTiming(1, { duration: 110 }),
-                    withDelay(340, withTiming(0, { duration: 240 })),
-                )
-            }
-            if (e.translationX > 56 || e.velocityX > 900) {
-                flash(badgeAv)
-                runOnJS(onSwipeSkip)(1)
-            } else if (e.translationX < -56 || e.velocityX < -900) {
-                flash(badgeRe)
-                runOnJS(onSwipeSkip)(-1)
+            // jetée vers la gauche → piste suivante ; vers la droite → précédente
+            if (e.translationX < -56 || e.velocityX < -900) {
+                runOnJS(onSwipePiste)(1)
+            } else if (e.translationX > 56 || e.velocityX > 900) {
+                runOnJS(onSwipePiste)(-1)
             }
             tx.value = withSpring(0, { damping: 15, stiffness: 240 })
         })
@@ -369,15 +360,6 @@ function Artwork({ enLecture, hidden, onSwipeSkip, onDoubleTap, transition }: {
             { translateX: tx.value * 0.5 },
             { scale: (scale.value + 0.04) + aura.value * 0.05 },
         ],
-    }))
-
-    const badgeAvStyle = useAnimatedStyle(() => ({
-        opacity: badgeAv.value,
-        transform: [{ scale: 0.8 + badgeAv.value * 0.2 }],
-    }))
-    const badgeReStyle = useAnimatedStyle(() => ({
-        opacity: badgeRe.value,
-        transform: [{ scale: 0.8 + badgeRe.value * 0.2 }],
     }))
 
     return (
@@ -416,25 +398,6 @@ function Artwork({ enLecture, hidden, onSwipeSkip, onDoubleTap, transition }: {
                 </Animated.View>
             </GestureDetector>
 
-            {/* badges ±10 s sur les bords */}
-            <Animated.View pointerEvents="none" style={[{
-                position: 'absolute', right: 16,
-                backgroundColor: colors.or, borderRadius: radius.full,
-                paddingHorizontal: 12, paddingVertical: 6,
-                shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
-            }, badgeAvStyle]}>
-                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 14, color: BG_BOT }}>+10 s</Text>
-            </Animated.View>
-            <Animated.View pointerEvents="none" style={[{
-                position: 'absolute', left: 16,
-                backgroundColor: colors.or, borderRadius: radius.full,
-                paddingHorizontal: 12, paddingVertical: 6,
-                shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
-            }, badgeReStyle]}>
-                <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 14, color: BG_BOT }}>-10 s</Text>
-            </Animated.View>
         </View>
     )
 }
@@ -1077,7 +1040,7 @@ function BoutonTelechargement({ piste }: { piste: Piste }) {
 export default function LecteurPleinEcran() {
     const {
         piste, enLecture,
-        vitesse, volume, pause, reprendre, seeker, avancer, reculer,
+        vitesse, volume, pause, reprendre, seeker, avancer, reculer, pistePrecedente,
         changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
     const { tempsActuel, dureeTotal } = useAudioProgress()
@@ -1292,9 +1255,23 @@ export default function LecteurPleinEcran() {
         fn(10)
     }
 
-    const swipeSkip = (sens: 1 | -1) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-        sens > 0 ? avancer(10) : reculer(10)
+    // Swipe sur la pochette : piste suivante (jetée à gauche) / précédente
+    // (jetée à droite), via la playlist complète pour connaître les voisines.
+    const swipePiste = (sens: 1 | -1) => {
+        const idx = playlist.findIndex(t => t.id === piste?.id)
+        const cible = idx >= 0 ? idx + sens : -1
+        if (idx < 0 || cible < 0 || cible >= playlist.length) {
+            if (sens < 0) {
+                // pas de précédente → repart au début de la piste
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                pistePrecedente()
+            } else {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+            }
+            return
+        }
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+        jouer(playlist[cible], playlist.slice(cible + 1), undefined, playlist)
     }
 
     const panelOpen = panel === 'chapters'
@@ -1366,7 +1343,7 @@ export default function LecteurPleinEcran() {
                                 {/* Artwork / panel */}
                                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                                     <Animated.View style={artEntree}>
-                                        <Artwork enLecture={enLecture} hidden={panelOpen} onSwipeSkip={swipeSkip} onDoubleTap={togglePlay} transition={transitionPiste} />
+                                        <Artwork enLecture={enLecture} hidden={panelOpen} onSwipePiste={swipePiste} onDoubleTap={togglePlay} transition={transitionPiste} />
                                     </Animated.View>
 
                                     {panelOpen && (
