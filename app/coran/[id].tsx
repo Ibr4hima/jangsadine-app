@@ -136,6 +136,62 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
     )
 }
 
+// ─── Bordure de mushaf ────────────────────────────────────────
+// Cadre doré des côtés gauche/droit, comme un Mushaf imprimé : un double
+// filet en dégradé (fondu aux extrémités) rythmé de petits losanges
+// alternés. Fixe au-dessus du texte, jamais interactif.
+function BordureMushaf({ cote }: { cote: 'gauche' | 'droite' }) {
+    const filet = (opacite: number) => [
+        'rgba(184,147,42,0)',
+        `rgba(184,147,42,${opacite})`,
+        `rgba(184,147,42,${opacite})`,
+        'rgba(184,147,42,0)',
+    ] as const
+    return (
+        <View
+            pointerEvents="none"
+            style={{
+                position: 'absolute', top: 0, bottom: 0,
+                ...(cote === 'gauche' ? { left: 5 } : { right: 5 }),
+                width: 12,
+            }}
+        >
+            {/* filet principal (extérieur) */}
+            <LinearGradient
+                colors={filet(0.50)}
+                locations={[0, 0.10, 0.90, 1]}
+                style={{ position: 'absolute', top: 0, bottom: 0, width: 1.2, ...(cote === 'gauche' ? { left: 2 } : { right: 2 }) }}
+            />
+            {/* filet secondaire (intérieur, plus doux) */}
+            <LinearGradient
+                colors={filet(0.26)}
+                locations={[0, 0.10, 0.90, 1]}
+                style={{ position: 'absolute', top: 0, bottom: 0, width: 0.8, ...(cote === 'gauche' ? { left: 6.5 } : { right: 6.5 }) }}
+            />
+            {/* losanges dorés alternés le long du filet */}
+            <View style={{
+                position: 'absolute', top: 0, bottom: 0,
+                ...(cote === 'gauche' ? { left: 0 } : { right: 0 }),
+                width: 5.6, justifyContent: 'space-evenly', alignItems: 'center',
+                paddingVertical: 90,
+            }}>
+                {Array.from({ length: 9 }).map((_, i) => {
+                    const grand = i % 2 === 0
+                    const t = grand ? 5.6 : 3.6
+                    return (
+                        <View key={i} style={{
+                            width: t, height: t,
+                            backgroundColor: OR,
+                            opacity: grand ? 0.55 : 0.35,
+                            transform: [{ rotate: '45deg' }],
+                        }} />
+                    )
+                })}
+            </View>
+        </View>
+    )
+}
+
 export default function LectureSourate() {
     // `cle` (optionnel) : clé du bloc où reprendre la lecture exactement.
     // `verset` (optionnel) : numéro de verset où s'ouvrir (ex. début d'un juz).
@@ -489,6 +545,10 @@ export default function LectureSourate() {
                     />
                 </GestureDetector>
             )}
+
+            {/* Cadre doré du Mushaf, par-dessus le texte */}
+            <BordureMushaf cote="gauche" />
+            <BordureMushaf cote="droite" />
 
             {/* Chrome flottant — héros bleu en dégradé, comme les autres pages */}
             <Animated.View
