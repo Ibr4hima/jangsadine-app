@@ -42,17 +42,20 @@ const pagesParRiwaya: Record<Riwaya, () => Record<string, number>> = {
     hafs: () => require('../../assets/quran/pages.json'),
     warsh: () => require('../../assets/quran/warsh_pages.json'),
     qaloon: () => require('../../assets/quran/qaloon_pages.json'),
+    doori: () => require('../../assets/quran/doori_pages.json'),
 }
 const divisionsParRiwaya: Record<Riwaya, () => Divisions> = {
     hafs: () => require('../../assets/quran/divisions.json'),
     warsh: () => require('../../assets/quran/warsh_divisions.json'),
     qaloon: () => require('../../assets/quran/qaloon_divisions.json'),
+    doori: () => require('../../assets/quran/doori_divisions.json'),
 }
 // Polices KFGQPC par riwaya (génération moderne V18/V21 — rendu iOS correct)
 const policeParRiwaya: Record<Riwaya, string> = {
     hafs: typography.fontFamily.coran,
     warsh: 'Warsh',
     qaloon: 'Qaloon',
+    doori: 'Doori',
 }
 
 // Taille de lecture fixe : confortable et régulière, comme un Mushaf
@@ -192,7 +195,7 @@ export default function LectureSourate() {
     const router = useRouter()
     const insets = useSafeAreaInsets()
     const index = parseInt(id)
-    const riw: Riwaya = riwaya === 'warsh' || riwaya === 'qaloon' ? riwaya : 'hafs'
+    const riw: Riwaya = riwaya === 'warsh' || riwaya === 'qaloon' || riwaya === 'doori' ? riwaya : 'hafs'
     const pageEnds = useMemo(() => pagesParRiwaya[riw](), [riw])
     const divisions = useMemo(() => divisionsParRiwaya[riw](), [riw])
     const policeCoran = policeParRiwaya[riw]
