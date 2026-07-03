@@ -4,7 +4,7 @@ import { useAudio, useAudioProgress } from '@/contexts/AudioContext'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode, useEffect } from 'react'
-import { Pressable, View, ViewStyle } from 'react-native'
+import { ActivityIndicator, Pressable, View, ViewStyle } from 'react-native'
 import Animated, {
     cancelAnimation,
     Easing,
@@ -107,7 +107,7 @@ function BarreProgression() {
 
 // ─── mini lecteur persistant ──────────────────────────────────
 export default function LecteurPersistant() {
-    const { piste, enLecture, pause, reprendre, pisterSuivante, setLecteurOuvert } = useAudio()
+    const { piste, enLecture, enChargement, pause, reprendre, pisterSuivante, setLecteurOuvert } = useAudio()
 
     // Pulsation subtile du bouton play
     const playScale = useSharedValue(1)
@@ -248,9 +248,11 @@ export default function LecteurPersistant() {
                                 shadowRadius: 10,
                                 elevation: 7,
                             }}>
-                                {enLecture
-                                    ? <IconPause size={17} color={colors.bleu} />
-                                    : <IconPlay size={17} color={colors.bleu} />}
+                                {enChargement
+                                    ? <ActivityIndicator size="small" color={colors.bleu} />
+                                    : enLecture
+                                        ? <IconPause size={17} color={colors.bleu} />
+                                        : <IconPlay size={17} color={colors.bleu} />}
                             </Tap>
                         </Animated.View>
                     </View>

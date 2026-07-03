@@ -253,8 +253,8 @@ function BoutonSkip({ sens, onSkip, onLongSkip }: {
 // résistance et une légère inclinaison, un badge « ±10 s » apparaît sur le
 // bord, puis tout revient à ressort. Le glisser vertical n'est pas capturé
 // (il continue de fermer le lecteur via le geste parent).
-function Artwork({ enLecture, hidden, onSwipeSkip }: {
-    enLecture: boolean; hidden: boolean; onSwipeSkip: (sens: 1 | -1) => void
+function Artwork({ enLecture, hidden, onSwipeSkip, onDoubleTap }: {
+    enLecture: boolean; hidden: boolean; onSwipeSkip: (sens: 1 | -1) => void; onDoubleTap: () => void
 }) {
     const scale = useSharedValue(enLecture ? 1 : 0.78)
     const aura  = useSharedValue(0)
@@ -307,6 +307,14 @@ function Artwork({ enLecture, hidden, onSwipeSkip }: {
             tx.value = withSpring(0, { damping: 15, stiffness: 240 })
         })
 
+    // Double-tap = play/pause (le rebond d'échelle vient du changement
+    // d'état enLecture, déjà animé à ressort)
+    const doubleTap = Gesture.Tap()
+        .numberOfTaps(2)
+        .maxDelay(260)
+        .onEnd((_e, reussi) => { if (reussi) runOnJS(onDoubleTap)() })
+    const gestes = Gesture.Race(doubleTap, swipe)
+
     const style = useAnimatedStyle(() => ({
         transform: [
             { translateX: tx.value },
@@ -349,7 +357,7 @@ function Artwork({ enLecture, hidden, onSwipeSkip }: {
                 borderRadius: 32,
                 backgroundColor: colors.or,
             }, auraStyle]} />
-            <GestureDetector gesture={swipe}>
+            <GestureDetector gesture={gestes}>
                 <Animated.View style={[{
                     width: ART_SIZE, height: ART_SIZE,
                     borderRadius: 24,
@@ -787,8 +795,21 @@ function VolumeBar({ volume, onChange, onChangeLive }: {
 }
 
 // ─── Play / Pause with pulsing glow ───────────────────────────
-function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () => void }) {
+// `chargement` : anneau doré tournant autour du bouton pendant le
+// buffering — l'app ne paraît jamais figée sur un réseau lent.
+function BoutonPlay({ enLecture, chargement, onPress }: { enLecture: boolean; chargement: boolean; onPress: () => void }) {
     const glow = useSharedValue(0)
+    const spin = useSharedValue(0)
+
+    useEffect(() => {
+        if (chargement) {
+            spin.value = 0
+            spin.value = withRepeat(withTiming(360, { duration: 900, easing: Easing.linear }), -1, false)
+        } else {
+            cancelAnimation(spin)
+        }
+    }, [chargement])
+    const spinStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${spin.value}deg` }] }))
     // 0 = play, 1 = pause : le passage de l'un à l'autre est un morphing
     // continu (rotation + fondu croisé), pas un simple échange d'icônes.
     const mode = useSharedValue(enLecture ? 1 : 0)
@@ -830,6 +851,18 @@ function BoutonPlay({ enLecture, onPress }: { enLecture: boolean; onPress: () =>
                     width: 90, height: 90, borderRadius: 45,
                     backgroundColor: '#fff',
                 }, ringStyle]} />
+                {/* anneau de chargement (buffering) */}
+                {chargement && (
+                    <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: 96, height: 96 }, spinStyle]}>
+                        <Svg width={96} height={96}>
+                            <SvgCircle
+                                cx={48} cy={48} r={45}
+                                stroke={colors.or} strokeWidth={3} fill="none"
+                                strokeDasharray="80 203" strokeLinecap="round"
+                            />
+                        </Svg>
+                    </Animated.View>
+                )}
                 <View style={{
                     width: 82, height: 82, borderRadius: 41,
                     backgroundColor: '#fff',
@@ -995,7 +1028,7 @@ function BoutonTelechargement({ piste }: { piste: Piste }) {
 export default function LecteurPleinEcran() {
     const {
         piste, enLecture,
-        vitesse, volume, pause, reprendre, seeker, avancer, reculer,
+        vitesse, volume, enChargement, pause, reprendre, seeker, avancer, reculer,
         changerVitesse, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
     } = useAudio()
     const { tempsActuel, dureeTotal } = useAudioProgress()
@@ -1200,7 +1233,7 @@ export default function LecteurPleinEcran() {
                                 {/* Artwork / panel */}
                                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                                     <Animated.View style={artEntree}>
-                                        <Artwork enLecture={enLecture} hidden={panelOpen} onSwipeSkip={swipeSkip} />
+                                        <Artwork enLecture={enLecture} hidden={panelOpen} onSwipeSkip={swipeSkip} onDoubleTap={togglePlay} />
                                     </Animated.View>
 
                                     {panelOpen && (
@@ -1375,7 +1408,7 @@ export default function LecteurPleinEcran() {
 
                                     <BoutonSkip sens={-1} onSkip={() => skip(reculer)} onLongSkip={() => allerChapitre(-1)} />
 
-                                    <BoutonPlay enLecture={enLecture} onPress={togglePlay} />
+                                    <BoutonPlay enLecture={enLecture} chargement={enChargement} onPress={togglePlay} />
 
                                     <BoutonSkip sens={1} onSkip={() => skip(avancer)} onLongSkip={() => allerChapitre(1)} />
 
