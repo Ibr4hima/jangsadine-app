@@ -11,6 +11,7 @@ import {
 import { readAsStringAsync } from 'expo-file-system/legacy'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, NativeModules } from 'react-native'
+import { supabase } from '@/lib/supabase'
 
 // react-native-volume-manager lève une erreur DÈS L'IMPORT quand le module natif
 // est absent (cas d'Expo Go, qui ne l'embarque pas). On le charge donc de façon
@@ -39,6 +40,10 @@ export type Piste = {
   // URL de jaquette affichée sur l'écran verrouillé (optionnel)
   pochette?: string
 }
+
+// Chapitre d'un épisode (episode_markers) — possédé par le contexte pour
+// pouvoir mettre à jour l'écran verrouillé même lecteur fermé.
+export type Marqueur = { id: string; titre: string; temps_secondes: number }
 
 export type OptionsLecture = {
   // Démarre à cette position (secondes) au lieu de la reprise sauvegardée
@@ -80,6 +85,8 @@ type AudioContextType = {
   file: Piste[]
   playlist: Piste[]
   ajouterAFile: (p: Piste[]) => void
+  // Chapitres de la piste courante (vide si aucun)
+  marqueurs: Marqueur[]
 }
 
 const AudioCtx = createContext<AudioContextType | null>(null)
@@ -121,6 +128,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [file, setFile] = useState<Piste[]>([])
   const [playlist, setPlaylist] = useState<Piste[]>([])
   const [enLecture, setEnLecture] = useState(false)
+  const [marqueurs, setMarqueurs] = useState<Marqueur[]>([])
+  const marqueursRef = useRef<Marqueur[]>([])
+  // Index du chapitre affiché sur l'écran verrouillé (-999 = à rafraîchir)
+  const chapitreIdxRef = useRef(-999)
   const [progression, setProgression] = useState(0)
   const [tempsActuel, setTempsActuel] = useState(0)
   const [dureeTotal, setDureeTotal] = useState(0)
@@ -175,6 +186,22 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     const t = status.currentTime ?? 0
     const d = status.duration ?? 0
     setEnLecture(status.playing)
+
+    // Chapitre courant sur l'écran verrouillé : dès qu'on change de chapitre,
+    // la ligne « artiste » devient « Chapitre N · titre » (sheikh sinon).
+    const ms = marqueursRef.current
+    if (ms.length > 0 && pisteRef.current) {
+      let idx = -1
+      for (let i = ms.length - 1; i >= 0; i--) {
+        if (t >= ms[i].temps_secondes) { idx = i; break }
+      }
+      if (idx !== chapitreIdxRef.current) {
+        chapitreIdxRef.current = idx
+        const meta = construireMetadata(pisteRef.current)
+        if (idx >= 0) meta.artist = `Chapitre ${idx + 1} · ${ms[idx].titre}`
+        try { playerRef.current?.updateLockScreenMetadata(meta) } catch {}
+      }
+    }
     if (d > 0) setDureeTotal(d)
 
     // Reprise : on attend que la durée soit connue puis on se positionne une fois
@@ -209,7 +236,39 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem('jsd_derniere_position', '0').catch(() => {})
       pisterSuivante()
     }
-  }, [annulerWatchdog, sauverDernierePosition, pisterSuivante])
+  }, [annulerWatchdog, sauverDernierePosition, pisterSuivante, construireMetadata])
+
+  // Chapitres de la piste courante. Rattachés à un épisode classique ou à un
+  // livre audio (id préfixé livre_ côté app, uuid brut en base) : on tente
+  // les identifiants candidats l'un après l'autre.
+  useEffect(() => {
+    setMarqueurs([])
+    marqueursRef.current = []
+    chapitreIdxRef.current = -999
+    if (!piste) return
+    let annule = false
+    const charger = async () => {
+      const candidats = piste.id.startsWith('livre_')
+        ? [piste.id.slice(6), piste.id]
+        : [piste.id]
+      for (const idC of candidats) {
+        const { data, error } = await supabase
+          .from('episode_markers')
+          .select('id, titre, temps_secondes')
+          .eq('episode_id', idC)
+          .order('temps_secondes')
+        if (annule) return
+        if (!error && data && data.length > 0) {
+          setMarqueurs(data)
+          marqueursRef.current = data
+          chapitreIdxRef.current = -999 // force un rafraîchissement lock-screen
+          return
+        }
+      }
+    }
+    charger()
+    return () => { annule = true }
+  }, [piste?.id])
 
   // Lit le logo embarqué une fois et le convertit en data-URL pour servir de
   // jaquette par défaut sur l'écran verrouillé.
@@ -460,11 +519,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     lecteurOuvert, setLecteurOuvert,
     jouer, pause, reprendre, seeker, avancer, reculer,
     changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente,
-    file, playlist, ajouterAFile,
+    file, playlist, ajouterAFile, marqueurs,
   }), [
     piste, enLecture, vitesse, volume, lecteurOuvert, file, playlist,
     jouer, pause, reprendre, seeker, avancer, reculer,
-    changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente, ajouterAFile,
+    changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, pisterSuivante, pistePrecedente, ajouterAFile, marqueurs,
   ])
 
   const progressValue = useMemo<AudioProgressType>(

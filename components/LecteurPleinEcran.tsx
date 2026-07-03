@@ -5,7 +5,6 @@ import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio, useAudioProgress } from '@/contexts/AudioContext'
 import type { Piste } from '@/contexts/AudioContext'
 import { useTelechargement } from '@/contexts/TelechargementContext'
-import { supabase } from '@/lib/supabase'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode, useEffect, useRef, useState } from 'react'
@@ -1041,12 +1040,14 @@ export default function LecteurPleinEcran() {
     const {
         piste, enLecture,
         vitesse, volume, pause, reprendre, seeker, avancer, reculer, pistePrecedente,
-        changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert,
+        changerVitesse, changerVitesseLive, changerVolume, changerVolumeLive, jouer, file, playlist, lecteurOuvert, setLecteurOuvert, marqueurs,
     } = useAudio()
     const { tempsActuel, dureeTotal } = useAudioProgress()
 
     const [panel, setPanel]     = useState<'none' | 'chapters' | 'queue'>('none')
-    const [markers, setMarkers] = useState<{ id: string; titre: string; temps_secondes: number }[]>([])
+    // Chapitres : possédés par l'AudioContext (qui met aussi à jour l'écran
+    // verrouillé lecteur fermé) — on ne fait que les consommer ici.
+    const markers = marqueurs
     const [noteVisible, setNoteVisible] = useState(false)
     const [tsNote, setTsNote]       = useState(0)
     // Piste lancée depuis la File : on reste sur la liste au lieu de
@@ -1141,34 +1142,11 @@ export default function LecteurPleinEcran() {
         }
     })
 
-    // Metadata
+    // Changement de piste : referme le panneau (sauf lancement depuis la File)
     useEffect(() => {
         if (!piste) return
-        setMarkers([])
         if (garderPanelRef.current) garderPanelRef.current = false
         else setPanel('none')
-
-        // Les markers peuvent être rattachés à un épisode classique ou à
-        // un livre audio : côté app l'id d'un livre est préfixé `livre_`
-        // alors qu'en base ils sont enregistrés sous l'uuid brut.
-        // On tente les identifiants candidats l'un après l'autre.
-        let annule = false
-        const charger = async () => {
-            const candidats = piste.id.startsWith('livre_')
-                ? [piste.id.slice(6), piste.id]
-                : [piste.id]
-            for (const idC of candidats) {
-                const { data, error } = await supabase
-                    .from('episode_markers')
-                    .select('id, titre, temps_secondes')
-                    .eq('episode_id', idC)
-                    .order('temps_secondes')
-                if (annule) return
-                if (!error && data && data.length > 0) { setMarkers(data); return }
-            }
-        }
-        charger()
-        return () => { annule = true }
     }, [piste?.id])
 
     // Fermé → complètement démonté : sans cela, le lecteur (translaté hors
