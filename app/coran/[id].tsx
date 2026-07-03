@@ -41,16 +41,15 @@ const pageEnds: Record<string, number> = require('../../assets/quran/pages.json'
 const divisions: { juz: Record<string, number>; hizb: Record<string, number> } =
     require('../../assets/quran/divisions.json')
 
-// Bornes de la taille de lecture (px). Le pinch fait varier en continu entre les deux.
-const TAILLE_MIN = 20
-const TAILLE_MAX = 64
-const TAILLE_DEFAUT = 30
+// Taille de lecture fixe : confortable et régulière, comme un Mushaf
+// imprimé (le zoom est volontairement désactivé pour préserver la mise
+// en page).
+const TAILLE_LECTURE = 28
 // On regroupe les versets en blocs d'environ ce nombre de caractères : le texte
 // reste un flux justifié continu DANS un bloc, et la FlatList ne rend que les
 // blocs visibles → fluide même sur al-Baqarah (286 versets).
 const BLOC_CARACTERES = 480
 
-const CLE_TAILLE = 'jsd_coran_taille'
 
 type Verset = { numero: number; texte: string }
 type Bloc = { cle: string; versets: Verset[] }
@@ -61,11 +60,6 @@ type Item =
     | { type: 'entete'; cle: string; sourate: number; basmala: string | null; nbVersets: number; premier: boolean }
     | { type: 'bloc'; cle: string; sourate: number; versets: Verset[] }
     | { type: 'page'; cle: string; sourate: number; page: number }
-
-function clamp(v: number, min: number, max: number) {
-    'worklet'
-    return Math.min(max, Math.max(min, v))
-}
 
 // Basmala : SVG vectoriel officiel de quran.com (calligraphie naskh « بسم الله
 // الرحمن الرحيم »). Vectoriel → net à toute taille. La largeur suit le zoom mais
@@ -101,7 +95,10 @@ function BlocTexte({ item, sourate, taille, lineHeight }: { item: Bloc; sourate:
                 fontSize: taille,
                 lineHeight,
                 color: TEXTE,
-                textAlign: 'center',
+                // Justifié : chaque ligne remplit la largeur comme dans un
+                // Mushaf imprimé (fini les petits mots seuls centrés en fin
+                // de bloc — la dernière ligne s'aligne à droite, naturel).
+                textAlign: 'justify',
                 writingDirection: 'rtl',
             }}
         >
@@ -241,7 +238,7 @@ export default function LectureSourate() {
     }, [revele])
     const voileStyle = useAnimatedStyle(() => ({ opacity: voileOp.value }))
 
-    const [taille, setTaille] = useState(TAILLE_DEFAUT)
+    const taille = TAILLE_LECTURE
     const [chromeVisible, setChromeVisible] = useState(true)
 
     // Sourates déjà chargées (dans l'ordre) + cache des items construits par sourate
@@ -254,12 +251,6 @@ export default function LectureSourate() {
         hideTabBar()
         return () => showTabBar()
     }, []))
-
-    // Valeurs partagées pour le geste (lues/écrites sur le thread UI)
-    const tailleSV = useSharedValue(TAILLE_DEFAUT)
-    const tailleDebutSV = useSharedValue(TAILLE_DEFAUT)
-    const dernierePousseeRef = useRef(TAILLE_DEFAUT)
-    useEffect(() => { tailleSV.value = taille }, [taille])
 
     // Construit (et met en cache) les items d'une sourate : en-tête (basmala) + blocs
     const construireSourate = useCallback((idx: number): Item[] => {
@@ -376,43 +367,10 @@ export default function LectureSourate() {
     }).current
     const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 0 }).current
 
-    // ── Préférences persistées ──
-    useEffect(() => {
-        AsyncStorage.getItem(CLE_TAILLE).then(val => {
-            if (val == null) return
-            const n = parseFloat(val)
-            if (!isNaN(n)) { setTaille(n); tailleSV.value = n }
-        }).catch(() => {})
-    }, [])
-
-    // ── Pinch : reflow en direct (la mise en page s'adapte pendant le geste) ──
-    const appliquerTaille = useCallback((n: number) => {
-        if (n === dernierePousseeRef.current) return
-        dernierePousseeRef.current = n
-        setTaille(n)
-    }, [])
-
-    const persisterTaille = useCallback((n: number) => {
-        AsyncStorage.setItem(CLE_TAILLE, String(n)).catch(() => {})
-    }, [])
-
-    const pinch = Gesture.Pinch()
-        .onStart(() => { tailleDebutSV.value = tailleSV.value })
-        .onUpdate(e => {
-            // Arrondi à l'entier → ~quelques dizaines de paliers sur toute la plage :
-            // reflow fluide sans spammer des rendus identiques.
-            const n = Math.round(clamp(tailleDebutSV.value * e.scale, TAILLE_MIN, TAILLE_MAX))
-            runOnJS(appliquerTaille)(n)
-        })
-        .onEnd(() => {
-            runOnJS(persisterTaille)(Math.round(tailleSV.value))
-        })
-
-    // Tap simple (1 doigt, sans déplacement) → bascule le chrome. N'interfère ni
-    // avec le scroll (qui a du mouvement) ni avec le pinch (2 doigts).
+    // Tap simple (1 doigt, sans déplacement) → bascule le chrome.
+    // N'interfère pas avec le scroll (qui a du mouvement).
     const basculerChrome = useCallback(() => setChromeVisible(v => !v), [])
-    const tap = Gesture.Tap().onEnd(() => { runOnJS(basculerChrome)() })
-    const gestes = Gesture.Simultaneous(pinch, tap)
+    const gestes = Gesture.Tap().onEnd(() => { runOnJS(basculerChrome)() })
 
     // ── Animation du chrome (header) ──
     const chromeSV = useSharedValue(1)
@@ -514,7 +472,6 @@ export default function LectureSourate() {
                         keyExtractor={it => it.cle}
                         renderItem={renderItem}
                         ListFooterComponent={<View style={{ height: insets.bottom + 80 }} />}
-                        extraData={taille}
                         // scrollToIndex sans getItemLayout : on approche à l'estime,
                         // puis on retente une fois la zone rendue.
                         onScrollToIndexFailed={info => {
