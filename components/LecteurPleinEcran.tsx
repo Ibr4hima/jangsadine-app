@@ -202,8 +202,12 @@ function SpringTap({ onPress, children, style, hitSlop = 14, pressedScale = 0.86
 }
 
 // ─── Bouton ±10 s animé ───────────────────────────────────────
-// L'icône tourne d'un cran dans le sens du saut puis revient à ressort.
-function BoutonSkip({ sens, onSkip }: { sens: 1 | -1; onSkip: () => void }) {
+// Tap : l'icône tourne d'un cran dans le sens du saut puis revient à
+// ressort. Long-press : saut au chapitre précédent/suivant (rotation plus
+// ample, haptique distincte gérée par l'appelant).
+function BoutonSkip({ sens, onSkip, onLongSkip }: {
+    sens: 1 | -1; onSkip: () => void; onLongSkip?: () => void
+}) {
     const s   = useSharedValue(1)
     const rot = useSharedValue(0)
 
@@ -212,6 +216,15 @@ function BoutonSkip({ sens, onSkip }: { sens: 1 | -1; onSkip: () => void }) {
         rot.value = withSequence(
             withTiming(sens * 42, { duration: 130, easing: Easing.out(Easing.quad) }),
             withSpring(0, { damping: 9, stiffness: 150 }),
+        )
+    }
+
+    const longPress = () => {
+        if (!onLongSkip) return
+        onLongSkip()
+        rot.value = withSequence(
+            withTiming(sens * 90, { duration: 180, easing: Easing.out(Easing.quad) }),
+            withSpring(0, { damping: 10, stiffness: 130 }),
         )
     }
 
@@ -224,6 +237,8 @@ function BoutonSkip({ sens, onSkip }: { sens: 1 | -1; onSkip: () => void }) {
             onPressIn={() => { s.value = withSpring(0.82, { damping: 16, stiffness: 480 }) }}
             onPressOut={() => { s.value = withSpring(1, { damping: 13, stiffness: 300 }) }}
             onPress={press}
+            onLongPress={longPress}
+            delayLongPress={350}
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
         >
             <Animated.View style={iconStyle}>
@@ -1033,6 +1048,28 @@ export default function LecteurPleinEcran() {
         transform: [{ translateY: translateY.value }],
     }))
 
+    // Transition « liquide » : l'artwork arrive de plus bas et plus petit que
+    // la feuille (croissance + parallaxe) comme s'il grandissait depuis le
+    // mini-lecteur ; le titre suit avec une parallaxe plus douce. Piloté par
+    // translateY → le drag de fermeture rejoue la transition en miroir.
+    const artEntree = useAnimatedStyle(() => {
+        const t = Math.min(1, Math.max(0, translateY.value / SCREEN_H))
+        return {
+            opacity: 1 - t * 0.25,
+            transform: [
+                { translateY: t * SCREEN_H * 0.35 },
+                { scale: 1 - t * 0.45 },
+            ],
+        }
+    })
+    const titreEntree = useAnimatedStyle(() => {
+        const t = Math.min(1, Math.max(0, translateY.value / SCREEN_H))
+        return {
+            opacity: 1 - t * 0.5,
+            transform: [{ translateY: t * SCREEN_H * 0.12 }],
+        }
+    })
+
     // Metadata
     useEffect(() => {
         if (!piste) return
@@ -1110,6 +1147,29 @@ export default function LecteurPleinEcran() {
         setNoteVisible(true)
     }
 
+    // Long-press ±10 s → chapitre précédent/suivant. En arrière : si on est
+    // à plus de 3 s dans le chapitre, on revient à son début (convention des
+    // lecteurs de musique) ; sinon au chapitre d'avant.
+    const allerChapitre = (sens: 1 | -1) => {
+        if (!markers.length || dureeTotal <= 0) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+            return
+        }
+        const idx = markers.findIndex((m, i) =>
+            tempsActuel >= m.temps_secondes &&
+            (i === markers.length - 1 || tempsActuel < markers[i + 1].temps_secondes))
+        let cible: number
+        if (sens > 0) {
+            if (idx >= markers.length - 1) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); return }
+            cible = markers[idx + 1].temps_secondes
+        } else {
+            const debut = idx >= 0 ? markers[idx].temps_secondes : 0
+            cible = (idx >= 0 && tempsActuel - debut > 3) ? debut : (idx > 0 ? markers[idx - 1].temps_secondes : 0)
+        }
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
+        seeker((cible / dureeTotal) * 100)
+    }
+
     return (
         <Animated.View style={[{
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999,
@@ -1139,7 +1199,9 @@ export default function LecteurPleinEcran() {
 
                                 {/* Artwork / panel */}
                                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-                                    <Artwork enLecture={enLecture} hidden={panelOpen} onSwipeSkip={swipeSkip} />
+                                    <Animated.View style={artEntree}>
+                                        <Artwork enLecture={enLecture} hidden={panelOpen} onSwipeSkip={swipeSkip} />
+                                    </Animated.View>
 
                                     {panelOpen && (
                                         <ScrollView
@@ -1234,7 +1296,7 @@ export default function LecteurPleinEcran() {
                                 </View>
 
                                 {/* Title + Sheikh */}
-                                <View style={{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 6 : spacing.md }}>
+                                <Animated.View style={[{ marginTop: spacing.lg, marginBottom: chapitreActuel ? 6 : spacing.md }, titreEntree]}>
                                     <TextTicker
                                         style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.xl, color: '#fff', lineHeight: 28 }}
                                         loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
@@ -1247,7 +1309,7 @@ export default function LecteurPleinEcran() {
                                     >
                                         {piste.sheikh}
                                     </TextTicker>
-                                </View>
+                                </Animated.View>
 
                                 {/* Chapitre en cours — centré, au-dessus de la barre */}
                                 {chapitreActuel && (
@@ -1311,11 +1373,11 @@ export default function LecteurPleinEcran() {
                                         </View>
                                     </SpringTap>
 
-                                    <BoutonSkip sens={-1} onSkip={() => skip(reculer)} />
+                                    <BoutonSkip sens={-1} onSkip={() => skip(reculer)} onLongSkip={() => allerChapitre(-1)} />
 
                                     <BoutonPlay enLecture={enLecture} onPress={togglePlay} />
 
-                                    <BoutonSkip sens={1} onSkip={() => skip(avancer)} />
+                                    <BoutonSkip sens={1} onSkip={() => skip(avancer)} onLongSkip={() => allerChapitre(1)} />
 
                                     {/* download */}
                                     <BoutonTelechargement piste={piste} />
