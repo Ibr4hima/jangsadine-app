@@ -1081,6 +1081,12 @@ export default function LecteurPleinEcran() {
     const vitDepartSV = useSharedValue(1)
     const dernierApplyRef = useRef(0)
     const dernierCranRef = useRef(0)
+    // HUD : libellé ×N,N piloté sur le thread UI (hook → impérativement AVANT
+    // le return conditionnel du composant)
+    const vitesseProps = useAnimatedProps(() => {
+        const dix = Math.round(vitLiveSV.value * 10)
+        return { text: '×' + Math.floor(dix / 10) + ',' + (dix % 10) } as any
+    })
 
     useEffect(() => {
         translateY.value = lecteurOuvert
@@ -1217,11 +1223,6 @@ export default function LecteurPleinEcran() {
         .onEnd((_e, reussi) => { if (reussi) runOnJS(cyclerVitesse)() })
     const gesteVitesse = Gesture.Race(panVitesse, tapVitesse)
 
-    // HUD : libellé ×N,N piloté sur le thread UI
-    const vitesseProps = useAnimatedProps(() => {
-        const dix = Math.round(vitLiveSV.value * 10)
-        return { text: '×' + Math.floor(dix / 10) + ',' + (dix % 10) } as any
-    })
 
     const togglePlay = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
