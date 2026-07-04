@@ -261,7 +261,7 @@ function BarreEcoute({ tempsActuel, dureeTotal, onSeek }: {
                 }, bubbleStyle]}>
                     <Text style={{
                         fontFamily: typography.fontFamily.bold,
-                        fontSize: 13, color: '#183559',
+                        fontSize: 13, color: '#163152',
                         fontVariant: ['tabular-nums'],
                     }}>
                         {fmtTemps(tDisplay)}

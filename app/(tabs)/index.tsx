@@ -39,9 +39,9 @@ const { width: W } = Dimensions.get('window')
 const sourates = require('../../assets/quran/sourates.json')
 
 // ─── palette héros (bleu logo) ────────────────────────────────
-const BG_TOP = '#355d8e'
-const BG_MID = '#274c7a'
-const BG_BOT = '#1e406a'
+const BG_TOP = '#315683'
+const BG_MID = '#244670'
+const BG_BOT = '#1c3b61'
 const W90 = 'rgba(255,255,255,0.90)'
 const W70 = 'rgba(255,255,255,0.70)'
 const W55 = 'rgba(255,255,255,0.55)'
@@ -323,7 +323,7 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
                     {prochaine.heure}
                   </Text>
                   <View style={{ backgroundColor: colors.or, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, marginTop: 6 }}>
-                    <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: '#183559', fontVariant: ['tabular-nums'] }}>
+                    <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: '#163152', fontVariant: ['tabular-nums'] }}>
                       dans {tempsRestant(prochaine.heure)}
                     </Text>
                   </View>
@@ -447,7 +447,7 @@ function CarteReprendre() {
         overflow: 'hidden',
       }}>
         <LinearGradient
-          colors={[colors.bleu, '#183559']}
+          colors={[colors.bleu, '#163152']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg, gap: spacing.md }}
         >
@@ -462,8 +462,8 @@ function CarteReprendre() {
             })}
           >
             {piste && enLecture
-              ? <MiniEgaliseur color="#183559" hauteur={18} />
-              : <IcoPlay size={20} color="#183559" />}
+              ? <MiniEgaliseur color="#163152" hauteur={18} />
+              : <IcoPlay size={20} color="#163152" />}
           </Pressable>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: 'rgba(255,255,255,0.55)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>
@@ -574,8 +574,8 @@ function CarteLectureCoran({ onNav }: { onNav: (href: string) => void }) {
 
 // ─── accès rapide ─────────────────────────────────────────────
 // Teinte unique, cohérente avec le bleu du logo / des héros
-const TUILE_G1 = '#355d8e'
-const TUILE_G2 = '#1e406a'
+const TUILE_G1 = '#315683'
+const TUILE_G2 = '#1c3b61'
 
 const SECTIONS = [
   { label: 'Cours audio',   icon: IcoHeadphones, href: '/audio'          },
@@ -766,7 +766,7 @@ export default function Accueil() {
             paddingHorizontal: spacing.lg,
             paddingVertical: 15,
             gap: spacing.sm,
-            shadowColor: '#183559',
+            shadowColor: '#163152',
             shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.14,
             shadowRadius: 22,

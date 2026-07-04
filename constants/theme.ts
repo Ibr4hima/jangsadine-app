@@ -1,5 +1,5 @@
 export const colors = {
-  bleu: '#274c7a',
+  bleu: '#244670',
   or: '#d6ad3a',
   orFonce: '#b8911f',
   fondCreme: '#F5F2EB',
