@@ -540,7 +540,11 @@ export default function LectureSourate() {
             }
         }
     }).current
-    const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 0 }).current
+    // Seuil 15 % : la lamelle de la page précédente qui dépasse sous le héros
+    // (~90 px, soit ~10 % d'un bloc-page) ne compte pas comme « visible » —
+    // sinon elle redevient la référence du héros (JUZ/%) au premier événement
+    // après un saut, et réécrit p. ex. « JUZ 4 · 97 % » sur un saut au Juz 5.
+    const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 15 }).current
 
     // Tap simple (1 doigt, sans déplacement) → bascule le chrome.
     // N'interfère pas avec le scroll (qui a du mouvement).
