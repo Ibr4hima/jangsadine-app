@@ -9,15 +9,18 @@ export const colors = {
   blanc: '#ffffff',
   footerBg: '#1a1a2e',
 
+  // Palette « manuscrit » : encres profondes sur lavis doux, accordées au
+  // bleu #244670, à l'or #d6ad3a et au fond crème — teintes distinctes,
+  // saturation et luminosité harmonisées.
   categories: {
-    'Aqeedah': { bg: '#e8f0f8', txt: '#28558b' },
-    'Fiqh': { bg: '#faf3dc', txt: '#b8911f' },
-    'Hadith': { bg: '#eaf4ee', txt: '#2d7a4f' },
-    'Tafsir & Sciences du Coran': { bg: '#fde8f0', txt: '#a02060' },
-    'Seerah': { bg: '#fdf0eb', txt: '#c05c2e' },
-    'Invocations': { bg: '#DEE8CE', txt: '#06402B' },
-    'Éthique & Bons comportements': { bg: '#f2eefa', txt: '#6b3db5' },
-    'Séries de cours': { bg: '#EDE8D0', txt: '#654321' },
+    'Aqeedah': { bg: '#e9eff6', txt: '#2c5382' },              // bleu ardoise (le bleu de l'app)
+    'Fiqh': { bg: '#f6eed6', txt: '#96751c' },                 // or doux (l'or de l'app)
+    'Hadith': { bg: '#e6efe8', txt: '#2f6b4f' },               // vert émeraude profond
+    'Tafsir & Sciences du Coran': { bg: '#f6e7eb', txt: '#93374f' }, // bordeaux des reliures
+    'Seerah': { bg: '#f7eae2', txt: '#a2552d' },               // terre cuite
+    'Invocations': { bg: '#e3efee', txt: '#2b6b6b' },          // bleu-vert serein
+    'Éthique & Bons comportements': { bg: '#eeeaf5', txt: '#6d5296' }, // violet feutré
+    'Séries de cours': { bg: '#f0e9dd', txt: '#7a5b3a' },      // brun bronze
   },
 } as const
 
