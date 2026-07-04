@@ -14,9 +14,10 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-// Couleurs fixes — pas de mode nuit/jour
-const BG = '#F2F0EF'
-const TEXTE = '#353839'
+// Couleurs fixes — pas de mode nuit/jour. Papier crème ivoire (chaud,
+// moins de fatigue en lecture longue, met l'or en valeur) + noir chaud.
+const BG = '#F8F4EA'
+const TEXTE = '#2E2C28'
 const OR = '#b8932a'
 
 // Police SuraNames (quran.com) : deux ligatures distinctes — les 3 chiffres
@@ -210,11 +211,11 @@ function BordureMushaf({ cote }: { cote: 'gauche' | 'droite' }) {
             } as any} />
             {/* fondu des extrémités dans la couleur de page */}
             <LinearGradient
-                colors={[BG, 'rgba(242,240,239,0)']}
+                colors={[BG, 'rgba(248,244,234,0)']}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 110 }}
             />
             <LinearGradient
-                colors={['rgba(242,240,239,0)', BG]}
+                colors={['rgba(248,244,234,0)', BG]}
                 style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 110 }}
             />
         </View>
