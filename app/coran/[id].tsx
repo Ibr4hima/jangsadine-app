@@ -439,6 +439,17 @@ export default function LectureSourate() {
                 ignorerScrollJusquaRef.current = Date.now() + 800
                 setChromeVisible(true)
                 revele()
+                // Rattrapage silencieux : une mesure tardive d'un bloc situé
+                // au-dessus (ex. Juz 7, le bloc coupé avant lui grandit d'une
+                // ligne après coup) peut décaler la cible APRÈS la révélation.
+                // On repose la cible un peu plus tard — seulement si
+                // l'utilisateur n'a pas défilé entre-temps (offset inchangé).
+                const yLibere = dernierYRef.current
+                ;[600, 1500].forEach(ms => setTimeout(() => {
+                    if (cibleActiveRef.current) return
+                    if (dernierYRef.current !== yLibere) return
+                    poser()
+                }, ms))
             }
             let derniereMesure = -1
             let controles = 0
