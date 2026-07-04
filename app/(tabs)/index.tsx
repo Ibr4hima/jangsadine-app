@@ -348,7 +348,7 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
                       <Text style={{ fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.medium, fontSize: typography.size.xs, color: actif ? colors.or : W55 }}>
                         {p.nom}
                       </Text>
-                      <Text style={{ fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.regular, fontSize: typography.size.sm, color: actif ? '#fff' : W70, fontVariant: ['tabular-nums'] }}>
+                      <Text style={{ fontFamily: actif ? typography.fontFamily.bold : typography.fontFamily.regular, fontSize: typography.size.sm, color: actif ? colors.or : W70, fontVariant: ['tabular-nums'] }}>
                         {p.heure}
                       </Text>
                     </View>
