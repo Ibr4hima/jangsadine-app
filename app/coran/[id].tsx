@@ -337,6 +337,10 @@ export default function LectureSourate() {
         }
         for (let i = 0; i < versets.length; i++) {
             const v = versets[i]
+            // Début de juz en pleine page : on coupe le bloc juste avant, si
+            // bien qu'un saut de juz pose son premier verset pile sous le
+            // héros (sans cette coupe, c'est le haut de la page qui s'y pose).
+            if (courant.length && divisions.juz[`${idx}:${v.numero}`]) fermerBloc()
             courant.push(v)
             // Fin de page : le bandeau s'affiche APRÈS le dernier verset de la page.
             // (Juz/Hizb sont gérés en ligne dans BlocTexte, au début du verset.)
@@ -349,7 +353,7 @@ export default function LectureSourate() {
         fermerBloc()
         itemsCacheRef.current[idx] = out
         return out
-    }, [index, riw, pageEnds])
+    }, [index, riw, pageEnds, divisions])
 
     const recomposer = useCallback((indices: number[]) => {
         // `premier` = l'en-tête tout en haut du flux (grand padding sous le
