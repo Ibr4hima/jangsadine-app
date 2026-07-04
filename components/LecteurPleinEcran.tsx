@@ -41,10 +41,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg'
 import TextTicker from '@/components/Marquee'
 
-// ─── palette : bleu du logo (#244670) ─────────────────────────
-const BG_TOP  = '#315683'
-const BG_MID  = '#244670'
-const BG_BOT  = '#163152'
+// ─── palette : bleu du logo (#264a77) ─────────────────────────
+const BG_TOP  = '#345b8b'
+const BG_MID  = '#264a77'
+const BG_BOT  = '#173457'
 const W85     = 'rgba(255,255,255,0.85)'
 const W60     = 'rgba(255,255,255,0.60)'
 const W35     = 'rgba(255,255,255,0.35)'

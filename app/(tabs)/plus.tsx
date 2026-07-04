@@ -9,8 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
 // Teinte unique, cohérente avec le bleu du logo / des héros
-const TUILE_G1 = '#315683'
-const TUILE_G2 = '#1c3b61'
+const TUILE_G1 = '#345b8b'
+const TUILE_G2 = '#1e3f67'
 
 // ─── icônes (Material Symbols) ────────────────────────────────
 function IconChecklist({ size = 19, color = colors.bleu }: { size?: number, color?: string }) {

@@ -20,8 +20,8 @@ import Svg, { Path } from 'react-native-svg'
 import TextTicker from '@/components/Marquee'
 
 // ─── palette (identique aux héros de l'app) ───────────────────
-const BG_L = '#315683'
-const BG_R = '#163152'
+const BG_L = '#345b8b'
+const BG_R = '#173457'
 const W70 = 'rgba(255,255,255,0.70)'
 
 const W12 = 'rgba(255,255,255,0.12)'

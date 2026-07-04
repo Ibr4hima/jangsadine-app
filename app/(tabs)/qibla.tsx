@@ -36,9 +36,9 @@ const KAABA_LAT = 21.4225
 const KAABA_LNG = 39.8262
 
 // palette bleu logo — la même que le lecteur plein écran
-const BG_TOP = '#315683'
-const BG_MID = '#244670'
-const BG_BOT = '#163152'
+const BG_TOP = '#345b8b'
+const BG_MID = '#264a77'
+const BG_BOT = '#173457'
 const W90 = 'rgba(255,255,255,0.90)'
 const W60 = 'rgba(255,255,255,0.60)'
 const W40 = 'rgba(255,255,255,0.40)'

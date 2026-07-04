@@ -10,7 +10,9 @@ import {
   Text, View
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Svg, { Rect } from 'react-native-svg'
+import Svg, { Path, Rect } from 'react-native-svg'
+import * as Haptics from 'expo-haptics'
+import { useTabBar } from '@/contexts/TabBarContext'
 
 // Listes de sourates et divisions par riwaya (versets, pages et débuts de
 // juz diffèrent entre Hafs et Warsh)
@@ -55,9 +57,9 @@ type Sourate = {
 }
 
 // ─── palette héros (identique à l'accueil) ────────────────────
-const BG_TOP = '#315683'
-const BG_MID = '#244670'
-const BG_BOT = '#1c3b61'
+const BG_TOP = '#345b8b'
+const BG_MID = '#264a77'
+const BG_BOT = '#1e3f67'
 const W55 = 'rgba(255,255,255,0.55)'
 const W12 = 'rgba(255,255,255,0.12)'
 
@@ -74,6 +76,38 @@ const RIWAYAS = [
   // { id: 'bazzi', nom: 'Bazzi', dispo: true },
   // { id: 'qumbul', nom: 'Qumbul', dispo: true },
 ] as const
+
+// ─── bouton retour accueil (verre dépoli, dans le héros) ─────
+// La barre d'onglets est masquée sur cette page : ce bouton est le seul
+// chemin de retour — pastille de verre, halo pressé, ressort et haptique.
+function BoutonAccueil({ onPress }: { onPress: () => void }) {
+  const scale = useRef(new Animated.Value(1)).current
+  return (
+    <Pressable
+      onPressIn={() => Animated.spring(scale, { toValue: 0.88, useNativeDriver: true }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }).start()}
+      onPress={() => { Haptics.selectionAsync(); onPress() }}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      {({ pressed }) => (
+        <Animated.View style={{
+          transform: [{ scale }],
+          width: 44, height: 44, borderRadius: 22,
+          backgroundColor: pressed ? 'rgba(255,255,255,0.24)' : W12,
+          borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Svg width={21} height={21} viewBox="0 -960 960 960">
+            <Path
+              d="M240-200h120v-240h240v240h120v-360L480-740 240-560v360Zm-80 80v-480l320-240 320 240v480H520v-240h-80v240H160Zm320-350Z"
+              fill="#fff"
+            />
+          </Svg>
+        </Animated.View>
+      )}
+    </Pressable>
+  )
+}
 
 // ─── badge octogramme ۞ (deux carrés superposés à 45°) ───────
 // Clin d'œil au rub-el-hizb du Mushaf : discret, fin, élégant.
@@ -170,9 +204,16 @@ const SourateCard = memo(function SourateCard({ sourate, riwaya }: { sourate: So
 export default function Coran() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  // Coupe les animations du fond aurore quand l'onglet n'est pas visible
+  // Coupe les animations du fond aurore quand l'onglet n'est pas visible.
+  // La barre d'onglets disparaît ici (immersion : le retour se fait par le
+  // bouton accueil du héros).
   const [focus, setFocus] = useState(true)
-  useFocusEffect(useCallback(() => { setFocus(true); return () => setFocus(false) }, []))
+  const { hideTabBar, showTabBar } = useTabBar()
+  useFocusEffect(useCallback(() => {
+    setFocus(true)
+    hideTabBar()
+    return () => { showTabBar(); setFocus(false) }
+  }, []))
   const [reprise, setReprise] = useState<{ sourate: Sourate; cle: string | null; riwaya: string } | null>(null)
   const [riwaya, setRiwaya] = useState<string>('hafs')
 
@@ -230,6 +271,10 @@ export default function Coran() {
           paddingBottom: spacing.lg,
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {/* retour à l'accueil — seul chemin, la barre d'onglets est masquée */}
+            <View style={{ marginRight: spacing.md }}>
+              <BoutonAccueil onPress={() => router.navigate('/' as any)} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={{
                 fontFamily: typography.fontFamily.bold,
@@ -322,7 +367,7 @@ export default function Coran() {
               <Text style={{
                 fontFamily: typography.fontFamily.semibold,
                 fontSize: typography.size.xs,
-                color: '#163152',
+                color: '#173457',
               }}>
                 Reprendre · {reprise.sourate.nom}  ›
               </Text>

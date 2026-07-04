@@ -24,8 +24,8 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
-const BG_L = '#315683'
-const BG_R = '#163152'
+const BG_L = '#345b8b'
+const BG_R = '#173457'
 
 SplashScreen.preventAutoHideAsync()
 

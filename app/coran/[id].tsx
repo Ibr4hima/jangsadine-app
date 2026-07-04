@@ -26,9 +26,9 @@ function nomSourate(idx: number) {
     return `${String(idx).padStart(3, '0')}surah`
 }
 // Dégradé bleu du héros (cohérent avec les autres pages : Plus, Qibla…)
-const HERO_TOP = '#315683'
-const HERO_MID = '#244670'
-const HERO_BOT = '#1c3b61'
+const HERO_TOP = '#345b8b'
+const HERO_MID = '#264a77'
+const HERO_BOT = '#1e3f67'
 
 const sourates = require('../../assets/quran/sourates.json')
 
@@ -788,11 +788,11 @@ export default function LectureSourate() {
                         </Text>
                     </View>
 
-                    <View style={{ flex: 1, alignItems: 'center' }}>
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                         {/* Chip doré (nom FR) */}
                         <View style={{
                             backgroundColor: 'rgba(214,173,58,0.16)', borderRadius: 999,
-                            paddingHorizontal: 12, paddingVertical: 4, marginBottom: 3,
+                            paddingHorizontal: 12, paddingVertical: 4,
                         }}>
                             <Text numberOfLines={1} style={{
                                 fontFamily: typography.fontFamily.bold, fontSize: 10,
@@ -801,10 +801,6 @@ export default function LectureSourate() {
                                 {sourates[sourateActive - 1]?.nom}
                             </Text>
                         </View>
-                        {/* Nom calligraphié (blanc, sur le héros bleu) */}
-                        <Text numberOfLines={1} style={{ fontFamily: 'SuraNames', fontSize: 22, color: '#fff', lineHeight: 32, writingDirection: 'ltr' }}>
-                            {nomSourate(sourateActive)}
-                        </Text>
                     </View>
 
                     {/* Progression dans le hizb (Hafs) / juz (autres riwayas) */}
