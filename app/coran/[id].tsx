@@ -278,8 +278,13 @@ export default function LectureSourate() {
         })
     }, [])
     useEffect(() => {
-        const t = setTimeout(revele, 1500)
-        return () => clearTimeout(t)
+        // Ouverture simple : le voile se lève dès que le contenu couvre
+        // l'écran (onContentSizeChange), 1,5 s de filet. Pendant un
+        // positionnement cible, c'est la boucle de stabilité qui décide —
+        // filet ultime à 5 s pour ne jamais rester voilé.
+        const t = setTimeout(() => { if (!cibleActiveRef.current) revele() }, 1500)
+        const cap = setTimeout(revele, 5000)
+        return () => { clearTimeout(t); clearTimeout(cap) }
     }, [revele])
     const voileStyle = useAnimatedStyle(() => ({ opacity: voileOp.value }))
 
@@ -419,16 +424,37 @@ export default function LectureSourate() {
         // le héros, jamais cachée derrière lui
         const decalage = insets.top + 92
         requestAnimationFrame(() => {
-            listeRef.current?.scrollToIndex({ index: idx, viewOffset: decalage, animated: false })
-            // laisse le temps aux retentes de onScrollToIndexFailed (150 ms)
-            // de se poser, puis lève le voile : arrivée nette, sans défilement
-            if (revelTimerRef.current) clearTimeout(revelTimerRef.current)
-            revelTimerRef.current = setTimeout(() => {
+            const poser = () => {
+                listeRef.current?.scrollToIndex({ index: idx, viewOffset: decalage, animated: false })
+            }
+            poser()
+            // Révélation À LA STABILITÉ, pas au chrono : pour une cible
+            // lointaine, la chaîne estimation → rendu → retente peut durer
+            // bien plus que 500 ms — un voile levé trop tôt laisse voir le
+            // défilement de rattrapage. Ici on ré-affirme la position toutes
+            // les 180 ms et on ne révèle que quand l'offset n'a plus bougé
+            // entre deux contrôles (posé net), avec un plafond de ~4 s.
+            const liberer = () => {
                 cibleActiveRef.current = false
                 ignorerScrollJusquaRef.current = Date.now() + 800
                 setChromeVisible(true)
                 revele()
-            }, 500)
+            }
+            let derniereMesure = -1
+            let controles = 0
+            const controler = () => {
+                const y = dernierYRef.current
+                controles++
+                if ((controles >= 2 && y === derniereMesure) || controles > 22) {
+                    liberer()
+                    return
+                }
+                derniereMesure = y
+                poser()
+                revelTimerRef.current = setTimeout(controler, 180)
+            }
+            if (revelTimerRef.current) clearTimeout(revelTimerRef.current)
+            revelTimerRef.current = setTimeout(controler, 260)
         })
     }, [items, index])
 
