@@ -274,13 +274,13 @@ export default function Coran() {
               droit, du haut du titre jusqu'à la rangée des riwayas */}
           <Image
             source={{ uri: QURAN_ICON_URI }}
-            pointerEvents="none"
             style={{
               position: 'absolute',
               top: insets.top + spacing.sm - 2,
               right: spacing.xl,
               width: 96, height: 96,
               opacity: 0.95,
+              pointerEvents: 'none',
             }}
             resizeMode="contain"
           />
