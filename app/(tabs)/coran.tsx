@@ -65,11 +65,13 @@ const RIWAYAS = [
   { id: 'hafs', nom: 'Hafs', dispo: true },
   { id: 'warsh', nom: 'Warsh', dispo: true },
   { id: 'qaloon', nom: 'Qaloon', dispo: true },
-  { id: 'doori', nom: 'Doori', dispo: true },
-  { id: 'shuba', nom: "Shu'bah", dispo: true },
-  { id: 'soosi', nom: 'Soosi', dispo: true },
-  { id: 'bazzi', nom: 'Bazzi', dispo: true },
-  { id: 'qumbul', nom: 'Qumbul', dispo: true },
+  // Prêtes dans l'app (données + polices embarquées), à réactiver quand on
+  // voudra les proposer :
+  // { id: 'doori', nom: 'Doori', dispo: true },
+  // { id: 'shuba', nom: "Shu'bah", dispo: true },
+  // { id: 'soosi', nom: 'Soosi', dispo: true },
+  // { id: 'bazzi', nom: 'Bazzi', dispo: true },
+  // { id: 'qumbul', nom: 'Qumbul', dispo: true },
 ] as const
 
 // ─── badge octogramme ۞ (deux carrés superposés à 45°) ───────

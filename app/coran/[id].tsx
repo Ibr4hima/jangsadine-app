@@ -4,13 +4,12 @@ import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate, Riwaya, versRiwaya } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { ArrowLeft } from 'lucide-react-native'
+import { useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ActivityIndicator, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // Couleurs fixes — pas de mode nuit/jour
@@ -71,6 +70,25 @@ const policeParRiwaya: Record<Riwaya, string> = {
 }
 // Riwayas au décompte kufi : la basmala EST le verset 1 de la Fatiha
 const BASMALA_VERSET_UN: Riwaya[] = ['hafs', 'shuba', 'bazzi', 'qumbul']
+
+// Nom affiché de la riwaya dans le héros
+const RIWAYA_LABELS: Record<Riwaya, string> = {
+    hafs: 'Hafs', warsh: 'Warsh', qaloon: 'Qaloon', doori: 'Doori',
+    shuba: "Shu'bah", soosi: 'Soosi', bazzi: 'Bazzi', qumbul: 'Qumbul',
+}
+
+// Listes de sourates par riwaya (nombre de versets par sourate) : sert au
+// calcul de la progression dans le hizb/juz (index global de verset)
+const souratesListeParRiwaya: Record<Riwaya, () => { index: number; versets: number }[]> = {
+    hafs: () => require('../../assets/quran/sourates.json'),
+    warsh: () => require('../../assets/quran/warsh_sourates.json'),
+    qaloon: () => require('../../assets/quran/qaloon_sourates.json'),
+    doori: () => require('../../assets/quran/doori_sourates.json'),
+    shuba: () => require('../../assets/quran/shuba_sourates.json'),
+    soosi: () => require('../../assets/quran/soosi_sourates.json'),
+    bazzi: () => require('../../assets/quran/bazzi_sourates.json'),
+    qumbul: () => require('../../assets/quran/qumbul_sourates.json'),
+}
 
 // Taille de lecture fixe : confortable et régulière, comme un Mushaf
 // imprimé (le zoom est volontairement désactivé pour préserver la mise
@@ -206,7 +224,6 @@ export default function LectureSourate() {
     // `verset` (optionnel) : numéro de verset où s'ouvrir (ex. début d'un juz).
     // `riwaya` : hafs (défaut) ou warsh — texte, pages, divisions et police.
     const { id, cle, verset, riwaya } = useLocalSearchParams<{ id: string; cle?: string; verset?: string; riwaya?: string }>()
-    const router = useRouter()
     const insets = useSafeAreaInsets()
     const index = parseInt(id)
     const riw: Riwaya = versRiwaya(riwaya)
@@ -242,6 +259,9 @@ export default function LectureSourate() {
     const [voile, setVoile] = useState(true)
     const voileOp = useSharedValue(1)
     const reveleRef = useRef(false)
+    // Cible de positionnement (reprise/juz) : le voile reste baissé jusqu'à
+    // ce que le scroll soit posé — on n'ouvre jamais sur un défilement visible.
+    const cibleActiveRef = useRef(Boolean(cle || verset))
     const revele = useCallback(() => {
         if (reveleRef.current) return
         reveleRef.current = true
@@ -324,7 +344,10 @@ export default function LectureSourate() {
     }, [index, riw, pageEnds])
 
     const recomposer = useCallback((indices: number[]) => {
-        setItems(indices.flatMap(idx => construireSourate(idx)))
+        // `premier` = l'en-tête tout en haut du flux (grand padding sous le
+        // héros) : recalculé ici car un prepend change la première sourate.
+        setItems(indices.flatMap(idx => construireSourate(idx)).map(it =>
+            it.type === 'entete' ? { ...it, premier: it.sourate === indices[0] } : it))
     }, [construireSourate])
 
     // ── Chargement initial : on démarre sur la sourate demandée ──
@@ -350,9 +373,15 @@ export default function LectureSourate() {
                 it.type === 'bloc' && it.sourate === index && it.versets.some(v => v.numero === num))
             versetCibleRef.current = null
         }
-        if (idx <= 0) return
+        if (idx <= 0) { cibleActiveRef.current = false; return }
         requestAnimationFrame(() => {
             listeRef.current?.scrollToIndex({ index: idx, animated: false })
+            // laisse le temps aux retentes de onScrollToIndexFailed (150 ms)
+            // de se poser, puis lève le voile : arrivée nette, sans défilement
+            setTimeout(() => {
+                cibleActiveRef.current = false
+                revele()
+            }, 420)
         })
     }, [items, index])
 
@@ -365,6 +394,70 @@ export default function LectureSourate() {
         recomposer(chargeesRef.current)
     }, [recomposer])
 
+    // ── Et vers le haut : en remontant près du début, on insère la sourate
+    // précédente. maintainVisibleContentPosition ancre le contenu visible,
+    // donc l'insertion en tête ne fait pas sauter la lecture. ──
+    const prependRef = useRef(0)
+    const chargerPrecedente = useCallback(() => {
+        const maintenant = Date.now()
+        if (maintenant - prependRef.current < 500) return
+        const ch = chargeesRef.current
+        if (ch[0] <= 1) return
+        prependRef.current = maintenant
+        chargeesRef.current = [ch[0] - 1, ...ch]
+        recomposer(chargeesRef.current)
+    }, [recomposer])
+
+    // ── Progression dans le hizb (Hafs) ou le juz (autres riwayas) ──
+    // Bornes converties en index global de verset ; la position du bloc
+    // visible en haut donne le % accompli de la division courante.
+    const [infoDivision, setInfoDivision] = useState<{ type: 'hizb' | 'juz'; n: number; pct: number } | null>(null)
+    const bornesEtCumuls = useMemo(() => {
+        const liste = souratesListeParRiwaya[riw]()
+        const avant: Record<number, number> = {}
+        let total = 0
+        for (const so of liste) { avant[so.index] = total; total += so.versets }
+        const global = (sora: number, aya: number) => (avant[sora] ?? 0) + aya
+        type Borne = { type: 'hizb' | 'juz'; n: number; debut: number }
+        const bornes: Borne[] = []
+        for (const [cleB, n] of Object.entries(divisions.juz)) {
+            const [so, ay] = cleB.split(':').map(Number)
+            // Hafs : un début de juz est aussi un début de hizb impair (2n-1)
+            bornes.push(riw === 'hafs'
+                ? { type: 'hizb', n: 2 * n - 1, debut: global(so, ay) }
+                : { type: 'juz', n, debut: global(so, ay) })
+        }
+        if (riw === 'hafs') {
+            for (const [cleB, n] of Object.entries(divisions.hizb)) {
+                const [so, ay] = cleB.split(':').map(Number)
+                bornes.push({ type: 'hizb', n, debut: global(so, ay) })
+            }
+        }
+        bornes.sort((a, b) => a.debut - b.debut)
+        return { bornes, global, total }
+    }, [riw, divisions])
+    const bornesRef = useRef(bornesEtCumuls)
+    bornesRef.current = bornesEtCumuls
+
+    const majDivision = (sora: number, aya: number) => {
+        const { bornes, global, total } = bornesRef.current
+        if (!bornes.length) return
+        const g = global(sora, aya)
+        let i = 0
+        for (let k = bornes.length - 1; k >= 0; k--) {
+            if (g >= bornes[k].debut) { i = k; break }
+        }
+        const debut = bornes[i].debut
+        const fin = i + 1 < bornes.length ? bornes[i + 1].debut : total + 1
+        const pct = Math.min(100, Math.max(0, Math.round(((g - debut) / Math.max(1, fin - debut)) * 100)))
+        setInfoDivision(prev =>
+            prev && prev.n === bornes[i].n && prev.type === bornes[i].type && prev.pct === pct
+                ? prev
+                : { type: bornes[i].type, n: bornes[i].n, pct })
+    }
+    const majDivisionRef = useRef(majDivision)
+    majDivisionRef.current = majDivision
+
     // ── En-tête flottant : suit la sourate dont le contenu occupe le haut.
     // Bascule quand la basmala de la suivante atteint ~le 1er quart de l'écran. ──
     const onViewable = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null; item: Item }> }) => {
@@ -374,6 +467,9 @@ export default function LectureSourate() {
             if (v.index != null && (haut.index == null || v.index < haut.index)) haut = v
         }
         if (haut.item?.sourate) setSourateActive(haut.item.sourate)
+        // Progression hizb/juz du héros
+        if (haut.item?.type === 'bloc') majDivisionRef.current(haut.item.sourate, haut.item.versets[0].numero)
+        else if (haut.item?.type === 'entete') majDivisionRef.current(haut.item.sourate, 1)
         // Position exacte de lecture (throttlée à ~1,5 s pour ménager le stockage)
         if (haut.item?.cle) {
             repriseRef.current = { sourate: haut.item.sourate, cle: haut.item.cle, riwaya: riw }
@@ -391,9 +487,33 @@ export default function LectureSourate() {
     const basculerChrome = useCallback(() => setChromeVisible(v => !v), [])
     const gestes = Gesture.Tap().onEnd(() => { runOnJS(basculerChrome)() })
 
-    // ── Animation du chrome (header) ──
+    // ── Animation du chrome (header) : disparition lente et douce au
+    // défilement vers le bas, retour plus vif en remontant ──
     const chromeSV = useSharedValue(1)
-    useEffect(() => { chromeSV.value = withTiming(chromeVisible ? 1 : 0, { duration: 220 }) }, [chromeVisible])
+    useEffect(() => {
+        chromeSV.value = withTiming(chromeVisible ? 1 : 0, {
+            duration: chromeVisible ? 280 : 650,
+            easing: Easing.inOut(Easing.ease),
+        })
+    }, [chromeVisible])
+    const chromeVisibleRef = useRef(true)
+    useEffect(() => { chromeVisibleRef.current = chromeVisible }, [chromeVisible])
+
+    // Direction du scroll : bas → le héros fond ; haut → il revient, et près
+    // du début on précharge la sourate précédente.
+    const dernierYRef = useRef(0)
+    const onScrollLecture = useCallback((e: any) => {
+        const y = e.nativeEvent.contentOffset.y
+        const delta = y - dernierYRef.current
+        dernierYRef.current = y
+        if (Math.abs(delta) < 6) return
+        if (delta > 0 && y > 100) {
+            if (chromeVisibleRef.current) setChromeVisible(false)
+        } else if (delta < 0) {
+            if (!chromeVisibleRef.current) setChromeVisible(true)
+            if (y < 500) chargerPrecedente()
+        }
+    }, [chargerPrecedente])
     const headerStyle = useAnimatedStyle(() => ({
         opacity: chromeSV.value,
         transform: [{ translateY: (1 - chromeSV.value) * -18 }],
@@ -500,8 +620,9 @@ export default function LectureSourate() {
                             }, 150)
                         }}
                         // Lève le voile dès que le contenu rendu couvre l'écran
+                        // (sauf si un positionnement cible est encore en cours)
                         onContentSizeChange={(_l, h) => {
-                            if (h >= Dimensions.get('window').height) revele()
+                            if (!cibleActiveRef.current && h >= Dimensions.get('window').height) revele()
                         }}
                         showsVerticalScrollIndicator={false}
                         style={{ backgroundColor: BG }}
@@ -509,6 +630,8 @@ export default function LectureSourate() {
                         maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
                         onEndReached={chargerSuivante}
                         onEndReachedThreshold={1.5}
+                        onScroll={onScrollLecture}
+                        scrollEventThrottle={16}
                         onViewableItemsChanged={onViewable}
                         viewabilityConfig={viewabilityConfig}
                         // Les items sont désormais à l'échelle d'une page de Mushaf :
@@ -544,12 +667,25 @@ export default function LectureSourate() {
                 <FondAurore compact actif={focus} />
 
                 <View style={{
-                    paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 12,
+                    paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 14,
                     flexDirection: 'row', alignItems: 'center',
                 }}>
-                    <Pressable onPress={() => router.back()} hitSlop={10} style={{ padding: 6 }}>
-                        <ArrowLeft size={22} color="#fff" />
-                    </Pressable>
+                    {/* Riwaya (le retour se fait par glissement depuis le bord) */}
+                    <View style={{ width: 76, alignItems: 'flex-start' }}>
+                        <View style={{
+                            backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 999,
+                            borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
+                            paddingHorizontal: 10, paddingVertical: 4,
+                        }}>
+                            <Text style={{
+                                fontFamily: typography.fontFamily.semibold, fontSize: 11,
+                                color: 'rgba(255,255,255,0.90)',
+                            }}>
+                                {RIWAYA_LABELS[riw]}
+                            </Text>
+                        </View>
+                    </View>
+
                     <View style={{ flex: 1, alignItems: 'center' }}>
                         {/* Chip doré (nom FR) */}
                         <View style={{
@@ -568,8 +704,31 @@ export default function LectureSourate() {
                             {nomSourate(sourateActive)}
                         </Text>
                     </View>
-                    {/* espace vide pour garder le titre centré */}
-                    <View style={{ width: 34 }} />
+
+                    {/* Progression dans le hizb (Hafs) / juz (autres riwayas) */}
+                    <View style={{ width: 76, alignItems: 'flex-end' }}>
+                        {infoDivision && (
+                            <View style={{
+                                backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 999,
+                                borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
+                                paddingHorizontal: 10, paddingVertical: 4,
+                                alignItems: 'center',
+                            }}>
+                                <Text style={{
+                                    fontFamily: typography.fontFamily.semibold, fontSize: 10,
+                                    color: 'rgba(255,255,255,0.90)',
+                                }}>
+                                    {infoDivision.type === 'hizb' ? 'Hizb' : 'Juz'} {infoDivision.n}
+                                </Text>
+                                <Text style={{
+                                    fontFamily: typography.fontFamily.bold, fontSize: 10,
+                                    color: '#d6ad3a', fontVariant: ['tabular-nums'],
+                                }}>
+                                    {infoDivision.pct}%
+                                </Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </Animated.View>
 
