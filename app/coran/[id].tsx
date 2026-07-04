@@ -8,7 +8,7 @@ import * as Haptics from 'expo-haptics'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
-import { ActivityIndicator, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
+import { ActivityIndicator, AppState, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -558,14 +558,40 @@ export default function LectureSourate() {
     // ── Animation du chrome (header) : disparition lente et douce au
     // défilement vers le bas, retour plus vif en remontant ──
     const chromeSV = useSharedValue(1)
-    useEffect(() => {
-        chromeSV.value = withTiming(chromeVisible ? 1 : 0, {
-            duration: chromeVisible ? 280 : 650,
+    const animerChrome = useCallback((visible: boolean) => {
+        chromeSV.value = withTiming(visible ? 1 : 0, {
+            duration: visible ? 280 : 650,
             easing: Easing.inOut(Easing.ease),
         })
-    }, [chromeVisible])
+    }, [])
+    useEffect(() => { animerChrome(chromeVisible) }, [chromeVisible, animerChrome])
     const chromeVisibleRef = useRef(true)
     useEffect(() => { chromeVisibleRef.current = chromeVisible }, [chromeVisible])
+
+    // Garde anti-blocage : si l'animation d'opacité a été interrompue en
+    // plein vol (le héros reste figé à demi-transparent alors que l'état
+    // le dit visible), on la relance. Espacée de 800 ms pour ne jamais
+    // interrompre une animation qui se déroule normalement.
+    const dernierResyncRef = useRef(0)
+    const resyncChrome = useCallback((cible: 0 | 1) => {
+        const maintenant = Date.now()
+        if (maintenant - dernierResyncRef.current < 800) return
+        if (Math.abs(chromeSV.value - cible) < 0.02) return
+        dernierResyncRef.current = maintenant
+        animerChrome(cible === 1)
+    }, [animerChrome])
+
+    // Retour au premier plan : une animation peut avoir été gelée pendant
+    // que l'app était inactive (Centre de contrôle, notification, début
+    // d'enregistrement d'écran…) — on réaligne le héros sur l'état courant.
+    useEffect(() => {
+        const abo = AppState.addEventListener('change', (etat) => {
+            if (etat !== 'active') return
+            dernierResyncRef.current = 0
+            resyncChrome(chromeVisibleRef.current ? 1 : 0)
+        })
+        return () => abo.remove()
+    }, [resyncChrome])
 
     // Direction du scroll : bas → le héros fond ; haut → il revient, et près
     // du début on précharge la sourate précédente.
@@ -583,13 +609,15 @@ export default function LectureSourate() {
         if (Math.abs(delta) < 6) return
         if (delta > 0 && y > 100) {
             if (chromeVisibleRef.current) setChromeVisible(false)
+            else resyncChrome(0)
         } else if (delta < 0) {
             if (!chromeVisibleRef.current) setChromeVisible(true)
+            else resyncChrome(1)
             // secours au onStartReached (qui peut ne pas refirer sans
             // nouveau geste) : près du haut, on précharge
             if (y < 900) chargerPrecedente()
         }
-    }, [chargerPrecedente])
+    }, [chargerPrecedente, resyncChrome])
     const headerStyle = useAnimatedStyle(() => ({
         opacity: chromeSV.value,
         transform: [{ translateY: (1 - chromeSV.value) * -18 }],
