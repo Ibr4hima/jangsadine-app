@@ -1,5 +1,5 @@
 import FondAurore from '@/components/FondAurore'
-import { IconLivre, MiniEgaliseur } from '@/components/AudioUI'
+import { MiniEgaliseur } from '@/components/AudioUI'
 import BoutonTelecharger from '@/components/BoutonTelecharger'
 import { colors, radius, spacing, typography } from '@/constants/theme'
 import { useAudio } from '@/contexts/AudioContext'
@@ -367,57 +367,46 @@ function SectionCours({ recherche }: { recherche: string }) {
                     <Animated.View key={l.id} entering={FadeInDown.duration(350).delay(Math.min(i, 8) * 45)}>
                       <PressableScale onPress={() => naviguerVers(l)} style={{
                         backgroundColor: colors.blanc,
-                        borderRadius: 20,
-                        paddingVertical: spacing.md + 2,
-                        paddingHorizontal: spacing.md + 2,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: spacing.md,
+                        borderRadius: 18,
+                        paddingVertical: spacing.md,
+                        paddingLeft: spacing.lg + 4,
+                        paddingRight: spacing.lg,
                         shadowColor: '#3a4a5c',
                         shadowOffset: { width: 0, height: 4 },
                         shadowOpacity: 0.06,
                         shadowRadius: 10,
                         elevation: 2,
+                        overflow: 'hidden',
+                        gap: 6,
                       }}>
-                        {/* vignette « couverture » aux couleurs de la catégorie */}
-                        <View style={{
-                          width: 56, height: 56, borderRadius: 16,
-                          backgroundColor: couleurBg[nomCat] ?? '#eef0f3',
-                          alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <IconLivre size={26} color={accent} />
-                        </View>
+                        {/* accent latéral couleur catégorie */}
+                        <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: accent, opacity: 0.85 }} />
 
-                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                            {nomCat ? (
-                              <Text numberOfLines={1} style={{
-                                fontFamily: typography.fontFamily.semibold, fontSize: 10.5,
-                                letterSpacing: 0.8, textTransform: 'uppercase',
-                                color: accent, flexShrink: 1,
-                              }}>
-                                {nomCat}
-                              </Text>
-                            ) : <View />}
-                            {l.titre_arabe ? (
-                              <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.arabic, fontSize: typography.size.sm, color: '#9aa4b2', flexShrink: 1 }}>
-                                {l.titre_arabe}
-                              </Text>
-                            ) : null}
-                          </View>
-
-                          <Text numberOfLines={2} style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte, lineHeight: 21 }}>
-                            {l.titre}
-                          </Text>
-
-                          {l.sheikh ? (
-                            <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted }}>
-                              {l.sheikh}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          {nomCat ? (
+                            <View style={{ backgroundColor: couleurBg[nomCat] ?? '#f0f0f0', borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+                              <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: accent }}>{nomCat}</Text>
+                            </View>
+                          ) : <View />}
+                          {l.titre_arabe ? (
+                            <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.arabic, fontSize: typography.size.sm, color: '#9aa4b2', maxWidth: '50%' }}>
+                              {l.titre_arabe}
                             </Text>
                           ) : null}
                         </View>
 
-                        <IconChevron size={17} color="#c3c9d4" />
+                        <TextTicker
+                          style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.texte, lineHeight: 22 }}
+                          loop bounce={false} repeatSpacer={60} marqueeDelay={2500} scrollSpeed={18}
+                        >
+                          {l.titre}
+                        </TextTicker>
+
+                        {l.sheikh ? (
+                          <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: colors.texteMuted }}>
+                            {l.sheikh}
+                          </Text>
+                        ) : null}
                       </PressableScale>
                     </Animated.View>
                   )
