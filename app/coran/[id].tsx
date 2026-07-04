@@ -374,8 +374,11 @@ export default function LectureSourate() {
             versetCibleRef.current = null
         }
         if (idx <= 0) { cibleActiveRef.current = false; return }
+        // viewOffset = hauteur du héros : la cible se pose exactement SOUS
+        // le héros, jamais cachée derrière lui
+        const decalage = insets.top + 92
         requestAnimationFrame(() => {
-            listeRef.current?.scrollToIndex({ index: idx, animated: false })
+            listeRef.current?.scrollToIndex({ index: idx, viewOffset: decalage, animated: false })
             // laisse le temps aux retentes de onScrollToIndexFailed (150 ms)
             // de se poser, puis lève le voile : arrivée nette, sans défilement
             setTimeout(() => {
@@ -511,9 +514,8 @@ export default function LectureSourate() {
             if (chromeVisibleRef.current) setChromeVisible(false)
         } else if (delta < 0) {
             if (!chromeVisibleRef.current) setChromeVisible(true)
-            if (y < 500) chargerPrecedente()
         }
-    }, [chargerPrecedente])
+    }, [])
     const headerStyle = useAnimatedStyle(() => ({
         opacity: chromeSV.value,
         transform: [{ translateY: (1 - chromeSV.value) * -18 }],
@@ -614,9 +616,10 @@ export default function LectureSourate() {
                         // scrollToIndex sans getItemLayout : on approche à l'estime,
                         // puis on retente une fois la zone rendue.
                         onScrollToIndexFailed={info => {
-                            listeRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false })
+                            const decalage = insets.top + 92
+                            listeRef.current?.scrollToOffset({ offset: Math.max(0, info.averageItemLength * info.index - decalage), animated: false })
                             setTimeout(() => {
-                                listeRef.current?.scrollToIndex({ index: info.index, animated: false })
+                                listeRef.current?.scrollToIndex({ index: info.index, viewOffset: decalage, animated: false })
                             }, 150)
                         }}
                         // Lève le voile dès que le contenu rendu couvre l'écran
@@ -630,6 +633,11 @@ export default function LectureSourate() {
                         maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
                         onEndReached={chargerSuivante}
                         onEndReachedThreshold={1.5}
+                        // Prépend natif (façon apps de chat) : anticipe large pour
+                        // que la sourate précédente soit déjà mesurée quand on
+                        // arrive en haut — remontée fluide, sans à-coup
+                        onStartReached={chargerPrecedente}
+                        onStartReachedThreshold={2}
                         onScroll={onScrollLecture}
                         scrollEventThrottle={16}
                         onViewableItemsChanged={onViewable}
@@ -667,23 +675,23 @@ export default function LectureSourate() {
                 <FondAurore compact actif={focus} />
 
                 <View style={{
-                    paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 14,
+                    paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 20,
                     flexDirection: 'row', alignItems: 'center',
                 }}>
                     {/* Riwaya (le retour se fait par glissement depuis le bord) */}
-                    <View style={{ width: 76, alignItems: 'flex-start' }}>
-                        <View style={{
-                            backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 999,
-                            borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
-                            paddingHorizontal: 10, paddingVertical: 4,
+                    <View style={{ width: 84, alignItems: 'center', gap: 2 }}>
+                        <Text style={{
+                            fontFamily: typography.fontFamily.bold, fontSize: 9,
+                            letterSpacing: 1.6, color: 'rgba(255,255,255,0.55)',
                         }}>
-                            <Text style={{
-                                fontFamily: typography.fontFamily.semibold, fontSize: 11,
-                                color: 'rgba(255,255,255,0.90)',
-                            }}>
-                                {RIWAYA_LABELS[riw]}
-                            </Text>
-                        </View>
+                            RIWAYAH
+                        </Text>
+                        <Text style={{
+                            fontFamily: typography.fontFamily.semibold, fontSize: 13,
+                            color: '#fff',
+                        }}>
+                            {RIWAYA_LABELS[riw]}
+                        </Text>
                     </View>
 
                     <View style={{ flex: 1, alignItems: 'center' }}>
@@ -706,27 +714,22 @@ export default function LectureSourate() {
                     </View>
 
                     {/* Progression dans le hizb (Hafs) / juz (autres riwayas) */}
-                    <View style={{ width: 76, alignItems: 'flex-end' }}>
+                    <View style={{ width: 84, alignItems: 'center', gap: 2 }}>
                         {infoDivision && (
-                            <View style={{
-                                backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 999,
-                                borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
-                                paddingHorizontal: 10, paddingVertical: 4,
-                                alignItems: 'center',
-                            }}>
+                            <>
                                 <Text style={{
-                                    fontFamily: typography.fontFamily.semibold, fontSize: 10,
-                                    color: 'rgba(255,255,255,0.90)',
+                                    fontFamily: typography.fontFamily.bold, fontSize: 9,
+                                    letterSpacing: 1.6, color: 'rgba(255,255,255,0.55)',
                                 }}>
-                                    {infoDivision.type === 'hizb' ? 'Hizb' : 'Juz'} {infoDivision.n}
+                                    {infoDivision.type === 'hizb' ? 'HIZB' : 'JUZ'} {infoDivision.n}
                                 </Text>
                                 <Text style={{
-                                    fontFamily: typography.fontFamily.bold, fontSize: 10,
+                                    fontFamily: typography.fontFamily.bold, fontSize: 13,
                                     color: '#d6ad3a', fontVariant: ['tabular-nums'],
                                 }}>
                                     {infoDivision.pct}%
                                 </Text>
-                            </View>
+                            </>
                         )}
                     </View>
                 </View>
