@@ -57,9 +57,9 @@ type Sourate = {
 }
 
 // ─── palette héros (identique à l'accueil) ────────────────────
-const BG_TOP = '#345b8b'
-const BG_MID = '#264a77'
-const BG_BOT = '#1e3f67'
+const BG_TOP = '#3d6ba3'
+const BG_MID = '#2d578c'
+const BG_BOT = '#234a7a'
 const W55 = 'rgba(255,255,255,0.55)'
 const W12 = 'rgba(255,255,255,0.12)'
 
@@ -367,7 +367,7 @@ export default function Coran() {
               <Text style={{
                 fontFamily: typography.fontFamily.semibold,
                 fontSize: typography.size.xs,
-                color: '#173457',
+                color: '#1c3d66',
               }}>
                 Reprendre · {reprise.sourate.nom}  ›
               </Text>

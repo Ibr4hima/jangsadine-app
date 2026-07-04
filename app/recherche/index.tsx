@@ -162,7 +162,7 @@ export default function Recherche() {
           backgroundColor: colors.blanc,
           borderRadius: radius.full,
           paddingHorizontal: spacing.lg, paddingVertical: 11,
-          shadowColor: '#173457', shadowOffset: { width: 0, height: 6 },
+          shadowColor: '#1c3d66', shadowOffset: { width: 0, height: 6 },
           shadowOpacity: 0.08, shadowRadius: 14, elevation: 4,
         }}>
           <IcoSearch size={18} color={colors.bleu} />

@@ -19,9 +19,9 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg'
 
 // ─── palette héros (cohérente bibliothèque / accueil / prières) ─
-export const BG_TOP = '#345b8b'
-export const BG_MID = '#264a77'
-export const BG_BOT = '#1e3f67'
+export const BG_TOP = '#3d6ba3'
+export const BG_MID = '#2d578c'
+export const BG_BOT = '#234a7a'
 export const W90 = 'rgba(255,255,255,0.90)'
 export const W70 = 'rgba(255,255,255,0.70)'
 export const W55 = 'rgba(255,255,255,0.55)'

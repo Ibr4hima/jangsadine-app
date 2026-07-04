@@ -31,9 +31,9 @@ import Svg, { Path } from 'react-native-svg'
 import TextTicker from '@/components/Marquee'
 
 // ─── palette héros (cohérente accueil / prières) ──────────────
-const BG_TOP = '#345b8b'
-const BG_MID = '#264a77'
-const BG_BOT = '#1e3f67'
+const BG_TOP = '#3d6ba3'
+const BG_MID = '#2d578c'
+const BG_BOT = '#234a7a'
 const W90 = 'rgba(255,255,255,0.90)'
 const W70 = 'rgba(255,255,255,0.70)'
 const W55 = 'rgba(255,255,255,0.55)'

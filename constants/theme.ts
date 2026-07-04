@@ -1,5 +1,5 @@
 export const colors = {
-  bleu: '#264a77',
+  bleu: '#2d578c',
   or: '#d6ad3a',
   orFonce: '#b8911f',
   fondCreme: '#F5F2EB',
@@ -10,7 +10,7 @@ export const colors = {
   footerBg: '#1a1a2e',
 
   // Palette « manuscrit » : encres profondes sur lavis doux, accordées au
-  // bleu #264a77, à l'or #d6ad3a et au fond crème — teintes distinctes,
+  // bleu #2d578c, à l'or #d6ad3a et au fond crème — teintes distinctes,
   // saturation et luminosité harmonisées.
   categories: {
     'Aqeedah': { bg: '#e9eff6', txt: '#2c5382' },              // bleu ardoise (le bleu de l'app)
