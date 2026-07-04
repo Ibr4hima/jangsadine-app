@@ -270,6 +270,20 @@ export default function Coran() {
           paddingHorizontal: spacing.xl,
           paddingBottom: spacing.lg,
         }}>
+          {/* calligraphie القرآن الكريم — posée en absolu sur le flanc
+              droit, du haut du titre jusqu'à la rangée des riwayas */}
+          <Image
+            source={{ uri: QURAN_ICON_URI }}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: insets.top + spacing.sm - 2,
+              right: spacing.xl,
+              width: 96, height: 96,
+              opacity: 0.95,
+            }}
+            resizeMode="contain"
+          />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {/* retour à l'accueil — seul chemin, la barre d'onglets est masquée */}
             <View style={{ marginRight: spacing.md }}>
@@ -293,14 +307,8 @@ export default function Coran() {
               </Text>
             </View>
 
-            {/* calligraphie القرآن الكريم (blanche, inline base64) —
-                calée sur la hauteur du bloc titre : ni au-dessus de
-                LECTURE, ni sur la rangée des riwayas */}
-            <Image
-              source={{ uri: QURAN_ICON_URI }}
-              style={{ width: 64, height: 64, marginLeft: spacing.md, opacity: 0.95 }}
-              resizeMode="contain"
-            />
+            {/* l'espace droit est occupé par la calligraphie posée en
+                absolu (voir plus bas) */}
           </View>
 
           {/* sélecteur de riwaya — rangée défilante bord à bord */}
