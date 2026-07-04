@@ -6,7 +6,6 @@ import { getSourate, Riwaya, versRiwaya } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { ChevronDown } from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ActivityIndicator, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
@@ -266,6 +265,12 @@ export default function LectureSourate() {
     // Cible de positionnement (reprise/juz) : le voile reste baissé jusqu'à
     // ce que le scroll soit posé — on n'ouvre jamais sur un défilement visible.
     const cibleActiveRef = useRef(Boolean(cle || verset))
+    // Fenêtre d'immunité : les événements de scroll générés par les sauts
+    // programmatiques (ouverture, positionnement, bascule de riwaya) ne
+    // doivent JAMAIS masquer le héros ni déclencher de préchargement.
+    const ignorerScrollJusquaRef = useRef(Date.now() + 1200)
+    // Timer de révélation en cours (annulable à la bascule de riwaya)
+    const revelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const revele = useCallback(() => {
         if (reveleRef.current) return
         reveleRef.current = true
@@ -372,12 +377,19 @@ export default function LectureSourate() {
     const premierMontageRef = useRef(true)
     useEffect(() => {
         if (premierMontageRef.current) { premierMontageRef.current = false; return }
+        // annule toute révélation programmée par l'ancienne riwaya
+        if (revelTimerRef.current) { clearTimeout(revelTimerRef.current); revelTimerRef.current = null }
         cibleRef.current = cle ? String(cle) : null
         versetCibleRef.current = verset ? parseInt(String(verset)) : null
         cibleActiveRef.current = Boolean(cle || verset)
+        ignorerScrollJusquaRef.current = Date.now() + 1500
         reveleRef.current = false
         voileOp.value = 1
         setVoile(true)
+        setChromeVisible(true)
+        // remet la liste en haut AVANT la reconstruction : aucun offset
+        // résiduel de l'ancienne riwaya, donc aucun défilement visible
+        listeRef.current?.scrollToOffset({ offset: 0, animated: false })
     }, [riw, index])
 
     useEffect(() => {
@@ -400,10 +412,13 @@ export default function LectureSourate() {
             listeRef.current?.scrollToIndex({ index: idx, viewOffset: decalage, animated: false })
             // laisse le temps aux retentes de onScrollToIndexFailed (150 ms)
             // de se poser, puis lève le voile : arrivée nette, sans défilement
-            setTimeout(() => {
+            if (revelTimerRef.current) clearTimeout(revelTimerRef.current)
+            revelTimerRef.current = setTimeout(() => {
                 cibleActiveRef.current = false
+                ignorerScrollJusquaRef.current = Date.now() + 800
+                setChromeVisible(true)
                 revele()
-            }, 420)
+            }, 500)
         })
     }, [items, index])
 
@@ -425,41 +440,45 @@ export default function LectureSourate() {
         // tête décalerait les index visés par scrollToIndex
         if (cibleActiveRef.current) return
         const maintenant = Date.now()
-        if (maintenant - prependRef.current < 500) return
+        if (maintenant - prependRef.current < 250) return
         const ch = chargeesRef.current
         if (ch[0] <= 1) return
         prependRef.current = maintenant
-        chargeesRef.current = [ch[0] - 1, ...ch]
+        // Par LOT : on remonte d'assez de sourates pour ajouter ~2 écrans de
+        // contenu (≥ 40 versets) — indispensable pour les petites sourates de
+        // la fin (Naas, Falaq…) où une seule ne suffit pas à défiler.
+        const liste = souratesListeParRiwaya[riw]()
+        const versetsDe = (n: number) => liste.find(x => x.index === n)?.versets ?? 20
+        const nouvelles: number[] = []
+        let premier = ch[0]
+        let cumul = 0
+        while (premier > 1 && cumul < 40) {
+            premier -= 1
+            nouvelles.unshift(premier)
+            cumul += versetsDe(premier)
+        }
+        if (!nouvelles.length) return
+        chargeesRef.current = [...nouvelles, ...ch]
         recomposer(chargeesRef.current)
-    }, [recomposer])
+    }, [recomposer, riw])
 
-    // ── Progression dans le hizb (Hafs) ou le juz (autres riwayas) ──
+    // ── Progression dans le juz courant ──
     // Bornes converties en index global de verset ; la position du bloc
-    // visible en haut donne le % accompli de la division courante.
-    const [infoDivision, setInfoDivision] = useState<{ type: 'hizb' | 'juz'; n: number; pct: number } | null>(null)
+    // visible en haut donne le % accompli du juz.
+    const [infoDivision, setInfoDivision] = useState<{ n: number; pct: number } | null>(null)
     const bornesEtCumuls = useMemo(() => {
         const liste = souratesListeParRiwaya[riw]()
         const avant: Record<number, number> = {}
         let total = 0
         for (const so of liste) { avant[so.index] = total; total += so.versets }
         const global = (sora: number, aya: number) => (avant[sora] ?? 0) + aya
-        type Borne = { type: 'hizb' | 'juz'; n: number; debut: number }
-        const bornes: Borne[] = []
+        const bornes: { n: number; debut: number }[] = []
         for (const [cleB, n] of Object.entries(divisions.juz)) {
             const [so, ay] = cleB.split(':').map(Number)
-            // Hafs : un début de juz est aussi un début de hizb impair (2n-1)
-            bornes.push(riw === 'hafs'
-                ? { type: 'hizb', n: 2 * n - 1, debut: global(so, ay) }
-                : { type: 'juz', n, debut: global(so, ay) })
-        }
-        if (riw === 'hafs') {
-            for (const [cleB, n] of Object.entries(divisions.hizb)) {
-                const [so, ay] = cleB.split(':').map(Number)
-                bornes.push({ type: 'hizb', n, debut: global(so, ay) })
-            }
+            bornes.push({ n, debut: global(so, ay) })
         }
         bornes.sort((a, b) => a.debut - b.debut)
-        return { bornes, global, total }
+        return { bornes, global, total, avant }
     }, [riw, divisions])
     const bornesRef = useRef(bornesEtCumuls)
     bornesRef.current = bornesEtCumuls
@@ -476,9 +495,9 @@ export default function LectureSourate() {
         const fin = i + 1 < bornes.length ? bornes[i + 1].debut : total + 1
         const pct = Math.min(100, Math.max(0, Math.round(((g - debut) / Math.max(1, fin - debut)) * 100)))
         setInfoDivision(prev =>
-            prev && prev.n === bornes[i].n && prev.type === bornes[i].type && prev.pct === pct
+            prev && prev.n === bornes[i].n && prev.pct === pct
                 ? prev
-                : { type: bornes[i].type, n: bornes[i].n, pct })
+                : { n: bornes[i].n, pct })
     }
     const majDivisionRef = useRef(majDivision)
     majDivisionRef.current = majDivision
@@ -553,9 +572,12 @@ export default function LectureSourate() {
     const dernierYRef = useRef(0)
     const onScrollLecture = useCallback((e: any) => {
         const y = e.nativeEvent.contentOffset.y
-        // Saut programmatique (reprise/juz) en cours : on n'interprète pas
-        // ce mouvement comme un défilement — le héros reste visible
-        if (cibleActiveRef.current) { dernierYRef.current = y; return }
+        // Saut programmatique (ouverture, reprise/juz, bascule de riwaya) :
+        // on n'interprète pas ces mouvements — le héros reste visible
+        if (cibleActiveRef.current || Date.now() < ignorerScrollJusquaRef.current) {
+            dernierYRef.current = y
+            return
+        }
         const delta = y - dernierYRef.current
         dernierYRef.current = y
         if (Math.abs(delta) < 6) return
@@ -563,8 +585,11 @@ export default function LectureSourate() {
             if (chromeVisibleRef.current) setChromeVisible(false)
         } else if (delta < 0) {
             if (!chromeVisibleRef.current) setChromeVisible(true)
+            // secours au onStartReached (qui peut ne pas refirer sans
+            // nouveau geste) : près du haut, on précharge
+            if (y < 900) chargerPrecedente()
         }
-    }, [])
+    }, [chargerPrecedente])
     const headerStyle = useAnimatedStyle(() => ({
         opacity: chromeSV.value,
         transform: [{ translateY: (1 - chromeSV.value) * -18 }],
@@ -727,32 +752,35 @@ export default function LectureSourate() {
                     paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 20,
                     flexDirection: 'row', alignItems: 'center',
                 }}>
-                    {/* Riwaya — tap : bascule vers la suivante, à la même position
+                    {/* Riwaya — bouton : bascule vers la suivante, même position
                         (le retour se fait par glissement depuis le bord) */}
-                    <Pressable
-                        onPress={changerRiwaya}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 6 }}
-                        style={({ pressed }) => ({
-                            width: 84, alignItems: 'center', gap: 2,
-                            opacity: pressed ? 0.6 : 1,
-                        })}
-                    >
-                        <Text style={{
-                            fontFamily: typography.fontFamily.bold, fontSize: 9,
-                            letterSpacing: 1.6, color: 'rgba(255,255,255,0.55)',
-                        }}>
-                            RIWAYAH
-                        </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <View style={{ width: 84, alignItems: 'center' }}>
+                        <Pressable
+                            onPress={changerRiwaya}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            style={({ pressed }) => ({
+                                alignItems: 'center', gap: 1,
+                                backgroundColor: pressed ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.12)',
+                                borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
+                                borderRadius: 14,
+                                paddingHorizontal: 12, paddingVertical: 5,
+                                transform: [{ scale: pressed ? 0.95 : 1 }],
+                            })}
+                        >
                             <Text style={{
-                                fontFamily: typography.fontFamily.semibold, fontSize: 13,
+                                fontFamily: typography.fontFamily.bold, fontSize: 8,
+                                letterSpacing: 1.4, color: 'rgba(255,255,255,0.60)',
+                            }}>
+                                RIWAYAH
+                            </Text>
+                            <Text style={{
+                                fontFamily: typography.fontFamily.bold, fontSize: 13,
                                 color: '#fff',
                             }}>
                                 {RIWAYA_LABELS[riw]}
                             </Text>
-                            <ChevronDown size={11} color="rgba(255,255,255,0.55)" strokeWidth={2.5} />
-                        </View>
-                    </Pressable>
+                        </Pressable>
+                    </View>
 
                     <View style={{ flex: 1, alignItems: 'center' }}>
                         {/* Chip doré (nom FR) */}
@@ -781,7 +809,7 @@ export default function LectureSourate() {
                                     fontFamily: typography.fontFamily.bold, fontSize: 9,
                                     letterSpacing: 1.6, color: 'rgba(255,255,255,0.55)',
                                 }}>
-                                    {infoDivision.type === 'hizb' ? 'HIZB' : 'JUZ'} {infoDivision.n}
+                                    JUZ {infoDivision.n}
                                 </Text>
                                 <Text style={{
                                     fontFamily: typography.fontFamily.bold, fontSize: 13,
