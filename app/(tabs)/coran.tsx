@@ -293,12 +293,12 @@ export default function Coran() {
               </Text>
             </View>
 
-            {/* calligraphie القرآن الكريم (blanche, inline base64) — grande,
-                elle habite tout le flanc droit du héros ; les marges
-                négatives l'empêchent de grandir la rangée */}
+            {/* calligraphie القرآن الكريم (blanche, inline base64) —
+                calée sur la hauteur du bloc titre : ni au-dessus de
+                LECTURE, ni sur la rangée des riwayas */}
             <Image
               source={{ uri: QURAN_ICON_URI }}
-              style={{ width: 112, height: 112, marginLeft: spacing.md, marginVertical: -16, marginRight: -6, opacity: 0.95 }}
+              style={{ width: 64, height: 64, marginLeft: spacing.md, opacity: 0.95 }}
               resizeMode="contain"
             />
           </View>
