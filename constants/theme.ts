@@ -1,8 +1,8 @@
 export const colors = {
-  bleu: '#2d578c',
+  bleu: '#274c7a',
   or: '#d6ad3a',
   orFonce: '#b8911f',
-  fondCreme: '#F2F0EF',
+  fondCreme: '#F5F2EB',
   bordure: '#e8e4da',
   texte: '#1a1a2e',
   texteMuted: '#666666',

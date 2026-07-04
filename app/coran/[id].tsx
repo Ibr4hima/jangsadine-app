@@ -27,9 +27,9 @@ function nomSourate(idx: number) {
     return `${String(idx).padStart(3, '0')}surah`
 }
 // Dégradé bleu du héros (cohérent avec les autres pages : Plus, Qibla…)
-const HERO_TOP = '#3d6ba3'
-const HERO_MID = '#2d578c'
-const HERO_BOT = '#234a7a'
+const HERO_TOP = '#355d8e'
+const HERO_MID = '#274c7a'
+const HERO_BOT = '#1e406a'
 
 const sourates = require('../../assets/quran/sourates.json')
 

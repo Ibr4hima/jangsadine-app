@@ -164,7 +164,7 @@ function clamp01(v: number) {
     return Math.max(0, Math.min(1, v))
 }
 
-const PISTE_CLAIRE = 'rgba(45,87,140,0.12)'
+const PISTE_CLAIRE = 'rgba(39,76,122,0.12)'
 
 function BarreEcoute({ tempsActuel, dureeTotal, onSeek }: {
     tempsActuel: number; dureeTotal: number; onSeek: (pct: number) => void
@@ -261,7 +261,7 @@ function BarreEcoute({ tempsActuel, dureeTotal, onSeek }: {
                 }, bubbleStyle]}>
                     <Text style={{
                         fontFamily: typography.fontFamily.bold,
-                        fontSize: 13, color: '#1c3d66',
+                        fontSize: 13, color: '#183559',
                         fontVariant: ['tabular-nums'],
                     }}>
                         {fmtTemps(tDisplay)}

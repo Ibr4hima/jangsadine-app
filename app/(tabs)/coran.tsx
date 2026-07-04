@@ -54,9 +54,9 @@ type Sourate = {
 }
 
 // ─── palette héros (identique à l'accueil) ────────────────────
-const BG_TOP = '#3d6ba3'
-const BG_MID = '#2d578c'
-const BG_BOT = '#234a7a'
+const BG_TOP = '#355d8e'
+const BG_MID = '#274c7a'
+const BG_BOT = '#1e406a'
 const W55 = 'rgba(255,255,255,0.55)'
 const W12 = 'rgba(255,255,255,0.12)'
 
@@ -82,11 +82,11 @@ function BadgeNumero({ n }: { n: number }) {
       <Svg width={48} height={48} viewBox="0 0 48 48" style={{ position: 'absolute' }}>
         <Rect
           x={9.5} y={9.5} width={29} height={29} rx={8}
-          fill="rgba(45,87,140,0.05)" stroke="rgba(45,87,140,0.30)" strokeWidth={1.1}
+          fill="rgba(39,76,122,0.05)" stroke="rgba(39,76,122,0.30)" strokeWidth={1.1}
         />
         <Rect
           x={9.5} y={9.5} width={29} height={29} rx={8}
-          fill="rgba(45,87,140,0.03)" stroke="rgba(45,87,140,0.30)" strokeWidth={1.1}
+          fill="rgba(39,76,122,0.03)" stroke="rgba(39,76,122,0.30)" strokeWidth={1.1}
           transform="rotate(45 24 24)"
         />
       </Svg>
@@ -310,7 +310,7 @@ export default function Coran() {
               <Text style={{
                 fontFamily: typography.fontFamily.semibold,
                 fontSize: typography.size.xs,
-                color: '#1c3d66',
+                color: '#183559',
               }}>
                 Reprendre · {reprise.sourate.nom}  ›
               </Text>

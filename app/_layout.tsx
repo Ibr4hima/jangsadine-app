@@ -24,8 +24,8 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
-const BG_L = '#3d6ba3'
-const BG_R = '#1c3d66'
+const BG_L = '#355d8e'
+const BG_R = '#183559'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -196,9 +196,9 @@ function AppShell() {
                     left: 6, top: 6, bottom: 6,
                     width: tabW,
                     borderRadius: 22,
-                    backgroundColor: 'rgba(45,87,140,0.10)',
+                    backgroundColor: 'rgba(39,76,122,0.10)',
                     borderWidth: 1,
-                    borderColor: 'rgba(45,87,140,0.14)',
+                    borderColor: 'rgba(39,76,122,0.14)',
                   }, pillStyle]} />
                 )}
                 {TABS.map(tab => (

@@ -39,9 +39,9 @@ const { width: W } = Dimensions.get('window')
 const sourates = require('../../assets/quran/sourates.json')
 
 // ─── palette héros (bleu logo) ────────────────────────────────
-const BG_TOP = '#3d6ba3'
-const BG_MID = '#2d578c'
-const BG_BOT = '#234a7a'
+const BG_TOP = '#355d8e'
+const BG_MID = '#274c7a'
+const BG_BOT = '#1e406a'
 const W90 = 'rgba(255,255,255,0.90)'
 const W70 = 'rgba(255,255,255,0.70)'
 const W55 = 'rgba(255,255,255,0.55)'
@@ -323,7 +323,7 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
                     {prochaine.heure}
                   </Text>
                   <View style={{ backgroundColor: colors.or, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, marginTop: 6 }}>
-                    <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: '#1c3d66', fontVariant: ['tabular-nums'] }}>
+                    <Text style={{ fontFamily: typography.fontFamily.semibold, fontSize: typography.size.xs, color: '#183559', fontVariant: ['tabular-nums'] }}>
                       dans {tempsRestant(prochaine.heure)}
                     </Text>
                   </View>
@@ -447,7 +447,7 @@ function CarteReprendre() {
         overflow: 'hidden',
       }}>
         <LinearGradient
-          colors={[colors.bleu, '#1c3d66']}
+          colors={[colors.bleu, '#183559']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg, gap: spacing.md }}
         >
@@ -462,8 +462,8 @@ function CarteReprendre() {
             })}
           >
             {piste && enLecture
-              ? <MiniEgaliseur color="#1c3d66" hauteur={18} />
-              : <IcoPlay size={20} color="#1c3d66" />}
+              ? <MiniEgaliseur color="#183559" hauteur={18} />
+              : <IcoPlay size={20} color="#183559" />}
           </Pressable>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: 'rgba(255,255,255,0.55)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>
@@ -574,8 +574,8 @@ function CarteLectureCoran({ onNav }: { onNav: (href: string) => void }) {
 
 // ─── accès rapide ─────────────────────────────────────────────
 // Teinte unique, cohérente avec le bleu du logo / des héros
-const TUILE_G1 = '#3d6ba3'
-const TUILE_G2 = '#234a7a'
+const TUILE_G1 = '#355d8e'
+const TUILE_G2 = '#1e406a'
 
 const SECTIONS = [
   { label: 'Cours audio',   icon: IcoHeadphones, href: '/audio'          },
@@ -704,7 +704,7 @@ function HadithDuJour() {
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
           <View style={{
             width: 30, height: 30, borderRadius: 15,
-            backgroundColor: 'rgba(45,87,140,0.10)',
+            backgroundColor: 'rgba(39,76,122,0.10)',
             alignItems: 'center', justifyContent: 'center',
             marginRight: spacing.sm,
           }}>
@@ -715,7 +715,7 @@ function HadithDuJour() {
           </Text>
           <Pressable onPress={partager} hitSlop={10} style={({ pressed }) => ({
             width: 32, height: 32, borderRadius: 16,
-            backgroundColor: 'rgba(45,87,140,0.08)',
+            backgroundColor: 'rgba(39,76,122,0.08)',
             alignItems: 'center', justifyContent: 'center',
             transform: [{ scale: pressed ? 0.9 : 1 }],
           })}>
@@ -766,7 +766,7 @@ export default function Accueil() {
             paddingHorizontal: spacing.lg,
             paddingVertical: 15,
             gap: spacing.sm,
-            shadowColor: '#1c3d66',
+            shadowColor: '#183559',
             shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.14,
             shadowRadius: 22,
