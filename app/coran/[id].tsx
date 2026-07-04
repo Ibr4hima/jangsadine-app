@@ -603,15 +603,14 @@ export default function LectureSourate() {
         const delta = y - dernierYRef.current
         dernierYRef.current = y
         if (Math.abs(delta) < 6) return
-        if (delta > 0 && y > 100) {
-            if (chromeVisibleRef.current) setChromeVisible(false)
-            else resyncChrome(0)
-        } else if (delta < 0) {
-            if (!chromeVisibleRef.current) setChromeVisible(true)
-            else resyncChrome(1)
+        // Le héros ne fond plus au défilement — il reste en place pour
+        // suivre la progression (%) ; seul le tap le masque. On garde la
+        // résynchronisation anti-blocage de son opacité.
+        resyncChrome(chromeVisibleRef.current ? 1 : 0)
+        if (delta < 0 && y < 900) {
             // Remontée réelle près du haut : on précharge la sourate
             // précédente (seul point de déclenchement du prépend)
-            if (y < 900) chargerPrecedente()
+            chargerPrecedente()
         }
     }, [chargerPrecedente, resyncChrome])
     const headerStyle = useAnimatedStyle(() => ({
