@@ -4,8 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { QURAN_ICON_URI } from '@/constants/quranIcon'
 import {
-  Animated, FlatList, Pressable, ScrollView, StatusBar,
+  Animated, FlatList, Image, Pressable, ScrollView, StatusBar,
   Text, View
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -228,21 +229,32 @@ export default function Coran() {
           paddingHorizontal: spacing.xl,
           paddingBottom: spacing.lg,
         }}>
-          <Text style={{
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.size.xs,
-            letterSpacing: 2, color: colors.or,
-            textTransform: 'uppercase', marginBottom: 4,
-          }}>
-            Lecture
-          </Text>
-          <Text style={{
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.size['2xl'],
-            color: '#fff',
-          }}>
-            Coran
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontFamily: typography.fontFamily.bold,
+                fontSize: typography.size.xs,
+                letterSpacing: 2, color: colors.or,
+                textTransform: 'uppercase', marginBottom: 4,
+              }}>
+                Lecture
+              </Text>
+              <Text style={{
+                fontFamily: typography.fontFamily.bold,
+                fontSize: typography.size['2xl'],
+                color: '#fff',
+              }}>
+                Coran
+              </Text>
+            </View>
+
+            {/* calligraphie القرآن الكريم (blanche, inline base64) */}
+            <Image
+              source={{ uri: QURAN_ICON_URI }}
+              style={{ width: 74, height: 74, marginLeft: spacing.md, marginBottom: -10, opacity: 0.95 }}
+              resizeMode="contain"
+            />
+          </View>
 
           {/* sélecteur de riwaya — rangée défilante bord à bord */}
           <ScrollView
