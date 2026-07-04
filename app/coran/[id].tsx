@@ -4,8 +4,7 @@ import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate, Riwaya, versRiwaya } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import * as Haptics from 'expo-haptics'
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ActivityIndicator, AppState, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
@@ -226,7 +225,7 @@ export default function LectureSourate() {
     // `verset` (optionnel) : numéro de verset où s'ouvrir (ex. début d'un juz).
     // `riwaya` : hafs (défaut) ou warsh — texte, pages, divisions et police.
     const { id, cle, verset, riwaya } = useLocalSearchParams<{ id: string; cle?: string; verset?: string; riwaya?: string }>()
-    const router = useRouter()
+    
     const insets = useSafeAreaInsets()
     const index = parseInt(id)
     const riw: Riwaya = versRiwaya(riwaya)
@@ -502,25 +501,6 @@ export default function LectureSourate() {
     const majDivisionRef = useRef(majDivision)
     majDivisionRef.current = majDivision
 
-    // Position de lecture courante (sourate + premier verset du bloc visible) :
-    // sert à rouvrir la MÊME position dans une autre riwaya.
-    const positionRef = useRef<{ sourate: number; verset: number } | null>(null)
-
-    // Tap sur l'indicateur RIWAYAH → riwaya suivante, même position (le
-    // numéro de verset est la coordonnée commune entre riwayas ; l'écart
-    // éventuel de numérotation est d'un ou deux versets au pire).
-    const RIWAYAS_ACTIVES: Riwaya[] = ['hafs', 'warsh', 'qaloon']
-    const changerRiwaya = () => {
-        const i = RIWAYAS_ACTIVES.indexOf(riw)
-        const suivante = RIWAYAS_ACTIVES[(i + 1) % RIWAYAS_ACTIVES.length]
-        const pos = positionRef.current
-        Haptics.selectionAsync()
-        AsyncStorage.setItem('jsd_riwaya', suivante).catch(() => { })
-        router.replace(
-            `/coran/${pos?.sourate ?? index}?riwaya=${suivante}${pos ? `&verset=${pos.verset}` : ''}` as any
-        )
-    }
-
     // ── En-tête flottant : suit la sourate dont le contenu occupe le haut.
     // Bascule quand la basmala de la suivante atteint ~le 1er quart de l'écran. ──
     const onViewable = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null; item: Item }> }) => {
@@ -530,13 +510,11 @@ export default function LectureSourate() {
             if (v.index != null && (haut.index == null || v.index < haut.index)) haut = v
         }
         if (haut.item?.sourate) setSourateActive(haut.item.sourate)
-        // Progression hizb/juz du héros + position courante (bascule riwaya)
+        // Progression hizb/juz du héros
         if (haut.item?.type === 'bloc') {
             majDivisionRef.current(haut.item.sourate, haut.item.versets[0].numero)
-            positionRef.current = { sourate: haut.item.sourate, verset: haut.item.versets[0].numero }
         } else if (haut.item?.type === 'entete') {
             majDivisionRef.current(haut.item.sourate, 1)
-            positionRef.current = { sourate: haut.item.sourate, verset: 1 }
         }
         // Position exacte de lecture (throttlée à ~1,5 s pour ménager le stockage)
         if (haut.item?.cle) {
@@ -780,34 +758,21 @@ export default function LectureSourate() {
                     paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 20,
                     flexDirection: 'row', alignItems: 'center',
                 }}>
-                    {/* Riwaya — bouton : bascule vers la suivante, même position
-                        (le retour se fait par glissement depuis le bord) */}
-                    <View style={{ width: 84, alignItems: 'center' }}>
-                        <Pressable
-                            onPress={changerRiwaya}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            style={({ pressed }) => ({
-                                alignItems: 'center', gap: 1,
-                                backgroundColor: pressed ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.12)',
-                                borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
-                                borderRadius: 14,
-                                paddingHorizontal: 12, paddingVertical: 5,
-                                transform: [{ scale: pressed ? 0.95 : 1 }],
-                            })}
-                        >
-                            <Text style={{
-                                fontFamily: typography.fontFamily.bold, fontSize: 8,
-                                letterSpacing: 1.4, color: 'rgba(255,255,255,0.60)',
-                            }}>
-                                RIWAYAH
-                            </Text>
-                            <Text style={{
-                                fontFamily: typography.fontFamily.bold, fontSize: 13,
-                                color: '#fff',
-                            }}>
-                                {RIWAYA_LABELS[riw]}
-                            </Text>
-                        </Pressable>
+                    {/* Riwaya — simple indicateur (le choix se fait depuis la
+                        liste des sourates) */}
+                    <View style={{ width: 84, alignItems: 'center', gap: 2 }}>
+                        <Text style={{
+                            fontFamily: typography.fontFamily.bold, fontSize: 9,
+                            letterSpacing: 1.6, color: 'rgba(255,255,255,0.55)',
+                        }}>
+                            RIWAYAH
+                        </Text>
+                        <Text style={{
+                            fontFamily: typography.fontFamily.bold, fontSize: 13,
+                            color: '#fff',
+                        }}>
+                            {RIWAYA_LABELS[riw]}
+                        </Text>
                     </View>
 
                     <View style={{ flex: 1, alignItems: 'center' }}>
@@ -841,7 +806,7 @@ export default function LectureSourate() {
                                 </Text>
                                 <Text style={{
                                     fontFamily: typography.fontFamily.bold, fontSize: 13,
-                                    color: '#d6ad3a', fontVariant: ['tabular-nums'],
+                                    color: '#fff', fontVariant: ['tabular-nums'],
                                 }}>
                                     {infoDivision.pct}%
                                 </Text>
