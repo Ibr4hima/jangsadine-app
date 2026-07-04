@@ -4,10 +4,12 @@ import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate, Riwaya, versRiwaya } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useFocusEffect, useLocalSearchParams } from 'expo-router'
+import * as Haptics from 'expo-haptics'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
+import { ChevronDown } from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
-import { ActivityIndicator, Dimensions, FlatList, StatusBar, Text, View } from 'react-native'
+import { ActivityIndicator, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -224,6 +226,7 @@ export default function LectureSourate() {
     // `verset` (optionnel) : numéro de verset où s'ouvrir (ex. début d'un juz).
     // `riwaya` : hafs (défaut) ou warsh — texte, pages, divisions et police.
     const { id, cle, verset, riwaya } = useLocalSearchParams<{ id: string; cle?: string; verset?: string; riwaya?: string }>()
+    const router = useRouter()
     const insets = useSafeAreaInsets()
     const index = parseInt(id)
     const riw: Riwaya = versRiwaya(riwaya)
@@ -361,6 +364,21 @@ export default function LectureSourate() {
 
     // ── Restauration de la position (param `cle` ou `verset`) une fois les items posés ──
     const versetCibleRef = useRef<number | null>(verset ? parseInt(String(verset)) : null)
+
+    // Bascule de riwaya via router.replace : le composant reste monté — on
+    // resynchronise les cibles depuis les nouveaux params et on rebaisse le
+    // voile le temps du repositionnement (transition nette entre riwayas).
+    const premierMontageRef = useRef(true)
+    useEffect(() => {
+        if (premierMontageRef.current) { premierMontageRef.current = false; return }
+        cibleRef.current = cle ? String(cle) : null
+        versetCibleRef.current = verset ? parseInt(String(verset)) : null
+        cibleActiveRef.current = Boolean(cle || verset)
+        reveleRef.current = false
+        voileOp.value = 1
+        setVoile(true)
+    }, [riw, index])
+
     useEffect(() => {
         if (!items.length) return
         let idx = -1
@@ -402,6 +420,9 @@ export default function LectureSourate() {
     // donc l'insertion en tête ne fait pas sauter la lecture. ──
     const prependRef = useRef(0)
     const chargerPrecedente = useCallback(() => {
+        // JAMAIS pendant un positionnement (reprise/juz) : l'insertion en
+        // tête décalerait les index visés par scrollToIndex
+        if (cibleActiveRef.current) return
         const maintenant = Date.now()
         if (maintenant - prependRef.current < 500) return
         const ch = chargeesRef.current
@@ -461,6 +482,25 @@ export default function LectureSourate() {
     const majDivisionRef = useRef(majDivision)
     majDivisionRef.current = majDivision
 
+    // Position de lecture courante (sourate + premier verset du bloc visible) :
+    // sert à rouvrir la MÊME position dans une autre riwaya.
+    const positionRef = useRef<{ sourate: number; verset: number } | null>(null)
+
+    // Tap sur l'indicateur RIWAYAH → riwaya suivante, même position (le
+    // numéro de verset est la coordonnée commune entre riwayas ; l'écart
+    // éventuel de numérotation est d'un ou deux versets au pire).
+    const RIWAYAS_ACTIVES: Riwaya[] = ['hafs', 'warsh', 'qaloon']
+    const changerRiwaya = () => {
+        const i = RIWAYAS_ACTIVES.indexOf(riw)
+        const suivante = RIWAYAS_ACTIVES[(i + 1) % RIWAYAS_ACTIVES.length]
+        const pos = positionRef.current
+        Haptics.selectionAsync()
+        AsyncStorage.setItem('jsd_riwaya', suivante).catch(() => { })
+        router.replace(
+            `/coran/${pos?.sourate ?? index}?riwaya=${suivante}${pos ? `&verset=${pos.verset}` : ''}` as any
+        )
+    }
+
     // ── En-tête flottant : suit la sourate dont le contenu occupe le haut.
     // Bascule quand la basmala de la suivante atteint ~le 1er quart de l'écran. ──
     const onViewable = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null; item: Item }> }) => {
@@ -470,9 +510,14 @@ export default function LectureSourate() {
             if (v.index != null && (haut.index == null || v.index < haut.index)) haut = v
         }
         if (haut.item?.sourate) setSourateActive(haut.item.sourate)
-        // Progression hizb/juz du héros
-        if (haut.item?.type === 'bloc') majDivisionRef.current(haut.item.sourate, haut.item.versets[0].numero)
-        else if (haut.item?.type === 'entete') majDivisionRef.current(haut.item.sourate, 1)
+        // Progression hizb/juz du héros + position courante (bascule riwaya)
+        if (haut.item?.type === 'bloc') {
+            majDivisionRef.current(haut.item.sourate, haut.item.versets[0].numero)
+            positionRef.current = { sourate: haut.item.sourate, verset: haut.item.versets[0].numero }
+        } else if (haut.item?.type === 'entete') {
+            majDivisionRef.current(haut.item.sourate, 1)
+            positionRef.current = { sourate: haut.item.sourate, verset: 1 }
+        }
         // Position exacte de lecture (throttlée à ~1,5 s pour ménager le stockage)
         if (haut.item?.cle) {
             repriseRef.current = { sourate: haut.item.sourate, cle: haut.item.cle, riwaya: riw }
@@ -507,6 +552,9 @@ export default function LectureSourate() {
     const dernierYRef = useRef(0)
     const onScrollLecture = useCallback((e: any) => {
         const y = e.nativeEvent.contentOffset.y
+        // Saut programmatique (reprise/juz) en cours : on n'interprète pas
+        // ce mouvement comme un défilement — le héros reste visible
+        if (cibleActiveRef.current) { dernierYRef.current = y; return }
         const delta = y - dernierYRef.current
         dernierYRef.current = y
         if (Math.abs(delta) < 6) return
@@ -678,21 +726,32 @@ export default function LectureSourate() {
                     paddingTop: insets.top + 6, paddingBottom: 14, paddingHorizontal: 20,
                     flexDirection: 'row', alignItems: 'center',
                 }}>
-                    {/* Riwaya (le retour se fait par glissement depuis le bord) */}
-                    <View style={{ width: 84, alignItems: 'center', gap: 2 }}>
+                    {/* Riwaya — tap : bascule vers la suivante, à la même position
+                        (le retour se fait par glissement depuis le bord) */}
+                    <Pressable
+                        onPress={changerRiwaya}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 6 }}
+                        style={({ pressed }) => ({
+                            width: 84, alignItems: 'center', gap: 2,
+                            opacity: pressed ? 0.6 : 1,
+                        })}
+                    >
                         <Text style={{
                             fontFamily: typography.fontFamily.bold, fontSize: 9,
                             letterSpacing: 1.6, color: 'rgba(255,255,255,0.55)',
                         }}>
                             RIWAYAH
                         </Text>
-                        <Text style={{
-                            fontFamily: typography.fontFamily.semibold, fontSize: 13,
-                            color: '#fff',
-                        }}>
-                            {RIWAYA_LABELS[riw]}
-                        </Text>
-                    </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                            <Text style={{
+                                fontFamily: typography.fontFamily.semibold, fontSize: 13,
+                                color: '#fff',
+                            }}>
+                                {RIWAYA_LABELS[riw]}
+                            </Text>
+                            <ChevronDown size={11} color="rgba(255,255,255,0.55)" strokeWidth={2.5} />
+                        </View>
+                    </Pressable>
 
                     <View style={{ flex: 1, alignItems: 'center' }}>
                         {/* Chip doré (nom FR) */}
