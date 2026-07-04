@@ -272,18 +272,20 @@ export default function Coran() {
         }}>
           {/* calligraphie القرآن الكريم — posée en absolu sur le flanc
               droit, du haut du titre jusqu'à la rangée des riwayas */}
-          <Image
-            source={{ uri: QURAN_ICON_URI }}
+          <View
+            pointerEvents="none"
             style={{
               position: 'absolute',
               top: insets.top + spacing.sm - 2,
               right: spacing.xl,
-              width: 96, height: 96,
-              opacity: 0.95,
-              pointerEvents: 'none',
             }}
-            resizeMode="contain"
-          />
+          >
+            <Image
+              source={{ uri: QURAN_ICON_URI }}
+              style={{ width: 96, height: 96, opacity: 0.95 }}
+              resizeMode="contain"
+            />
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {/* retour à l'accueil — seul chemin, la barre d'onglets est masquée */}
             <View style={{ marginRight: spacing.md }}>
