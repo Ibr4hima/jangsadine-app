@@ -605,8 +605,8 @@ export default function LectureSourate() {
         } else if (delta < 0) {
             if (!chromeVisibleRef.current) setChromeVisible(true)
             else resyncChrome(1)
-            // secours au onStartReached (qui peut ne pas refirer sans
-            // nouveau geste) : près du haut, on précharge
+            // Remontée réelle près du haut : on précharge la sourate
+            // précédente (seul point de déclenchement du prépend)
             if (y < 900) chargerPrecedente()
         }
     }, [chargerPrecedente, resyncChrome])
@@ -727,11 +727,10 @@ export default function LectureSourate() {
                         maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
                         onEndReached={chargerSuivante}
                         onEndReachedThreshold={1.5}
-                        // Prépend natif (façon apps de chat) : anticipe large pour
-                        // que la sourate précédente soit déjà mesurée quand on
-                        // arrive en haut — remontée fluide, sans à-coup
-                        onStartReached={chargerPrecedente}
-                        onStartReachedThreshold={2}
+                        // Le prépend de la sourate précédente est déclenché
+                        // UNIQUEMENT par un vrai geste de remontée (delta < 0
+                        // dans onScroll) : onStartReached tirait spontanément
+                        // au montage (offset 0) et décalait l'ouverture.
                         onScroll={onScrollLecture}
                         scrollEventThrottle={16}
                         onViewableItemsChanged={onViewable}
