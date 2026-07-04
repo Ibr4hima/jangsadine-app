@@ -404,6 +404,13 @@ export default function LectureSourate() {
             versetCibleRef.current = null
         }
         if (idx <= 0) { cibleActiveRef.current = false; return }
+        // Héros aligné sur la CIBLE, pas sur la visibilité : après le saut,
+        // le bloc précédent dépasse encore sous le héros et fausserait le
+        // calcul (ex. ouverture du Juz 5 affichée « JUZ 4 · 97 % »)
+        const cibleItem = items[idx]
+        setSourateActive(cibleItem.sourate)
+        majDivisionRef.current(cibleItem.sourate, cibleItem.type === 'bloc' ? cibleItem.versets[0].numero : 1)
+        repriseRef.current = { sourate: cibleItem.sourate, cle: cibleItem.cle, riwaya: riw }
         // viewOffset = hauteur du héros : la cible se pose exactement SOUS
         // le héros, jamais cachée derrière lui
         const decalage = insets.top + 92
@@ -505,6 +512,9 @@ export default function LectureSourate() {
     // Bascule quand la basmala de la suivante atteint ~le 1er quart de l'écran. ──
     const onViewable = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null; item: Item }> }) => {
         if (!viewableItems.length) return
+        // Pendant un positionnement programmé (reprise/juz), le héros est
+        // déjà réglé sur la cible : on n'écrase pas avec l'item sous le héros
+        if (cibleActiveRef.current) return
         let haut = viewableItems[0]
         for (const v of viewableItems) {
             if (v.index != null && (haut.index == null || v.index < haut.index)) haut = v
