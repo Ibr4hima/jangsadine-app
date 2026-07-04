@@ -5,7 +5,7 @@ import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate, Riwaya, versRiwaya } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ActivityIndicator, AppState, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -133,7 +133,9 @@ function libelleDivision(divisions: Divisions, sourate: number, numero: number):
 // (chiffre arabe, même couleur que le texte) est dimensionné à 110% de la taille.
 // Au début d'un Juz/Hizb, on remplace l'ornement ۞ du texte par un badge bleu
 // en ligne (même police, même taille que le Coran).
-function BlocTexte({ item, sourate, taille, lineHeight, divisions, police }: {
+// Mémoïsé : un bloc = une page entière de Mushaf (des centaines de spans) —
+// sans memo, chaque mise à jour de la liste re-rend tous les blocs montés.
+const BlocTexte = memo(function BlocTexte({ item, sourate, taille, lineHeight, divisions, police }: {
     item: Bloc; sourate: number; taille: number; lineHeight: number
     divisions: Divisions; police: string
 }) {
@@ -182,7 +184,7 @@ function BlocTexte({ item, sourate, taille, lineHeight, divisions, police }: {
             })}
         </Text>
     )
-}
+})
 
 // ─── Bordure de mushaf ────────────────────────────────────────
 // Cadre minimaliste : un double filet doré continu de chaque côté (ligne
