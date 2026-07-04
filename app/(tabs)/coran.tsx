@@ -92,12 +92,12 @@ function BoutonAccueil({ onPress }: { onPress: () => void }) {
       {({ pressed }) => (
         <Animated.View style={{
           transform: [{ scale }],
-          width: 44, height: 44, borderRadius: 22,
+          width: 46, height: 46, borderRadius: 23,
           backgroundColor: pressed ? 'rgba(255,255,255,0.24)' : W12,
-          borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+          borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)',
           alignItems: 'center', justifyContent: 'center',
         }}>
-          <Svg width={21} height={21} viewBox="0 -960 960 960">
+          <Svg width={22} height={22} viewBox="0 -960 960 960">
             <Path
               d="M240-200h120v-240h240v240h120v-360L480-740 240-560v360Zm-80 80v-480l320-240 320 240v480H520v-240h-80v240H160Zm320-350Z"
               fill="#fff"
@@ -293,10 +293,12 @@ export default function Coran() {
               </Text>
             </View>
 
-            {/* calligraphie القرآن الكريم (blanche, inline base64) */}
+            {/* calligraphie القرآن الكريم (blanche, inline base64) — grande,
+                elle habite tout le flanc droit du héros ; les marges
+                négatives l'empêchent de grandir la rangée */}
             <Image
               source={{ uri: QURAN_ICON_URI }}
-              style={{ width: 74, height: 74, marginLeft: spacing.md, marginBottom: -10, opacity: 0.95 }}
+              style={{ width: 112, height: 112, marginLeft: spacing.md, marginVertical: -16, marginRight: -6, opacity: 0.95 }}
               resizeMode="contain"
             />
           </View>
