@@ -3,6 +3,7 @@ import { colors, radius, spacing, typography } from '@/constants/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { geocoderInverse } from '@/lib/geo'
 import { getMethode, getNomMethode } from '@/lib/prieres'
+import { majWidgetPrieres } from '@/lib/widgetPrieres'
 import * as adhan from 'adhan'
 import * as Haptics from 'expo-haptics'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -202,6 +203,8 @@ export default function Prieres() {
     setVille(villeAffichee)
 
     calculer(latitude, longitude, countryCode)
+    // Alimente le widget iOS (7 jours d'horaires dans l'App Group)
+    majWidgetPrieres(latitude, longitude, countryCode, nomVille)
 
     AsyncStorage.setItem('jsd_derniere_pos', JSON.stringify({ lat: latitude, lng: longitude })).catch(() => { })
     AsyncStorage.setItem('jsd_prieres_geo', JSON.stringify({ ville: villeAffichee, countryCode })).catch(() => { })

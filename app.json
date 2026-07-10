@@ -17,6 +17,11 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.jangsadine.app",
       "buildNumber": "1",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.jangsadine.app"
+        ]
+      },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Jàng sa Diné utilise votre position pour calculer les heures de prière et la direction de la Qibla.",
         "UIBackgroundModes": [
@@ -53,7 +58,8 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true

@@ -6,6 +6,7 @@ import { Piste, useAudio } from '@/contexts/AudioContext'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { geocoderInverse } from '@/lib/geo'
 import { getMethode } from '@/lib/prieres'
+import { majWidgetPrieres } from '@/lib/widgetPrieres'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as adhan from 'adhan'
 import * as Haptics from 'expo-haptics'
@@ -240,6 +241,8 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
       if (geo.city) setVille(geo.city)
       const countryCode = geo.isoCountryCode ?? 'FR'
       calculer(latitude, longitude, countryCode)
+      // Alimente le widget iOS (7 jours d'horaires dans l'App Group)
+      majWidgetPrieres(latitude, longitude, countryCode, geo.city ?? geo.region ?? '')
       // Mémorise pour la prochaine ouverture (clés partagées Prières/Qibla)
       const nomVille = geo.city ?? geo.region ?? ''
       const nomPays = geo.country ?? ''
