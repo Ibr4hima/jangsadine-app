@@ -267,7 +267,13 @@ function Artwork({ enLecture, hidden, onSwipePiste, onDoubleTap, transition }: {
     const tx      = useSharedValue(0)
     const opac    = useSharedValue(1)
 
+    // Ne joue la glissade directionnelle QUE sur un vrai changement de
+    // piste : à l'ouverture du lecteur, `transition` garde la valeur du
+    // dernier changement — sans ce garde, la pochette rejouait son
+    // balancement à chaque montage.
+    const montageArtRef = useRef(true)
     useEffect(() => {
+        if (montageArtRef.current) { montageArtRef.current = false; return }
         if (!transition) return
         const dir = transition.dir
         tx.value = withSequence(
