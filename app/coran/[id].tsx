@@ -4,7 +4,7 @@ import { typography } from '@/constants/theme'
 import { useTabBar } from '@/contexts/TabBarContext'
 import { getSourate, Riwaya, versRiwaya } from '@/lib/quran'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LinearGradient } from 'expo-linear-gradient'
 import { ActivityIndicator, AppState, Dimensions, FlatList, Pressable, StatusBar, Text, View } from 'react-native'
@@ -226,10 +226,13 @@ export default function LectureSourate() {
     // `cle` (optionnel) : clé du bloc où reprendre la lecture exactement.
     // `verset` (optionnel) : numéro de verset où s'ouvrir (ex. début d'un juz).
     // `riwaya` : hafs (défaut) ou warsh — texte, pages, divisions et police.
-    const { id, cle, verset, riwaya } = useLocalSearchParams<{ id: string; cle?: string; verset?: string; riwaya?: string }>()
-    
+    // `juz` : lecture bornée au juz N (du début du juz au début du suivant).
+    const { id, cle, verset, riwaya, juz } = useLocalSearchParams<{ id: string; cle?: string; verset?: string; riwaya?: string; juz?: string }>()
+
     const insets = useSafeAreaInsets()
+    const router = useRouter()
     const index = parseInt(id)
+    const juzN = juz ? parseInt(String(juz)) : null
     const riw: Riwaya = versRiwaya(riwaya)
     const pageEnds = useMemo(() => pagesParRiwaya[riw](), [riw])
     const divisions = useMemo(() => divisionsParRiwaya[riw](), [riw])
@@ -293,8 +296,7 @@ export default function LectureSourate() {
     const taille = TAILLE_LECTURE
     const [chromeVisible, setChromeVisible] = useState(true)
 
-    // Sourates déjà chargées (dans l'ordre) + cache des items construits par sourate
-    const chargeesRef = useRef<number[]>([])
+    // Cache des items construits par sourate
     const itemsCacheRef = useRef<Record<number, Item[]>>({})
 
     // Masque la barre d'onglets du bas pendant la lecture (immersif), la
@@ -362,21 +364,46 @@ export default function LectureSourate() {
         return out
     }, [index, riw, pageEnds, divisions])
 
-    const recomposer = useCallback((indices: number[]) => {
-        // `premier` = l'en-tête tout en haut du flux (grand padding sous le
-        // héros) : recalculé ici car un prepend change la première sourate.
-        setItems(indices.flatMap(idx => construireSourate(idx)).map(it =>
-            it.type === 'entete' ? { ...it, premier: it.sourate === indices[0] } : it))
-    }, [construireSourate])
+    // ── Lecture BORNÉE : une sourate entière, ou un juz complet ──
+    // Pas de flux continu : le contenu s'arrête à la fin de la sourate (ou
+    // du juz) et deux boutons proposent la précédente / la suivante.
+    const construireContenu = useCallback((): Item[] => {
+        if (juzN == null) return construireSourate(index)
+        // Bornes du juz : de son premier verset au premier verset du juz
+        // suivant (exclu). Les blocs étant déjà coupés aux débuts de juz,
+        // les frontières tombent exactement sur des limites de blocs.
+        const entrees = Object.entries(divisions.juz)
+            .map(([k, n]) => { const [so, ay] = k.split(':').map(Number); return { n: Number(n), so, ay } })
+            .sort((a, b) => a.n - b.n)
+        const debut = entrees.find(e => e.n === juzN)
+        if (!debut) return construireSourate(index)
+        const fin = entrees.find(e => e.n === juzN + 1) ?? null
+        // Si le juz suivant commence au 1er verset d'une sourate, la
+        // dernière sourate du nôtre est la précédente, entière.
+        const derniereSourate = !fin ? 114 : (fin.ay <= 1 ? fin.so - 1 : fin.so)
+        const out: Item[] = []
+        for (let s = debut.so; s <= derniereSourate; s++) {
+            let its = construireSourate(s)
+            if (s === debut.so && debut.ay > 1) {
+                const i0 = its.findIndex(it => it.type === 'bloc' && it.versets[0].numero >= debut.ay)
+                its = i0 >= 0 ? its.slice(i0) : []
+            }
+            if (fin && s === fin.so && fin.ay > 1) {
+                const i1 = its.findIndex(it => it.type === 'bloc' && it.versets[0].numero >= fin.ay)
+                if (i1 >= 0) its = its.slice(0, i1)
+            }
+            out.push(...its)
+        }
+        return out
+    }, [construireSourate, divisions, index, juzN])
 
-    // ── Chargement initial : on démarre sur la sourate demandée ──
+    // ── Chargement : sourate demandée, ou juz demandé ──
     useEffect(() => {
         itemsCacheRef.current = {}
-        chargeesRef.current = [index]
         setSourateActive(index)
-        recomposer([index])
+        setItems(construireContenu())
         setLoading(false)
-    }, [index, recomposer])
+    }, [index, riw, juzN, construireContenu])
 
     // ── Restauration de la position (param `cle` ou `verset`) une fois les items posés ──
     const versetCibleRef = useRef<number | null>(verset ? parseInt(String(verset)) : null)
@@ -398,9 +425,9 @@ export default function LectureSourate() {
         setVoile(true)
         setChromeVisible(true)
         // remet la liste en haut AVANT la reconstruction : aucun offset
-        // résiduel de l'ancienne riwaya, donc aucun défilement visible
+        // résiduel de l'ancien contenu, donc aucun défilement visible
         listeRef.current?.scrollToOffset({ offset: 0, animated: false })
-    }, [riw, index])
+    }, [riw, index, juzN])
 
     useEffect(() => {
         if (!items.length) return
@@ -470,46 +497,6 @@ export default function LectureSourate() {
             revelTimerRef.current = setTimeout(controler, 260)
         })
     }, [items, index])
-
-    // ── Au fil : à l'approche de la fin, on enchaîne la sourate suivante ──
-    const chargerSuivante = useCallback(() => {
-        const ch = chargeesRef.current
-        const dernier = ch[ch.length - 1]
-        if (dernier >= 114) return
-        chargeesRef.current = [...ch, dernier + 1]
-        recomposer(chargeesRef.current)
-    }, [recomposer])
-
-    // ── Et vers le haut : en remontant près du début, on insère la sourate
-    // précédente. maintainVisibleContentPosition ancre le contenu visible,
-    // donc l'insertion en tête ne fait pas sauter la lecture. ──
-    const prependRef = useRef(0)
-    const chargerPrecedente = useCallback(() => {
-        // JAMAIS pendant un positionnement (reprise/juz) : l'insertion en
-        // tête décalerait les index visés par scrollToIndex
-        if (cibleActiveRef.current) return
-        const maintenant = Date.now()
-        if (maintenant - prependRef.current < 250) return
-        const ch = chargeesRef.current
-        if (ch[0] <= 1) return
-        prependRef.current = maintenant
-        // Par LOT : on remonte d'assez de sourates pour ajouter ~2 écrans de
-        // contenu (≥ 40 versets) — indispensable pour les petites sourates de
-        // la fin (Naas, Falaq…) où une seule ne suffit pas à défiler.
-        const liste = souratesListeParRiwaya[riw]()
-        const versetsDe = (n: number) => liste.find(x => x.index === n)?.versets ?? 20
-        const nouvelles: number[] = []
-        let premier = ch[0]
-        let cumul = 0
-        while (premier > 1 && cumul < 40) {
-            premier -= 1
-            nouvelles.unshift(premier)
-            cumul += versetsDe(premier)
-        }
-        if (!nouvelles.length) return
-        chargeesRef.current = [...nouvelles, ...ch]
-        recomposer(chargeesRef.current)
-    }, [recomposer, riw])
 
     // ── Progression dans le juz courant ──
     // Bornes converties en index global de verset ; la position du bloc
@@ -646,12 +633,7 @@ export default function LectureSourate() {
         // suivre la progression (%) ; seul le tap le masque. On garde la
         // résynchronisation anti-blocage de son opacité.
         resyncChrome(chromeVisibleRef.current ? 1 : 0)
-        if (delta < 0 && y < 900) {
-            // Remontée réelle près du haut : on précharge la sourate
-            // précédente (seul point de déclenchement du prépend)
-            chargerPrecedente()
-        }
-    }, [chargerPrecedente, resyncChrome])
+    }, [resyncChrome])
     const headerStyle = useAnimatedStyle(() => ({
         opacity: chromeSV.value,
         transform: [{ translateY: (1 - chromeSV.value) * -18 }],
@@ -728,6 +710,58 @@ export default function LectureSourate() {
         return <BlocTexte item={item} sourate={item.sourate} taille={taille} lineHeight={lineHeight} divisions={divisions} police={policeCoran} />
     }, [taille, lineHeight, insets.top, divisions, policeCoran, riw])
 
+    // ── Fin de lecture : boutons précédent / suivant ──
+    // Sourate N → « N-1. Nom » et « N+1. Nom » ; Juz N → « Juz N-1 » / « Juz N+1 ».
+    const ouvrirSuivant = useCallback((versJuz: number | null, versSourate: number | null) => {
+        if (versJuz != null) {
+            const entree = Object.entries(divisions.juz).find(([, n]) => Number(n) === versJuz)
+            if (!entree) return
+            const so = Number(entree[0].split(':')[0])
+            router.replace(`/coran/${so}?riwaya=${riw}&juz=${versJuz}` as any)
+        } else if (versSourate != null) {
+            router.replace(`/coran/${versSourate}?riwaya=${riw}` as any)
+        }
+    }, [divisions, riw, router])
+
+    const boutonsFin = useMemo(() => {
+        const boutons: { label: string; juz: number | null; sourate: number | null }[] = []
+        if (juzN != null) {
+            if (juzN > 1) boutons.push({ label: `Juz ${juzN - 1}`, juz: juzN - 1, sourate: null })
+            if (juzN < 30) boutons.push({ label: `Juz ${juzN + 1}`, juz: juzN + 1, sourate: null })
+        } else {
+            if (index > 1) boutons.push({ label: `${index - 1}. ${sourates[index - 2]?.nom}`, juz: null, sourate: index - 1 })
+            if (index < 114) boutons.push({ label: `${index + 1}. ${sourates[index]?.nom}`, juz: null, sourate: index + 1 })
+        }
+        return boutons
+    }, [juzN, index])
+
+    const NavigationFin = (
+        <View style={{ paddingBottom: insets.bottom + 80 }}>
+            <View style={{ flexDirection: 'row', gap: 14, marginTop: Math.round(taille * 0.9) }}>
+                {boutonsFin.map(b => (
+                    <Pressable
+                        key={b.label}
+                        onPress={() => ouvrirSuivant(b.juz, b.sourate)}
+                        style={({ pressed }) => ({
+                            flex: 1, height: 56, borderRadius: 28,
+                            borderWidth: 1.2, borderColor: 'rgba(184,147,42,0.5)',
+                            backgroundColor: pressed ? 'rgba(184,147,42,0.14)' : 'rgba(184,147,42,0.06)',
+                            alignItems: 'center', justifyContent: 'center',
+                            transform: [{ scale: pressed ? 0.97 : 1 }],
+                        })}
+                    >
+                        <Text numberOfLines={1} style={{
+                            fontFamily: typography.fontFamily.bold,
+                            fontSize: 15, color: OR, paddingHorizontal: 12,
+                        }}>
+                            {b.label}
+                        </Text>
+                    </Pressable>
+                ))}
+            </View>
+        </View>
+    )
+
     return (
         <View style={{ flex: 1, backgroundColor: BG }}>
             {/* Immersion totale : quand le chrome est masqué (tap), la barre
@@ -740,7 +774,7 @@ export default function LectureSourate() {
                 showHideTransition="fade"
             />
 
-            {/* Lecture « au fil » : toutes les sourates s'enchaînent, virtualisé */}
+            {/* Lecture bornée : la sourate (ou le juz) du début à la fin */}
             {!loading && (
                 <GestureDetector gesture={gestes}>
                     <FlatList
@@ -748,7 +782,12 @@ export default function LectureSourate() {
                         data={items}
                         keyExtractor={it => it.cle}
                         renderItem={renderItem}
-                        ListFooterComponent={<View style={{ height: insets.bottom + 80 }} />}
+                        // Un juz qui commence en pleine sourate démarre sur un
+                        // bloc : on dégage le héros avec un en-tête d'espacement
+                        ListHeaderComponent={items[0]?.type === 'bloc'
+                            ? <View style={{ height: insets.top + 100 }} />
+                            : null}
+                        ListFooterComponent={NavigationFin}
                         // scrollToIndex sans getItemLayout : on approche à l'estime,
                         // puis on retente une fois la zone rendue.
                         onScrollToIndexFailed={info => {
@@ -766,13 +805,6 @@ export default function LectureSourate() {
                         showsVerticalScrollIndicator={false}
                         style={{ backgroundColor: BG }}
                         contentContainerStyle={{ paddingHorizontal: 22, backgroundColor: BG }}
-                        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-                        onEndReached={chargerSuivante}
-                        onEndReachedThreshold={1.5}
-                        // Le prépend de la sourate précédente est déclenché
-                        // UNIQUEMENT par un vrai geste de remontée (delta < 0
-                        // dans onScroll) : onStartReached tirait spontanément
-                        // au montage (offset 0) et décalait l'ouverture.
                         onScroll={onScrollLecture}
                         scrollEventThrottle={16}
                         onViewableItemsChanged={onViewable}

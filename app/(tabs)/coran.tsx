@@ -398,7 +398,7 @@ export default function Coran() {
         {juzs.map(j => (
           <Pressable
             key={j.n}
-            onPress={() => router.push(`/coran/${j.sora}?riwaya=${riwaya}&verset=${j.aya}` as any)}
+            onPress={() => router.push(`/coran/${j.sora}?riwaya=${riwaya}&juz=${j.n}` as any)}
             style={({ pressed }) => ({
               backgroundColor: colors.blanc,
               borderRadius: radius.full,
