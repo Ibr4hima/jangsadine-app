@@ -17,6 +17,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.jangsadine.app",
       "buildNumber": "1",
+      "appleTeamId": "X86J8BXURK",
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.com.jangsadine.app"
