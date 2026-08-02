@@ -296,8 +296,8 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
             {dateFr}
           </Text>
           {dateHijri ? (
-            <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W55, marginTop: 3, letterSpacing: 0.3 }}>
-              {dateHijri}
+            <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.size.sm, color: W55, marginTop: 3, letterSpacing: 0.3, textTransform: 'uppercase' }}>
+              {dateHijri}{ville ? `  ·  ${ville}` : ''}
             </Text>
           ) : null}
         </View>
@@ -315,7 +315,7 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View>
                   <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: W55, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-                    Prochaine prière{ville ? `  ·  ${ville}` : ''}
+                    Prochaine prière
                   </Text>
                   <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 30, color: '#fff', marginTop: 4 }}>
                     {prochaine.nom}
@@ -656,19 +656,28 @@ function AccesRapide({ onNav }: { onNav: (href: string) => void }) {
 
       {/* raccourcis secondaires */}
       <Animated.View entering={FadeInDown.duration(500).delay(420)}>
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.lg }}>
+        {/* Trois parts égales de la largeur (pas de centrage forcé) : la
+            rangée s'adapte à toutes les tailles d'écran, le texte se
+            réduit légèrement si besoin au lieu de casser l'alignement */}
+        <View style={{ flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.lg }}>
           {RACCOURCIS.map(r => {
             const Icon = r.icon
             return (
               <PressableScale key={r.label} onPress={() => onNav(r.href)} style={{
-                flexDirection: 'row', alignItems: 'center', gap: 7,
+                flex: 1, minWidth: 0,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
                 backgroundColor: colors.blanc,
                 borderWidth: 1, borderColor: colors.bordure,
                 borderRadius: radius.full,
-                paddingHorizontal: spacing.md, paddingVertical: 9,
+                paddingHorizontal: spacing.sm, paddingVertical: 9,
               }}>
                 <Icon size={16} color={colors.bleu} />
-                <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.texte }}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.82}
+                  style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.sm, color: colors.texte, flexShrink: 1 }}
+                >
                   {r.label}
                 </Text>
               </PressableScale>
