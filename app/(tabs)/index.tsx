@@ -313,15 +313,18 @@ function Hero({ onOuvrirPrieres }: { onOuvrirPrieres: () => void }) {
           {prochaine ? (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View>
-                  <Text style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: W55, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+                {/* La colonne gauche encaisse le manque de place (flex 1 +
+                    ellipse) : l'heure et la pastille de droite ne peuvent
+                    plus être poussées hors de la carte */}
+                <View style={{ flex: 1, minWidth: 0, marginRight: spacing.sm }}>
+                  <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.medium, fontSize: typography.size.xs, color: W55, letterSpacing: 1.2, textTransform: 'uppercase' }}>
                     Prochaine prière
                   </Text>
-                  <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 30, color: '#fff', marginTop: 4 }}>
+                  <Text numberOfLines={1} style={{ fontFamily: typography.fontFamily.bold, fontSize: 30, color: '#fff', marginTop: 4 }}>
                     {prochaine.nom}
                   </Text>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
+                <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
                   <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: 26, color: '#fff', fontVariant: ['tabular-nums'] }}>
                     {prochaine.heure}
                   </Text>
